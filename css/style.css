@@ -257,3 +257,67 @@ b { font-weight: normal; }
 
 /* 版本号角标（开始页右下角，不挡操作） */
 .ver-tag { position: absolute; right: .2rem; bottom: calc(env(safe-area-inset-bottom, 0px) + .14rem); z-index: 2; font-size: .2rem; color: rgba(107,74,58,.55); pointer-events: none; font-family: var(--font); }
+
+/* v1.2 按钮排版：图标 + 文字作为一个整体居中；图标不缩、完整在胶囊里；文字不换行（放不下由 main.js fitButton 缩字号） */
+.btn > span:not(.ico) { white-space: nowrap; }
+.btn-main > span:not(.ico):last-child, .btn-sub > span:not(.ico):last-child, .btn-card > span:not(.ico):last-child { margin-right: -.02rem; }   /* 抵掉 letter-spacing 在最后一个字后面多出来的空白 */
+.btn .ico { flex: none; }
+.btn-again .ico { display: none; }          /* 「再来一局」不放图标：之前空的图标位把文字挤到右边 */
+.btn-ad, .art-purple .btn-main.btn-ad { width: 5.8rem; height: 1.5rem; padding: 0 .38rem; gap: .14rem; font-size: .38rem; box-sizing: border-box; }
+.btn-ad .ad-badge { width: .86rem; height: .86rem; }
+
+/* ======================================================================
+   v1.3 矢量按钮：全部用 CSS 画（不再用 btn_orange / btn_purple 位图，任何 DPR 下都清晰）
+   结构：渐变填充 + 粗深棕描边 + 底部深色唇边（inset）+ 棕色底座（3D 厚度）+ 顶部高光（::before）+ 柔和投影
+   按下：压扁（:active）；松手：回弹（.btn-pop 关键帧，由 main.js 在 pointerup 时加上）
+   ====================================================================== */
+:root { --outline: #5A3A2C; --bw: .05rem; --base: .09rem; }
+.btn-orange, .btn-purple, .btn-plain, .btn-round, .close-x {
+  --top: #FFD08F; --bot: #FF9238; --lip: #E06F1E; --ico-fill: #FFFFFF; --ico-stroke: var(--outline);
+  background: linear-gradient(180deg, var(--top) 0%, var(--bot) 100%);
+  border: var(--bw) solid var(--outline);
+  box-shadow: inset 0 -.1rem 0 var(--lip), inset 0 .04rem 0 rgba(255,255,255,.55), 0 var(--base) 0 var(--outline), 0 calc(var(--base) + .08rem) .18rem rgba(90,58,44,.28);
+  filter: none; box-sizing: border-box; overflow: visible;
+}
+.btn-purple { --top: #E1D2FF; --bot: #A37DFF; --lip: #7D58E0; }
+.btn-plain, .btn-round, .close-x { --top: #FFFBF2; --bot: #FFE7C2; --lip: #F2C98F; --ico-fill: #FF9A45; color: var(--brown); text-shadow: none; }
+.btn-orange::before, .btn-purple::before, .btn-plain::before, .btn-round::before, .close-x::before {
+  content: ""; position: absolute; left: 9%; right: 9%; top: 7%; height: 34%; border-radius: 999px; pointer-events: none; z-index: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,.88), rgba(255,255,255,.12));
+}
+.btn-round::before, .close-x::before { left: 20%; right: 20%; top: 8%; height: 30%; }
+.btn-plain::before { opacity: .7; }
+.btn > * { position: relative; z-index: 1; }
+.btn-round, .close-x { border-radius: 50%; }
+.btn-round .ico, .close-x .ico { width: 64%; height: 64%; }
+.btn-round { width: 1.2rem; height: 1.2rem; }
+.menu-row .btn-round { width: 1.04rem; height: 1.04rem; }
+.gallery-head .btn-round { width: .96rem; height: .96rem; }
+.close-x { width: .82rem; height: .82rem; --base: .06rem; }
+.btn-sub, .btn-card, .btn-swap { --base: .07rem; --bw: .045rem; }
+.btn-card { height: .8rem; }
+.btn-main { height: 1.5rem; }
+.btn-again { height: 1.28rem; }
+
+/* 按下压扁、松手回弹 */
+.btn { transition: transform .26s var(--ease-pop), box-shadow .12s, filter .2s, opacity .2s; }
+.btn:active:not(:disabled):not(.is-disabled) { transform: translateY(calc(var(--base) * .7)) scale(1.06, .88); transition-duration: .06s; }
+.btn-orange:active:not(:disabled), .btn-purple:active:not(:disabled), .btn-plain:active:not(:disabled), .btn-round:active:not(:disabled), .close-x:active:not(:disabled) {
+  box-shadow: inset 0 -.06rem 0 var(--lip), inset 0 .04rem 0 rgba(255,255,255,.55), 0 calc(var(--base) * .3) 0 var(--outline), 0 .06rem .1rem rgba(90,58,44,.25);
+}
+.btn-pop { animation: btnPop .38s cubic-bezier(.3, .7, .4, 1) !important; }
+@keyframes btnPop { 0% { transform: translateY(calc(var(--base) * .7)) scale(1.06, .88); } 40% { transform: translateY(-.03rem) scale(.95, 1.07); } 70% { transform: scale(1.02, .98); } 100% { transform: none; } }
+
+/* 图标：矢量字形，颜色由 --ico-fill / --ico-stroke 决定（橙/紫按钮上是白色，奶油色按钮上是橙色） */
+.ico svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.btn-orange .ico svg, .btn-purple .ico svg { filter: drop-shadow(0 .02rem 0 rgba(90,58,44,.45)); }
+/* 广告按钮：白色圆圈 + 播放三角 */
+.btn-ad .ad-badge, .btn-swap .ad-badge { width: .62rem; height: .62rem; }
+.btn-ad, .art-purple .btn-main.btn-ad { width: 5.4rem; height: 1.44rem; padding: 0 .44rem; gap: .16rem; }
+.btn-swap, .art-purple .btn-swap.btn-purple { width: auto; height: 1.04rem; padding: 0 .3rem 0 .22rem; gap: .12rem; border-radius: .52rem; }
+.btn-swap .ad-badge { width: .5rem; height: .5rem; }
+
+/* v1.6 「米」单位：约为数字字高的一半；描边只有 2px（不再跟大数字一样粗）+ 很浅的 1px 投影；和数字同一条底边；间距收紧 */
+.hud-height { gap: .05rem; }
+.hud-height small { font-size: .47rem; position: relative; top: -1px; -webkit-text-stroke: 2px var(--brown); paint-order: stroke fill; text-shadow: 0 1px 0 var(--brown); letter-spacing: 0; }
+.stat b i { font-size: .32rem; margin-left: .05rem; }

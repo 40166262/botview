@@ -1,7 +1,7 @@
 /* 《叠猫猫》全局配置。上架前请把 TODO 项替换成 TapTap 后台的真实值。 */
 window.CS = window.CS || {};
 CS.CONFIG = {
-  version: '1.1.0',
+  version: '1.6.0',
   title: '叠猫猫',
 
   ads: {
@@ -59,5 +59,24 @@ CS.CONFIG = {
       reselectSec: 0.3,    // 每 0.3 秒重新挑一次「晃得最厉害 / 最靠上」的猫，避免表情乱跳
       topWeight: 0.6       // 挑选权重：越靠塔顶越容易被选中
     }
+  },
+
+  // 表情系统（v1.2）：都是贴在猫脸上的贴片（位置用 assets.js 的 FACES 挂点：eyes / mouth）。
+  // 文件名 = assets/ui/<名字>.png；填 null = 这一部分不贴（保留猫原图）。
+  // 缺文件时：fall 用 scared 贴片顶替；happy / star 用代码画的简易版顶替。
+  // 优先级：scared > star > happy > fall（fall 只出现在正在下落的猫身上）。scale = 相对 FACES 里 eyes.w / mouth.w 的宽度倍数。
+  expressions: {
+    // v1.3：优先整张换图 assets/cats/<pattern>（画师出的完整表情图，和原图同尺寸、同轮廓）；
+    // 只用 tools/expr_check.py 检查通过的（白名单 js/expr-sprites.js）。缺图或没通过 → 回退到下面的贴片。
+    mode: 'sprite',                 // 'sprite' = 整图优先、贴片兜底；'overlay' = 只用贴片
+    spritePattern: 'cat_{id}_{state}',
+    assets: {
+      scared: { eyes: 'face_scared_eyes', mouth: 'face_scared_mouth', sweat: 'face_sweat' },
+      fall:   { eyes: 'face_fall_eyes', mouth: 'face_fall_mouth', eyesScale: 0.92, mouthScale: 0.5 },
+      happy:  { eyes: null, mouth: 'face_happy_mouth', mouthScale: 0.85 },   // 原图闭眼本来就像 ^^，再贴眼睛会变成两层线
+      star:   { eyes: 'face_star_eyes', mouth: null, eyesScale: 1.0 }        // 星星眼，保留原来的嘴
+    },
+    happySec: 0.4,         // 落稳后眯眼笑 0.4 秒
+    starSec: 0.6           // 完美落点星星眼 0.6 秒
   }
 };

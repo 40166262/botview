@@ -65,20 +65,61 @@
     gust: '<svg viewBox="0 0 64 52"><path d="M4 20h34a8 8 0 1 0-8-8M4 32h46a7 7 0 1 1-7 7M10 26h28" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/></svg>',
     ad: '<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#FFD25E" stroke="#B9822F" stroke-width="4"/><rect x="18" y="22" width="28" height="20" rx="5" fill="#9B7BFF"/><path d="M29 27l8 5-8 5z" fill="#fff"/></svg>'
   };
+  // ---- v1.3 按钮字形：纯矢量，颜色跟按钮走（CSS 变量 --ico-fill / --ico-stroke），任何 DPR 都清晰
+  const F = 'style="fill:var(--ico-fill,#fff);stroke:var(--ico-stroke,#5A3A2C)"', FS = 'stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"';
+  const gear = (() => {   // 8 齿齿轮
+    let d = '';
+    for (let i = 0; i < 16; i++) { const a0 = (i / 16) * Math.PI * 2 - Math.PI / 16, a1 = a0 + Math.PI / 8, r = i % 2 ? 19 : 26;
+      d += (i ? 'L' : 'M') + (32 + Math.cos(a0) * r).toFixed(1) + ' ' + (32 + Math.sin(a0) * r).toFixed(1) + 'L' + (32 + Math.cos(a1) * r).toFixed(1) + ' ' + (32 + Math.sin(a1) * r).toFixed(1); }
+    return d + 'Z';
+  })();
+  const GLYPH = {
+    play: '<svg viewBox="0 0 64 64"><path d="M22 13.5c0-2.4 2.6-3.9 4.7-2.6l24 15.8c1.9 1.2 1.9 4 0 5.2l-24 15.8c-2.1 1.3-4.7-.2-4.7-2.6z" ' + F + ' ' + FS + '/></svg>',
+    // 广告：白色圆圈里一个白色播放三角（橙/紫按钮上）
+    ad: '<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" style="fill:rgba(255,255,255,.22);stroke:#fff" stroke-width="5"/><path d="M26 20.5c0-1.6 1.7-2.5 3-1.7l15.6 10.2c1.2.8 1.2 2.6 0 3.4L29 42.6c-1.3.8-3-.1-3-1.7z" fill="#fff"/></svg>',
+    pause: '<svg viewBox="0 0 64 64"><rect x="17" y="14" width="11" height="36" rx="4" ' + F + ' ' + FS + '/><rect x="36" y="14" width="11" height="36" rx="4" ' + F + ' ' + FS + '/></svg>',
+    home: '<svg viewBox="0 0 64 64"><path d="M9 31L32 10l23 21h-6v20a3 3 0 0 1-3 3h-9V40h-10v14h-9a3 3 0 0 1-3-3V31z" ' + F + ' ' + FS + '/></svg>',
+    restart: '<svg viewBox="0 0 64 64"><path d="M50 32a18 18 0 1 1-6-13.4" fill="none" style="stroke:var(--ico-stroke,#5A3A2C)" stroke-width="13" stroke-linecap="round"/><path d="M50 32a18 18 0 1 1-6-13.4" fill="none" style="stroke:var(--ico-fill,#fff)" stroke-width="6" stroke-linecap="round"/><path d="M38 9l12 9-13 6z" ' + F + ' ' + FS + '/></svg>',
+    share: '<svg viewBox="0 0 64 64"><path d="M20 32l24-12M20 32l24 12" fill="none" style="stroke:var(--ico-stroke,#5A3A2C)" stroke-width="7" stroke-linecap="round"/><circle cx="19" cy="32" r="8" ' + F + ' ' + FS + '/><circle cx="45" cy="19" r="8" ' + F + ' ' + FS + '/><circle cx="45" cy="45" r="8" ' + F + ' ' + FS + '/></svg>',
+    sound: '<svg viewBox="0 0 64 64"><path d="M10 25h9l13-11v36L19 39h-9z" ' + F + ' ' + FS + '/><path d="M40 23a12 12 0 0 1 0 18M46 16a21 21 0 0 1 0 32" fill="none" style="stroke:var(--ico-stroke,#5A3A2C)" stroke-width="5" stroke-linecap="round"/></svg>',
+    settings: '<svg viewBox="0 0 64 64"><path d="' + gear + '" ' + F + ' ' + FS + '/><circle cx="32" cy="32" r="8" style="fill:#FFF6E9;stroke:var(--ico-stroke,#5A3A2C)" stroke-width="4.5"/></svg>',
+    gallery: '<svg viewBox="0 0 64 64"><ellipse cx="32" cy="42" rx="14" ry="12" ' + F + ' stroke-width="3"/><ellipse cx="13.5" cy="27" rx="6.5" ry="8" ' + F + ' stroke-width="3"/><ellipse cx="24.5" cy="15" rx="6.5" ry="8" ' + F + ' stroke-width="3"/><ellipse cx="39.5" cy="15" rx="6.5" ry="8" ' + F + ' stroke-width="3"/><ellipse cx="50.5" cy="27" rx="6.5" ry="8" ' + F + ' stroke-width="3"/></svg>',
+    close: '<svg viewBox="0 0 64 64"><path d="M18 18l28 28M46 18L18 46" fill="none" style="stroke:var(--ico-stroke,#5A3A2C)" stroke-width="13" stroke-linecap="round"/><path d="M18 18l28 28M46 18L18 46" fill="none" style="stroke:var(--ico-fill,#fff)" stroke-width="6" stroke-linecap="round"/></svg>'
+  };
   // 美术图标对应文件（assets/ui/icon_<name>.png）
   const ICON_FILE = { windarrow: 'icon_wind_arrow', gust: 'fx_wind_gust', pause: 'icon_pause', home: 'icon_home', restart: 'icon_restart', share: 'icon_share', sound: 'icon_sound', trophy: 'icon_trophy', heart: 'icon_heart', ad: 'icon_ad', settings: 'icon_settings', gallery: 'icon_gallery', close: 'icon_close', coin: 'icon_coin', play: 'icon_play' };
   function iconHtml(name) {
+    if (GLYPH[name]) return GLYPH[name];      // 按钮上的图标一律用矢量字形
     const f = ICON_FILE[name];
     if (f && A.has('ui_' + f) && name !== 'restart') return '<img src="' + A.images['ui_' + f].src + '" alt="" draggable="false">';
     if (name === 'restart' && A.has('ui_icon_restart')) return '<img class="restart-img" src="' + A.images.ui_icon_restart.src + '" alt="" draggable="false">';
     return SVG[name] || '';
   }
+  // 按钮文字放不下时逐步缩小字号（图标不缩），保证整组内容留在按钮内边距里
+  function fitButton(b, tries) {
+    if (!b) return;
+    if (!b.clientWidth) { if ((tries || 0) < 30) requestAnimationFrame(() => fitButton(b, (tries || 0) + 1)); return; }   // 还没显示出来：下一帧再量
+    const t = [...b.children].find(k => !k.classList.contains('ico'));
+    if (!t) return;
+    t.style.fontSize = '';
+    const cs = getComputedStyle(b), avail = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const gap = parseFloat(cs.columnGap) || 0;
+    const used = () => [...b.children].filter(k => getComputedStyle(k).display !== 'none').reduce((w, k, i) => w + k.getBoundingClientRect().width + (i ? gap : 0), 0);
+    let fs = parseFloat(getComputedStyle(t).fontSize), n = 0;
+    while (used() > avail && n++ < 12) { fs *= 0.94; t.style.fontSize = fs + 'px'; }
+  }
+  // 按钮松手回弹：pointerup 时加 .btn-pop（压扁 → 拉长 → 复原）
+  ['pointerup', 'pointercancel'].forEach(ev => document.addEventListener(ev, (e) => {
+    const b = e.target && e.target.closest && e.target.closest('.btn');
+    if (!b || b.disabled) return;
+    b.classList.remove('btn-pop'); void b.offsetWidth; b.classList.add('btn-pop');
+  }, true));
+  document.addEventListener('animationend', (e) => { if (e.animationName === 'btnPop') e.target.classList.remove('btn-pop'); }, true);
   function fillIcons(root) { (root || document).querySelectorAll('[data-ico]').forEach((el) => { el.innerHTML = iconHtml(el.getAttribute('data-ico')); }); }
 
   function applyUiArt() {
     const r = document.documentElement;
-    if (A.has('ui_btn_orange')) { r.style.setProperty('--btn-orange', 'url("' + A.images.ui_btn_orange.src + '")'); r.classList.add('art-orange'); }
-    if (A.has('ui_btn_purple')) { r.style.setProperty('--btn-purple', 'url("' + A.images.ui_btn_purple.src + '")'); r.classList.add('art-purple'); }
+    // v1.3：按钮全部改成 CSS 矢量绘制，不再用 btn_orange / btn_purple 位图（放大后边缘发虚）
     if (A.has('ui_panel')) { r.style.setProperty('--panel', 'url("' + A.images.ui_panel.src + '")'); r.classList.add('art-panel'); }
     if (A.has('ui_logo')) { $('logo').innerHTML = '<img src="' + A.images.ui_logo.src + '" alt="叠猫猫">'; $('logo').classList.add('has-img'); }
     fillIcons();
@@ -325,6 +366,7 @@
     const ready = CS.ads.isReady('double_coins');
     b.disabled = lastResult.doubled || !ready || lastResult.coins <= 0;
     $('btnDoubleText').textContent = lastResult.doubled ? '已领取双倍 +' + lastResult.coins : (lastResult.coins <= 0 ? '本局没有金币可翻倍' : ready ? '看广告领取双倍 +' + lastResult.coins : '广告暂不可用');
+    fitButton(b);
   }
   function drawThumb() {
     const c = $('towerThumb'), g = c.getContext('2d');
@@ -361,7 +403,7 @@
       const using = save.skin === s.id;
       const card = document.createElement('div');
       card.className = 'card' + (using ? ' using' : '') + (owned ? '' : ' locked');
-      const cv = document.createElement('canvas'); cv.width = 260; cv.height = 200;
+      const cv = document.createElement('canvas'); cv.width = 520; cv.height = 400;   // 2 倍分辨率，高 DPR 屏不发虚
       drawSkinPreview(cv, s.id);
       card.appendChild(cv);
       const name = document.createElement('div'); name.className = 'card-name'; name.textContent = s.name; card.appendChild(name);
@@ -378,8 +420,9 @@
     A.CAT_ORDER.forEach((id) => {
       const T = A.CAT_TYPES[id], seen = save.seenCats.indexOf(id) >= 0;
       const card = document.createElement('div'); card.className = 'card cat-card' + (seen ? '' : ' unseen');
-      const cv = document.createElement('canvas'); cv.width = 260; cv.height = 200;
+      const cv = document.createElement('canvas'); cv.width = 520; cv.height = 400;   // 2 倍分辨率，高 DPR 屏不发虚
       const g = cv.getContext('2d'), img = A.images['cat_' + id];
+      g.scale(cv.width / 260, cv.width / 260); g.imageSmoothingQuality = 'high';
       const k = Math.min(230 / T.w, 170 / T.h);
       g.drawImage(img, (260 - T.w * k) / 2, (200 - T.h * k) / 2, T.w * k, T.h * k);
       if (!seen) { g.globalCompositeOperation = 'source-in'; g.fillStyle = 'rgba(107,74,58,0.28)'; g.fillRect(0, 0, 260, 200); g.globalCompositeOperation = 'source-over'; }
@@ -388,15 +431,17 @@
       cg.appendChild(card);
     });
   }
-  function drawSkinPreview(cv, skinId) {
+  // v1.4：图鉴预览直接画游戏里同一张缓存精灵（A.sprite = 猫图 + 同一套脸部锚点画的配件），和游戏里一模一样
+  function drawSkinPreview(cv, skinId, catId) {
     const g = cv.getContext('2d');
-    const id = 'white', T = A.CAT_TYPES[id];
+    const id = catId || 'white', T = A.CAT_TYPES[id], sp = A.sprite(id, skinId);
     const k = Math.min(200 / T.w, 130 / T.h);
+    g.imageSmoothingQuality = 'high';
     g.save();
-    g.translate((cv.width - T.w * k) / 2, cv.height - T.h * k - 14);
+    g.scale(cv.width / 260, cv.width / 260);      // 逻辑坐标始终 260 × 200
+    g.translate((260 - T.w * k) / 2, 200 - T.h * k - 14);
     g.scale(k, k);
-    g.drawImage(A.images['cat_' + id], 0, 0, T.w, T.h);
-    A.drawAccessory(g, id, skinId, T.w, T.h);
+    g.drawImage(sp.canvas, -sp.pad.l, -sp.pad.t, sp.canvas.width / sp.S, sp.canvas.height / sp.S);
     g.restore();
   }
   function onSkin(s, owned) {
@@ -538,11 +583,15 @@
       refreshStart();
       game.setView(viewH, game.safeTop, game.safeBottom);
       requestAnimationFrame(frame);
-      setTimeout(() => { show('start'); }, 150);
+      setTimeout(() => {
+        show('start');
+        const refund = CS.Save.takeRefund();     // v1.4：围巾下架退款，只提示一次
+        if (refund) setTimeout(() => { toast('「围巾」下架啦，已退还 ' + refund + ' 金币'); refreshStart(); }, 600);
+      }, 150);
     }).catch((e) => { tip.textContent = '加载失败，请刷新重试'; setTimeout(() => { throw e; }); });
   }
   boot();
 
   // 测试/调试钩子（不影响正式玩法）
-  CS.debug = { swapReason, startRound, finishRound, showRevive, goHome, get screen() { return screen; }, get lastResult() { return lastResult; }, buildGallery, openGallery: () => { buildGallery(); show('gallery'); } };
+  CS.debug = { drawSkinPreview, fitButton, swapReason, startRound, finishRound, showRevive, goHome, get screen() { return screen; }, get lastResult() { return lastResult; }, buildGallery, openGallery: () => { buildGallery(); show('gallery'); } };
 })();

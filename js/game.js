@@ -80,7 +80,7 @@
       this.camY = this.camMenu != null ? this.camMenu : this.camY0;  // 从开始页镜头平滑移到游戏镜头
       this.time = 0; this.timeScale = 1;
       this.acc = 0;
-      A.CAT_ORDER.forEach(id => A.sprite(id, CS.Save.data.skin, true));   // 预先画好受惊精灵，晃起来时不卡
+      A.CAT_ORDER.forEach(id => { A.sprite(id, CS.Save.data.skin, 'scared'); A.sprite(id, CS.Save.data.skin, 'fall'); });   // 预先画好常用表情，切换时不卡
       this.state = 'play';
       this.spawnHanging(250);
       this.hud();
@@ -226,6 +226,7 @@
           this.combo++; this.bestCombo = Math.max(this.bestCombo, this.combo);
           const add = Math.min(5 * this.combo, 20);
           cat.pendingBonus = add;          // 猫塔稳定后才入账（倒了就不算），保证分数口径一致
+          this.setExpr(cat, 'star', CS.CONFIG.expressions.starSec);   // 完美落点：星星眼
           this.text(cx, bb.min.y - 30, '完美！', '#FF6F91', 64);
           this.text(cx, bb.min.y + 30, '+' + add, '#FFB13D', 46, 0.15);
           if (this.combo >= 2) this.text(cx, bb.min.y - 100, '连击 ×' + this.combo, '#9B7BFF', 44, 0.25);
@@ -239,6 +240,7 @@
           this.emit('vibrate', 25);
           this.emit('perfect', { combo: this.combo, add });
         } else {
+          cat.pendingHappy = true;         // 等塔落稳后眯眼笑一下
           this.combo = 0;
           if (this.fx() < 0.3) CS.audio.play(['meow1', 'meow2', 'meow3'][Math.floor(this.fx() * 3)], { rate: CS.audio.meowRate(cat.type), delay: 0.1 });
         }
@@ -375,6 +377,14 @@
       this.wobbleT = 0; this.calmT = 0; this.reselectT = 0;
       this.testMotionBoost = 0;     // 仅测试用：给所有猫的晃动值加上这个数（不碰物理）
     }
+    // ---- 表情（v1.2）：scared > star > happy > fall；返回 null = 平时的脸
+    setExpr(c, name, sec) { c.expr = name; c.exprUntil = this.time + sec * 1000; }
+    exprOf(c) {
+      if (this.scared && this.scared.has(c)) return 'scared';
+      if (c.expr && this.time < c.exprUntil) return c.expr;
+      if (!c.landed && this.state !== 'idle') return 'fall';      // 正在下落
+      return null;
+    }
     get scaredCount() { return this.scared ? this.scared.size : 0; }
     updateScared(dt) {
       const SC = FEEL.scared;
@@ -429,6 +439,7 @@
 
     onStable() {
       this.snapshot = this.cats.map(c => ({ type: c.type, skin: c.skin, idx: c.idx, x: c.body.position.x, y: c.body.position.y, angle: c.body.angle }));
+      for (const c of this.cats) if (c.pendingHappy) { c.pendingHappy = false; this.setExpr(c, 'happy', CS.CONFIG.expressions.happySec); }
       let changed = false;
       for (const c of this.cats) if (c.pendingBonus) { this.bonus += c.pendingBonus; this.perfects++; c.pendingBonus = 0; changed = true; }
       const h = -this.towerTop() / 100;
@@ -523,8 +534,8 @@
     }
 
     drawCat(ctx, c) {
-      const scared = this.scared.has(c);
-      const b = c.body, g = A.geom(c.type), sp = A.sprite(c.type, c.skin, scared);
+      const expr = this.exprOf(c), scared = expr === 'scared';
+      const b = c.body, g = A.geom(c.type), sp = A.sprite(c.type, c.skin, expr);
       ctx.save();
       ctx.translate(b.position.x, b.position.y);
       ctx.rotate(b.angle);
@@ -541,7 +552,7 @@
       }
       if (sxk !== 1 || syk !== 1) { ctx.translate(0, g.bottom); ctx.scale(sxk, syk); ctx.translate(0, -g.bottom); }
       ctx.drawImage(sp.canvas, -g.cx - sp.pad.l, -g.cy - sp.pad.t, sp.canvas.width / sp.S, sp.canvas.height / sp.S);
-      if (scared) { ctx.save(); ctx.translate(-g.cx, -g.cy); A.drawSweat(ctx, c.type, g.w, g.h, this.time + c.idx * 300); ctx.restore(); }
+      if (scared && !A.exprSprite(c.type, 'scared')) { ctx.save(); ctx.translate(-g.cx, -g.cy); A.drawSweat(ctx, c.type, g.w, g.h, this.time + c.idx * 300); ctx.restore(); }
       if (c.perfectT && this.time - c.perfectT < 600) {
         ctx.globalCompositeOperation = 'lighter';
         ctx.globalAlpha = 0.35 * (1 - (this.time - c.perfectT) / 600);
