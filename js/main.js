@@ -176,7 +176,7 @@
     if (h.score !== hudLast.score) { const el = $('hudScore'); roll(el, Math.max(0, hudLast.score), h.score, 350); }
     hudLast = { height: h.height, score: h.score };
     drawNext(h.next);
-    if (game.state === 'play') CS.audio.setWind(Math.abs(h.wind || 0));
+    if (game.state === 'play' && !paused) CS.audio.setWind(Math.abs(h.wind || 0), Math.sign(h.wind || 0));
     const w = $('hudWind');
     if (h.wind && Math.abs(h.wind) > 0.05) {
       w.classList.remove('hidden');
@@ -256,8 +256,8 @@
 
   function togglePause(on) {
     if (screen !== 'game') return;
-    if (on) { if (modal) return; paused = true; openModal('pauseModal'); }
-    else { paused = false; closeModal(); }
+    if (on) { if (modal) return; paused = true; openModal('pauseModal'); CS.audio.setWind(0); }
+    else { paused = false; closeModal(); game.hud(); }      // hud() 会在有风时把风声淡入回来
   }
 
   // ---------------------------------------------------------------- 复活
@@ -526,6 +526,7 @@
     resize();
     CS.ads.init();
     $('ver').textContent = CS.CONFIG.version;
+    $('verTag').textContent = 'v' + CS.CONFIG.version.split('.').slice(0, 2).join('.');
     const fill = $('loadFill'), tip = $('loadTip');
     const tips = ['猫咪正在伸懒腰…', '正在给猫咪梳毛…', '正在摆放软垫…'];
     let ti = 0; const tiv = setInterval(() => { ti = (ti + 1) % tips.length; tip.textContent = tips[ti]; }, 900);

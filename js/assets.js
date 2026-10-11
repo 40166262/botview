@@ -43,6 +43,21 @@
   };
   const CAT_ORDER = ['orange', 'white', 'black', 'loaf', 'ball', 'long'];
 
+  // ---------------- 受惊表情贴片（v1.1，DESIGN.md §9） ----------------
+  // 猫原图不动，在脸上贴「圆眼睛 / 张开的嘴 / 汗滴」。坐标都相对整张猫图（0~1）：
+  //   eyes：两眼中心 x/y、贴片宽 w（相对图宽，要盖住原图闭眼线）、rot 倾斜
+  //   mouth：嘴中心 x/y、宽 w；sweat：汗滴中心 x/y、宽 w、rot
+  // 用 dev-skins.html?face=1 逐只核对。
+  const FACES = {
+    orange: { eyes: { x: 0.29, y: 0.47, w: 0.36, rot: 0.03 },  mouth: { x: 0.295, y: 0.635, w: 0.095 }, sweat: { x: 0.535, y: 0.36, w: 0.07, rot: 0.2 } },
+    white:  { eyes: { x: 0.302, y: 0.47, w: 0.375, rot: 0.0 }, mouth: { x: 0.31, y: 0.635, w: 0.095 }, sweat: { x: 0.55, y: 0.36, w: 0.07, rot: 0.2 } },
+    black:  { eyes: { x: 0.475, y: 0.27, w: 0.62, rot: 0.0 },  mouth: { x: 0.475, y: 0.372, w: 0.14 },  sweat: { x: 0.84, y: 0.20, w: 0.11, rot: 0.2 } },
+    loaf:   { eyes: { x: 0.19, y: 0.49, w: 0.25, rot: 0.04 },  mouth: { x: 0.195, y: 0.665, w: 0.068 }, sweat: { x: 0.36, y: 0.40, w: 0.05, rot: 0.2 } },
+    ball:   { eyes: { x: 0.375, y: 0.43, w: 0.42, rot: -0.26 }, mouth: { x: 0.41, y: 0.57, w: 0.11 }, sweat: { x: 0.63, y: 0.30, w: 0.085, rot: 0.0 } },
+    long:   { eyes: { x: 0.205, y: 0.50, w: 0.165, rot: 0.0 }, mouth: { x: 0.205, y: 0.675, w: 0.045 }, sweat: { x: 0.30, y: 0.42, w: 0.035, rot: 0.2 } }
+  };
+
+
   // ---------------- 皮肤配件（DESIGN.md §6） ----------------
   // slot：挂在哪个部位；s = 宽度 = 部位宽 × s；ax/ay = 配件图里对准挂点的位置（0~1）；dx/dy = 以部位宽为单位的偏移
   const SKINS = [
@@ -67,7 +82,7 @@
     { id: 'space', from: 50, top: ['#120F33', '#3A2A6E'] }
   ];
 
-  const UI_FILES = ['btn_orange', 'btn_purple', 'icon_ad', 'icon_heart', 'icon_home', 'icon_pause', 'icon_restart', 'icon_share', 'icon_sound', 'icon_trophy', 'logo', 'icon_settings', 'icon_gallery', 'icon_swap', 'icon_coin', 'icon_close', 'icon_play', 'panel', 'app_icon_512', 'fx_leaf_green', 'fx_leaf_orange', 'fx_petal_pink', 'fx_wind_gust', 'icon_wind_arrow'];
+  const UI_FILES = ['btn_orange', 'btn_purple', 'icon_ad', 'icon_heart', 'icon_home', 'icon_pause', 'icon_restart', 'icon_share', 'icon_sound', 'icon_trophy', 'logo', 'icon_settings', 'icon_gallery', 'icon_swap', 'icon_coin', 'icon_close', 'icon_play', 'panel', 'app_icon_512', 'fx_leaf_green', 'fx_leaf_orange', 'fx_petal_pink', 'fx_wind_gust', 'icon_wind_arrow', 'face_scared_eyes', 'face_scared_mouth', 'face_sweat'];
 
   const images = {};   // key -> HTMLImageElement | Canvas
 
@@ -202,6 +217,7 @@
 
   // ---------------- 加载 ----------------
   const Assets = {
+    FACES,
     CAT_TYPES, CAT_ORDER, SKINS, SKIN_BY_ID, BG_SEGMENTS, images,
     shapes: {},       // 猫 id -> 归一化形状
     has(key) { return !!images[key] && !images[key].__proc; },
@@ -259,8 +275,8 @@
     // ---------------- 精灵缓存（按渲染比例 + 皮肤） ----------------
     _sprites: {}, _scale: 1,
     setRenderScale(s) { s = Math.round(s * 100) / 100; if (s !== this._scale) { this._scale = s; this._sprites = {}; } },
-    sprite(id, skinId) {
-      const key = id + '|' + (skinId || 'none');
+    sprite(id, skinId, scared) {
+      const key = id + '|' + (skinId || 'none') + (scared ? '|s' : '');
       if (this._sprites[key]) return this._sprites[key];
       const S = this._scale, T = CAT_TYPES[id], img = images['cat_' + id];
       const w = T.w, h = T.h;
@@ -271,10 +287,49 @@
       g.imageSmoothingQuality = 'high';
       g.scale(S, S); g.translate(pad.l, pad.t);
       g.drawImage(img, 0, 0, w, h);
+      if (scared) this.drawFace(g, id, w, h);        // 表情贴在猫脸上，配件在最上层
       this.drawAccessory(g, id, skinId, w, h);
       const out = { canvas: c, pad, w, h, S };
       this._sprites[key] = out;
       return out;
+    },
+    // 受惊贴片：眼睛 + 嘴（汗滴单独画，因为要动）。缺图时用程序画的圆眼睛。
+    drawFace(g, id, w, h) {
+      const F = FACES[id]; if (!F) return;
+      const eyes = images.ui_face_scared_eyes, mouth = images.ui_face_scared_mouth;
+      const e = F.eyes, m = F.mouth;
+      const ew = e.w * w;
+      g.save(); g.translate(e.x * w, e.y * h); g.rotate(e.rot || 0);
+      if (eyes) { const eh = ew * eyes.height / eyes.width; g.drawImage(eyes, -ew / 2, -eh / 2, ew, eh); }
+      else {
+        const r = ew * 0.26;
+        for (const sx of [-1, 1]) {
+          g.fillStyle = '#FFFFFF'; g.strokeStyle = '#4A2E25'; g.lineWidth = Math.max(2, r * 0.14);
+          g.beginPath(); g.arc(sx * ew * 0.245, 0, r, 0, 7); g.fill(); g.stroke();
+          g.fillStyle = '#111'; g.beginPath(); g.arc(sx * ew * 0.245, r * 0.2, r * 0.45, 0, 7); g.fill();
+        }
+      }
+      g.restore();
+      const mw = m.w * w;
+      g.save(); g.translate(m.x * w, m.y * h); g.rotate(e.rot || 0);
+      if (mouth) { const mh = mw * mouth.height / mouth.width; g.drawImage(mouth, -mw / 2, -mh / 2, mw, mh); }
+      else { g.fillStyle = '#8E1B24'; g.strokeStyle = '#4A2E25'; g.lineWidth = Math.max(2, mw * 0.06); g.beginPath(); g.ellipse(0, 0, mw / 2, mw * 0.28, 0, 0, 7); g.fill(); g.stroke(); }
+      g.restore();
+    },
+    // 汗滴：在「猫图左上角为原点」的坐标系里画，t 毫秒用于轻微抖动/滑落
+    drawSweat(g, id, w, h, t) {
+      const F = FACES[id]; if (!F) return;
+      const sw = F.sweat, im = images.ui_face_sweat;
+      const k = 1 + Math.sin(t / 90) * 0.08, slide = ((t / 900) % 1) * sw.w * w * 0.35;
+      const dw = sw.w * w * k;
+      g.save(); g.translate(sw.x * w, sw.y * h + slide); g.rotate(sw.rot || 0);
+      if (im) { const dh = dw * im.height / im.width; g.drawImage(im, -dw / 2, -dh / 2, dw, dh); }
+      else {
+        const s = dw / 28;
+        g.scale(s, s); g.fillStyle = '#9FD4FF'; g.strokeStyle = '#4A78A8'; g.lineWidth = 3;
+        g.beginPath(); g.moveTo(0, -20); g.quadraticCurveTo(15, 6, 0, 14); g.quadraticCurveTo(-15, 6, 0, -20); g.fill(); g.stroke();
+      }
+      g.restore();
     },
     // 在「猫图左上角为原点、宽 w 高 h」的坐标系里画配件
     drawAccessory(g, id, skinId, w, h) {

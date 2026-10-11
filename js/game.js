@@ -74,11 +74,13 @@
       this.milestone = 0;
       this.snapshot = []; this.stableFrames = 0;
       this.reviveUsed = 0; this.swapsUsed = 0;
-      this.wobbleFrames = 0; this.scaredT = 0; this.lastWobble = -9;
+      this.lastWobble = -9;
+      this.resetScared();
       this.particles.length = 0; this.texts.length = 0;
       this.camY = this.camMenu != null ? this.camMenu : this.camY0;  // 从开始页镜头平滑移到游戏镜头
       this.time = 0; this.timeScale = 1;
       this.acc = 0;
+      A.CAT_ORDER.forEach(id => A.sprite(id, CS.Save.data.skin, true));   // 预先画好受惊精灵，晃起来时不卡
       this.state = 'play';
       this.spawnHanging(250);
       this.hud();
@@ -253,7 +255,6 @@
       this.failCat = cat;
       this.timeScale = 0.45;
       this.hanging = null;
-      this.scaredT = 99;
       this.combo = 0;
       CS.audio.play('collapse');
       this.emit('vibrate', 80);
@@ -276,7 +277,7 @@
       this.active = null;
       this.state = 'play';
       this.timeScale = 1;
-      this.scaredT = 0; this.stableFrames = 0; this.combo = 0;
+      this.resetScared(); this.stableFrames = 0; this.combo = 0;
       const top = this.towerTop();
       this.burst(W / 2, top, 'star', 24);
       this.burst(W / 2, top, 'heart', 10);
@@ -335,24 +336,13 @@
       // 正在下落的猫 2.5 秒还没碰到东西（飞出去了）
       if (this.active && this.time - this.active.dropT > 2500 && this.state === 'play') this.fail(this.active, 'timeout');
 
-      // 失败判定 + 晃动检测
-      let maxAng = 0, maxSpd = 0;
+      // 失败判定
       for (const c of this.cats) {
         const p = c.body.position;
         if (this.state === 'play' && (p.y > FAIL_Y || p.x < -260 || p.x > W + 260)) { this.fail(c, 'out'); }
-        if (c.landed && this.time - c.landT > 450 && !c.body.isSleeping) {
-          maxAng = Math.max(maxAng, Math.abs(c.body.angularVelocity));
-          maxSpd = Math.max(maxSpd, c.body.speed);
-        }
       }
+      if (this.state === 'play' || this.state === 'failing') this.updateScared(dt);
       if (this.state === 'play') {
-        if (maxAng > 0.022 || maxSpd > 1.6) this.wobbleFrames++; else this.wobbleFrames = Math.max(0, this.wobbleFrames - 2);
-        if (this.wobbleFrames > 6) {
-          if (this.scaredT <= 0) CS.audio.play('meow3', { rate: 1.05 });
-          this.scaredT = 0.7;
-          if (this.time - this.lastWobble > 1500) { this.lastWobble = this.time; CS.audio.play('wobble'); }
-        }
-        if (this.scaredT > 0 && this.scaredT < 50) this.scaredT -= dt;
 
         // 稳定检测 → 快照 + 高度
         const allLanded = !this.active;
@@ -376,6 +366,50 @@
       if (this.state === 'play') this.failNotified = false;
       if (wind && this.state !== 'idle') this.spawnLeaves(dt, wind);
       this.updateFx(dt);
+    }
+
+    // ---------------------------------------------------------------- 受惊表情（v1.1）
+    resetScared() {
+      this.scared = new Set();      // 当前受惊的猫（cat 对象）
+      this.scaredOn = false;        // 塔是否处于「受惊」状态
+      this.wobbleT = 0; this.calmT = 0; this.reselectT = 0;
+      this.testMotionBoost = 0;     // 仅测试用：给所有猫的晃动值加上这个数（不碰物理）
+    }
+    get scaredCount() { return this.scared ? this.scared.size : 0; }
+    updateScared(dt) {
+      const SC = FEEL.scared;
+      const cand = [];
+      let wob = false, calm = true, topY = 0;
+      for (const c of this.cats) {
+        if (!c.landed || c === this.active) continue;
+        if (this.state === 'play' && this.time - c.landT < SC.settleMs) continue;
+        const b = c.body;
+        let m = b.isSleeping ? 0 : Math.max(Math.abs(b.angularVelocity) / SC.angVel, Math.abs(b.velocity.x) / SC.speedX);
+        m += this.testMotionBoost;
+        c.motion = m;
+        if (m > 1) wob = true;
+        if (m > SC.calmRatio) calm = false;
+        topY = Math.min(topY, b.position.y);
+        cand.push(c);
+      }
+      if (this.state === 'failing') { wob = true; calm = false; }   // 塔在倒：一定是受惊的
+      this.wobbleT = wob ? this.wobbleT + dt : 0;
+      this.calmT = calm ? this.calmT + dt : 0;
+      if (!this.scaredOn && this.wobbleT > SC.triggerSec) {
+        this.scaredOn = true; this.reselectT = 0;
+        if (this.state === 'play') CS.audio.play('meow3', { rate: 1.05 });
+      }
+      if (this.scaredOn && this.calmT >= SC.recoverSec) { this.scaredOn = false; this.scared.clear(); }
+      if (!this.scaredOn) return;
+      if (wob && this.state === 'play' && this.time - this.lastWobble > 1500) { this.lastWobble = this.time; CS.audio.play('wobble'); }
+      // 挑「晃得最厉害 + 最靠上」的 maxCats 只；已经受惊的稍微加分，减少表情跳来跳去
+      this.reselectT -= dt;
+      if (this.reselectT > 0 && [...this.scared].every(c => this.byId[c.body.id] === c)) return;
+      this.reselectT = SC.reselectSec;
+      const span = Math.max(1, -topY);
+      const rank = (c) => Math.min(c.motion, 3) + SC.topWeight * (-c.body.position.y / span) + (this.scared.has(c) ? 0.25 : 0);
+      cand.sort((a, b) => rank(b) - rank(a));
+      this.scared = new Set(cand.slice(0, SC.maxCats));
     }
 
     postStep() {
@@ -489,7 +523,8 @@
     }
 
     drawCat(ctx, c) {
-      const b = c.body, g = A.geom(c.type), sp = A.sprite(c.type, c.skin);
+      const scared = this.scared.has(c);
+      const b = c.body, g = A.geom(c.type), sp = A.sprite(c.type, c.skin, scared);
       ctx.save();
       ctx.translate(b.position.x, b.position.y);
       ctx.rotate(b.angle);
@@ -499,7 +534,6 @@
         const k = 0.16 * (0.4 + c.impact) * Math.exp(-6 * t) * Math.cos(15 * t);
         syk = 1 - k; sxk = 1 + k * 0.8;
       } else if (!c.landed) { syk = 1.05; sxk = 0.96; }
-      const scared = this.scaredT > 0 && c.landed;
       if (scared) {
         const ph = this.time / 1000 * 50 + c.idx * 1.7;
         ctx.translate(Math.sin(ph) * 2.4, Math.cos(ph * 1.3) * 1.2);
@@ -507,7 +541,7 @@
       }
       if (sxk !== 1 || syk !== 1) { ctx.translate(0, g.bottom); ctx.scale(sxk, syk); ctx.translate(0, -g.bottom); }
       ctx.drawImage(sp.canvas, -g.cx - sp.pad.l, -g.cy - sp.pad.t, sp.canvas.width / sp.S, sp.canvas.height / sp.S);
-      if (scared) drawSweat(ctx, c.type, g, this.time + c.idx * 300);
+      if (scared) { ctx.save(); ctx.translate(-g.cx, -g.cy); A.drawSweat(ctx, c.type, g.w, g.h, this.time + c.idx * 300); ctx.restore(); }
       if (c.perfectT && this.time - c.perfectT < 600) {
         ctx.globalCompositeOperation = 'lighter';
         ctx.globalAlpha = 0.35 * (1 - (this.time - c.perfectT) / 600);
@@ -534,8 +568,7 @@
       ctx.translate(this.hangX, y + bob);
       ctx.rotate(-this.hangDir * 0.04 + Math.sin(this.time / 1000 * 3) * 0.02);
       ctx.scale(pop, pop);
-      const scared = this.scaredT > 0;
-      if (scared) ctx.translate(Math.sin(this.time / 20) * 2, 0);
+      if (this.scaredOn) ctx.translate(Math.sin(this.time / 20) * 2, 0);   // 待放的猫只跟着抖，不算进「最多 3 只」
       ctx.drawImage(sp.canvas, -T.w / 2 - sp.pad.l, -T.h / 2 - sp.pad.t, sp.canvas.width / sp.S, sp.canvas.height / sp.S);
       ctx.restore();
     }
@@ -715,17 +748,6 @@
     ctx.fillStyle = 'rgba(40,80,40,0.22)';
     ctx.beginPath(); ctx.ellipse(PLAT.x, PLAT.h + 4, PLAT.w * 0.52, 18, 0, 0, 7); ctx.fill();
     drawPlatform(ctx);
-  }
-
-  function drawSweat(ctx, type, g, t) {
-    const T = A.CAT_TYPES[type], an = T.anchors.head;
-    const x = an.x * T.w - g.cx + an.w * T.w * 0.55, y = an.y * T.h - g.cy + 10;
-    const k = 0.8 + Math.sin(t / 90) * 0.1;
-    ctx.save();
-    ctx.translate(x, y); ctx.scale(k, k);
-    ctx.fillStyle = '#9FD4FF'; ctx.strokeStyle = '#4A78A8'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(0, -18); ctx.quadraticCurveTo(14, 4, 0, 10); ctx.quadraticCurveTo(-14, 4, 0, -18); ctx.fill(); ctx.stroke();
-    ctx.restore();
   }
 
   function star(ctx, r) {

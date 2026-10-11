@@ -1,7 +1,7 @@
 /* 《叠猫猫》全局配置。上架前请把 TODO 项替换成 TapTap 后台的真实值。 */
 window.CS = window.CS || {};
 CS.CONFIG = {
-  version: '1.0.0',
+  version: '1.1.0',
   title: '叠猫猫',
 
   ads: {
@@ -46,6 +46,18 @@ CS.CONFIG = {
     // 新手保护：前 5 只猫摩擦力加大、弹性减小，晃动衰减更快
     newbie: { count: 5, friction: 1.2, frictionStatic: 2.4, restitution: 0, rockDamping: 0.95 },
     // 风：30 米起；方向和强度来自种子（rng.js CatSequence.wind），这里只控制整体强度曲线
-    wind: { fromHeight: 30, baseStrength: 0.35, rampMeters: 40, force: 0.00008 }
+    wind: { fromHeight: 30, baseStrength: 0.35, rampMeters: 40, force: 0.00008 },
+    // 受惊表情（v1.1，DESIGN.md §9）：塔在晃超过 triggerSec 秒 → 受惊；塔稳定 recoverSec 秒 → 恢复；同屏最多 maxCats 只
+    scared: {
+      angVel: 0.022,       // 角速度阈值（弧度/物理步）
+      speedX: 1.2,         // 水平速度阈值（像素/物理步）
+      calmRatio: 0.45,     // 低于阈值 × 0.45 才算「稳定」（滞回，避免来回切换）
+      triggerSec: 0.2,
+      recoverSec: 0.5,
+      maxCats: 3,
+      settleMs: 450,       // 刚落地的猫先给它 0.45 秒「缓冲」，不算晃
+      reselectSec: 0.3,    // 每 0.3 秒重新挑一次「晃得最厉害 / 最靠上」的猫，避免表情乱跳
+      topWeight: 0.6       // 挑选权重：越靠塔顶越容易被选中
+    }
   }
 };

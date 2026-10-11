@@ -21,7 +21,7 @@
     unlock:       { file: 'unlock',       vol: 0.85, duck: 0.4, duckMs: 2200 },
     new_record:   { file: 'new_record',   vol: 0.85, duck: 0.4, duckMs: 2400 },
     milestone:    { file: 'milestone',    vol: 0.75 },
-    wind_gust:    { file: 'wind_gust',    vol: 0.8 }
+    wind_gust:    { file: 'wind_gust',    vol: 0.7 }
   };
   const WIND_LOOP = 'wind_loop', WIND_LOOP_SEC = 8;   // 8 秒无缝循环，音量 = 0.15 + 0.35 × 风力（AUDIO.md）
   const BGM = { file: 'bgm_loop', vol: 0.45, samples: 1411200 };
@@ -153,37 +153,44 @@
 
   // ---------------- 风声循环 ----------------
   let wind = null, windLevel = 0;
-  function setWind(k) {
+  // k = 风力 0~1（0 = 停风）；dir = 风向（±1），用 StereoPanner 轻微偏左/右。做法完全按 AUDIO.md「风声用法」。
+  function setWind(k, dir) {
     k = Math.max(0, Math.min(1, k || 0));
     windLevel = k;
     if (!ctx || !unlocked) return;
-    const target = k > 0 ? 0.15 + 0.35 * k : 0;
-    if (k > 0 && !wind) {
-      const g = ctx.createGain(); g.gain.value = 0.0001; g.connect(sfxBus);
-      let src;
+    const t = ctx.currentTime, target = 0.15 + 0.35 * k;
+    if (k > 0 && !wind) {          // 起风：1.5 秒线性淡入，随机起点
+      const g = ctx.createGain(); g.gain.setValueAtTime(0, t);
+      let out = g;
+      if (ctx.createStereoPanner) { const pn = ctx.createStereoPanner(); pn.pan.value = 0; g.connect(pn); out = pn; }
+      out.connect(sfxBus);
+      let src, offset = 0;
       const buf = buffers[WIND_LOOP];
       if (buf) {
         src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(g);
         const want = Math.round(WIND_LOOP_SEC * buf.sampleRate);
-        if (buf.length > want + 64) { src.loopStart = 1105 / 44100; src.loopEnd = src.loopStart + WIND_LOOP_SEC; }   // 去掉 mp3 填充（同 BGM，见 AUDIO.md）
-      }
-      else {   // 合成兜底：带通滤波的噪声
-        if (!noiseBuf) noise(ctx.currentTime, 0.01, 0.0001, 100);
+        if (buf.length > want) { src.loopStart = 1105 / 44100; src.loopEnd = src.loopStart + WIND_LOOP_SEC; }   // Safari 没去掉 mp3 填充
+        offset = (src.loopStart || 0) + Math.random() * WIND_LOOP_SEC * 0.99;   // 只影响声音，不碰玩法种子
+      } else {   // 文件缺失时的合成兜底：带通滤波噪声
+        if (!noiseBuf) noise(t, 0.01, 0.0001, 100);
         src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
         const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 500; f.Q.value = 0.7;
         src.connect(f); f.connect(g);
       }
-      src.start(ctx.currentTime, src.loopStart || 0);
-      wind = { src, g };
-    }
-    if (!wind) return;
-    const t = ctx.currentTime;
-    wind.g.gain.cancelScheduledValues(t);
-    wind.g.gain.setTargetAtTime(Math.max(0.0001, target), t, k > 0 ? 0.4 : 0.3);   // 起风淡入 / 结束淡出
-    if (k === 0) {
+      src.start(t, offset);
+      g.gain.linearRampToValueAtTime(target, t + 1.5);
+      wind = { src, g, pan: out !== g ? out : null, fadeUntil: t + 1.5 };
+    } else if (k > 0 && wind) {    // 风力变化：平滑过渡（淡入期间不打断）
+      if (t >= wind.fadeUntil) { wind.g.gain.cancelScheduledValues(t); wind.g.gain.setTargetAtTime(target, t, 0.5); }
+    } else if (k === 0 && wind) {  // 停风 / 暂停 / 塔倒 / 结算：1 秒淡出
       const w = wind; wind = null;
-      setTimeout(() => { try { w.src.stop(); w.g.disconnect(); } catch (e) { /* */ } }, 1600);
+      w.g.gain.cancelScheduledValues(t);
+      w.g.gain.setValueAtTime(w.g.gain.value, t);
+      w.g.gain.linearRampToValueAtTime(0, t + 1.0);
+      try { w.src.stop(t + 1.05); } catch (e) { /* */ }
+      setTimeout(() => { try { w.g.disconnect(); if (w.pan) w.pan.disconnect(); } catch (e) { /* */ } }, 1300);
     }
+    if (wind && wind.pan && dir) wind.pan.pan.setTargetAtTime(dir > 0 ? 0.3 : -0.3, t, 0.3);
   }
 
   // ---------------- 合成兜底音效（文件缺失或解码失败时） ----------------

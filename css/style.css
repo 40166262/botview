@@ -254,3 +254,6 @@ b { font-weight: normal; }
 .mock-ad-sub { font-size: 14px; opacity: .8; margin-top: 6px; }
 .mock-ad-count { margin-top: 16px; font-size: 15px; color: #FFE27A; }
 .mock-ad-count span { font-size: 22px; }
+
+/* 版本号角标（开始页右下角，不挡操作） */
+.ver-tag { position: absolute; right: .2rem; bottom: calc(env(safe-area-inset-bottom, 0px) + .14rem); z-index: 2; font-size: .2rem; color: rgba(107,74,58,.55); pointer-events: none; font-family: var(--font); }
