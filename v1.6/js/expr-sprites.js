@@ -1,0 +1,2 @@
+/* 自动生成：python3 tools/expr_check.py（build.py 会先跑）。只列出轮廓检查通过的表情整图，详见 EXPR_CHECK.md。请勿手改。 */
+window.CS_EXPR_SPRITES = ["cat_orange_scared", "cat_orange_fall", "cat_orange_happy", "cat_orange_star", "cat_white_scared", "cat_white_fall", "cat_white_happy", "cat_white_star", "cat_black_scared", "cat_black_fall", "cat_black_happy", "cat_black_star", "cat_loaf_scared", "cat_loaf_fall", "cat_loaf_happy", "cat_loaf_star", "cat_ball_scared", "cat_ball_fall", "cat_ball_happy", "cat_ball_star", "cat_long_scared", "cat_long_fall", "cat_long_happy", "cat_long_star"];
