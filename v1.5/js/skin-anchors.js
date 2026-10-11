@@ -1,0 +1,3 @@
+/* 自动生成：python3 tools/build.py，来源 assets/skins/sunglasses_anchors.json。请勿手改。
+   cx/cy = 两眼中点（相对图宽/高 0~1），eyeDist = 眼距（相对图宽），angleDeg = 两眼连线倾斜角（度） */
+window.CS_SKIN_ANCHORS = {"orange": {"cx": 0.2626, "cy": 0.4835, "eyeDist": 0.2065, "angleDeg": 1.1, "size": [753, 423]}, "white": {"cx": 0.2635, "cy": 0.4768, "eyeDist": 0.2043, "angleDeg": 1.8, "size": [759, 431]}, "black": {"cx": 0.4515, "cy": 0.2951, "eyeDist": 0.316, "angleDeg": 0.4, "size": [443, 649]}, "loaf": {"cx": 0.179, "cy": 0.4993, "eyeDist": 0.1393, "angleDeg": 3.1, "size": [1010, 384]}, "ball": {"cx": 0.3864, "cy": 0.4206, "eyeDist": 0.2845, "angleDeg": -10.6, "size": [515, 529]}, "long": {"cx": 0.2003, "cy": 0.4937, "eyeDist": 0.0822, "angleDeg": 5.4, "size": [1161, 317]}};
