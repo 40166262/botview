@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#FFE9D6">
+<meta name="screen-orientation" content="portrait">
+<meta name="x5-orientation" content="portrait">
+<meta name="description" content="叠猫猫：点一下放下一只猫，把猫叠得越高越好！">
+<title>叠猫猫</title>
+<link rel="icon" type="image/png" href="assets/ui/app_icon_512.png">
+<link rel="apple-touch-icon" href="assets/ui/app_icon_512.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="stage"></canvas>
+
+  <!-- 加载页 -->
+  <section id="loading" class="screen active">
+    <div class="load-box">
+      <div class="load-cat"><img src="assets/ui/app_icon_512.png" alt="" onerror="this.style.display='none'"></div>
+      <div class="load-title">叠猫猫</div>
+      <div class="load-bar"><i id="loadFill"></i></div>
+      <div class="load-tip" id="loadTip">猫咪正在伸懒腰…</div>
+    </div>
+  </section>
+
+  <!-- 开始页 -->
+  <section id="start" class="screen">
+    <div class="ver-tag" id="verTag">v1.3</div>
+    <div class="topbar safe-top">
+      <div class="pill"><span class="ico ico-coin" data-ico="coin"></span><b class="roll" id="startCoins">0</b></div>
+      <div class="pill"><span class="ico" data-ico="trophy"></span><span class="pill-label">最高</span><b id="startBest">0</b></div>
+    </div>
+    <div class="title-wrap">
+      <h1 class="logo" id="logo"><span>叠</span><span>猫</span><span>猫</span></h1>
+      <p class="subtitle">点一下，把猫咪叠上天！</p>
+    </div>
+    <div class="challenge-banner hidden" id="challengeBanner">
+      <div class="cb-title">好友向你发起挑战！</div>
+      <div class="cb-sub" id="challengeText"></div>
+    </div>
+    <div class="start-actions">
+      <button class="btn btn-main btn-orange" id="btnPlay"><span id="btnPlayText">开始游戏</span></button>
+      <div class="row menu-row">
+        <button class="btn btn-round" id="btnSettings" aria-label="设置"><span class="ico" data-ico="settings"></span></button>
+        <button class="btn btn-sub btn-purple" id="btnGallery"><span class="ico" data-ico="gallery"></span><span>猫咪图鉴</span></button>
+        <button class="btn btn-round" id="btnSound" aria-label="声音"><span class="ico" data-ico="sound"></span></button>
+      </div>
+      <div class="daily-tip hidden" id="dailyTip">今日首局奖励 <b>50</b> 金币</div>
+    </div>
+  </section>
+
+  <!-- 游戏页 HUD -->
+  <section id="game" class="screen hud">
+    <div class="hud-top safe-top">
+      <div class="hud-score">
+        <div class="hud-height"><b id="hudHeight">0</b><small>米</small></div>
+        <div class="hud-sub">得分 <b id="hudScore">0</b></div>
+        <div class="hud-challenge hidden" id="hudChallenge"></div>
+      </div>
+      <div class="hud-next">
+        <div class="next-label">下一只</div>
+        <canvas id="nextCanvas" width="160" height="120"></canvas>
+        <div class="hud-wind hidden" id="hudWind"><span>风</span><span class="wind-arrows" id="windArrow"></span></div>
+      </div>
+    </div>
+    <div class="hud-tip" id="hudTip">点击屏幕，放下猫咪</div>
+    <div class="hud-bottom safe-bottom">
+      <button class="btn btn-round" id="btnPause" aria-label="暂停"><span class="ico" data-ico="pause"></span></button>
+      <button class="btn btn-swap btn-purple" id="btnSwap"><span class="ico ad-badge" data-ico="ad"></span><span class="swap-text"><b>换猫</b><small id="swapLeft">剩 2 次</small></span></button>
+    </div>
+    <div class="wind-pop hidden" id="windPop"><span class="ico wind-gust" data-ico="gust"></span><div class="wp-text">起风了！</div><div class="wp-sub">风会把下落的猫往这边吹 <span class="ico wind-dir" id="windPopArrow" data-ico="windarrow"></span></div></div>
+    <div class="milestone hidden" id="milestone"><div class="ms-num" id="msNum">10 米！</div><div class="ms-sub" id="msSub">进入屋顶区</div></div>
+  </section>
+
+  <!-- 结算页 -->
+  <section id="result" class="screen">
+    <div class="panel result-panel">
+      <div class="record-ribbon hidden" id="recordRibbon"><span class="ico" data-ico="trophy"></span>新纪录！</div>
+      <div class="result-title" id="resultTitle">猫塔倒啦～</div>
+      <canvas id="towerThumb" width="400" height="320"></canvas>
+      <div class="result-stats">
+        <div class="stat"><small>本局高度</small><b><span id="resHeight">0</span><i>米</i></b></div>
+        <div class="stat"><small>得分</small><b id="resScore">0</b></div>
+        <div class="stat"><small>最高分</small><b id="resBest">0</b></div>
+      </div>
+      <div class="challenge-result hidden" id="challengeResult"></div>
+      <div class="coins-row">
+        <span class="ico ico-coin" data-ico="coin"></span><span>获得金币</span><b class="roll coins-num">+<span id="resCoins">0</span><em class="coin-float" id="coinFloat"></em></b>
+        <small id="resDaily" class="hidden">含每日首局 +50（不参与双倍）</small>
+      </div>
+      <button class="btn btn-main btn-purple btn-ad" id="btnDouble"><span class="ico ad-badge" data-ico="ad"></span><span id="btnDoubleText">看广告领取双倍</span></button>
+      <div class="row result-row">
+        <button class="btn btn-round" id="btnHome" aria-label="首页"><span class="ico" data-ico="home"></span></button>
+        <button class="btn btn-main btn-orange btn-again" id="btnAgain"><span class="ico" data-ico="restart"></span><span>再来一局</span></button>
+        <button class="btn btn-round" id="btnShare" aria-label="分享"><span class="ico" data-ico="share"></span></button>
+      </div>
+      <div class="seed-line">挑战码 <b id="resSeed">-</b></div>
+    </div>
+  </section>
+
+  <!-- 图鉴 -->
+  <section id="gallery" class="screen">
+    <div class="gallery-head safe-top">
+      <button class="btn btn-round" id="btnGalleryBack" aria-label="返回"><span class="ico" data-ico="home"></span></button>
+      <h2>猫咪图鉴</h2>
+      <div class="pill"><span class="ico ico-coin" data-ico="coin"></span><b id="galleryCoins">0</b></div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="skins">配件</button>
+      <button class="tab" data-tab="cats">猫咪</button>
+    </div>
+    <div class="gallery-body">
+      <div class="grid" id="skinGrid"></div>
+      <div class="grid hidden" id="catGrid"></div>
+    </div>
+    <div class="gallery-tip">选中的配件会戴在之后放下的每一只猫身上</div>
+  </section>
+
+  <!-- 弹窗 -->
+  <div class="modal" id="pauseModal">
+    <div class="panel modal-panel">
+      <div class="modal-title">暂停一下</div>
+      <button class="btn btn-main btn-orange" id="btnResume"><span class="ico" data-ico="play"></span><span>继续游戏</span></button>
+      <button class="btn btn-sub btn-purple" id="btnRestart"><span class="ico" data-ico="restart"></span><span>重新开始</span></button>
+      <button class="btn btn-sub btn-plain" id="btnQuit"><span class="ico" data-ico="home"></span><span>回到首页</span></button>
+      <div class="toggles" data-toggles></div>
+    </div>
+  </div>
+
+  <div class="modal" id="reviveModal">
+    <div class="panel modal-panel">
+      <div class="revive-cat"><span class="ico" data-ico="heart"></span></div>
+      <div class="modal-title">猫塔倒啦！</div>
+      <div class="revive-score">当前 <b id="reviveHeight">0</b> 米 · 得分 <b id="reviveScore">0</b></div>
+      <div class="modal-text">看个广告，把倒下的猫咪捡回来继续叠？<br><small>每局只能复活 1 次</small></div>
+      <button class="btn btn-main btn-purple btn-ad" id="btnRevive"><span class="ico ad-badge" data-ico="ad"></span><span id="btnReviveText">看广告复活</span></button>
+      <button class="btn btn-sub btn-plain" id="btnGiveUp"><span>不了，去结算</span></button>
+    </div>
+  </div>
+
+  <div class="modal" id="settingsModal">
+    <div class="panel modal-panel">
+      <div class="modal-title">设置</div>
+      <div class="toggles" data-toggles></div>
+      <div class="about">叠猫猫 v<span id="ver"></span><br>字体：站酷快乐体、Fredoka（SIL OFL 1.1）</div>
+      <button class="btn btn-sub btn-orange" data-close><span>好的</span></button>
+    </div>
+  </div>
+
+  <div class="modal" id="shareModal">
+    <div class="panel modal-panel share-panel">
+      <button class="btn close-x" data-close aria-label="关闭"><span class="ico" data-ico="close"></span></button>
+      <div class="modal-title">分享战绩</div>
+      <img id="shareImg" alt="分享图">
+      <div class="share-tip">长按图片可以保存或发送给好友</div>
+      <div class="row share-row">
+        <button class="btn btn-sub btn-orange hidden" id="btnNativeShare"><span class="ico" data-ico="share"></span><span>分享</span></button>
+        <a class="btn btn-sub btn-purple" id="btnSaveImg" download="叠猫猫战绩.png"><span>保存图片</span></a>
+      </div>
+      <button class="btn btn-sub btn-plain" id="btnCopyLink"><span>复制挑战链接</span></button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="flash" id="flash"></div>
+</div>
+
+<noscript>请开启 JavaScript 来玩叠猫猫。</noscript>
+<script src="js/vendor/matter.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/asset-manifest.js"></script>
+<script src="js/expr-sprites.js"></script>
+<script src="js/rng.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/ads.js"></script>
+<script src="js/assets.js"></script>
+<script src="js/game.js"></script>
+<script src="js/share.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
