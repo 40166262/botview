@@ -120,21 +120,29 @@ export function showUpgradeCards(choices, onPick) {
     btn.className = `card rarity-${u.rarity || 'common'}`;
     btn.type = 'button';
     btn.style.animationDelay = `${0.04 + i * 0.08}s`;
-    const iconCell = (u.sheet != null) ? getIconCell(u.sheet) : null;
+    const PROP_ICON = {
+      robo_vac: 'assets/icon_robo_vac.png',
+      chem_jug: 'assets/icon_chem_jug.png',
+      extinguisher: 'assets/icon_extinguisher.png',
+      nail_bomb: 'assets/icon_nail_bomb.png',
+      fan_blade: 'assets/icon_fan_blade.png',
+      stapler_storm: 'assets/icon_stapler.png',
+      orbit: 'assets/icon_fan_blade.png',
+    };
+    const propSrc = PROP_ICON[u.id];
+    const iconCell = (!propSrc && u.sheet != null) ? getIconCell(u.sheet) : null;
     let iconHtml = `<div class="card-icon"><span style="font-size:18px;color:#c8b8a0">${(u.name||'?')[0]}</span></div>`;
-    if (iconCell) {
-      iconHtml = `<div class="card-icon"></div>`;
-    }
+    if (propSrc || iconCell) iconHtml = `<div class="card-icon"></div>`;
     btn.innerHTML = `
       ${iconHtml}
       <div class="card-body">
         <h3>${u.name}<span class="card-rarity" style="color:${r.color}">${r.name}</span></h3>
         <p>${u.desc}</p>
       </div>`;
-    if (iconCell) {
+    if (propSrc || iconCell) {
       const holder = btn.querySelector('.card-icon');
       const img = document.createElement('img');
-      img.src = iconCell.toDataURL();
+      img.src = propSrc || iconCell.toDataURL();
       img.alt = u.name;
       img.style.objectFit = 'contain';
       img.style.width = '100%';
