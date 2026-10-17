@@ -1,8 +1,8 @@
 /** Upgrade catalog — facility weapons + passives; sheet cells into 5×5 icon sheet */
 export const RARITY = {
-  common: { id: 'common', name: '普通', color: '#8a9090', border: 'rgba(138,144,144,0.7)' },
-  rare: { id: 'rare', name: '稀有', color: '#6a8a9a', border: 'rgba(106,138,154,0.75)' },
-  epic: { id: 'epic', name: '史诗', color: '#c4a050', border: 'rgba(196,160,80,0.9)' },
+  common: { id: 'common', name: '普通', color: '#9aaa90', border: 'rgba(154,170,144,0.75)' },
+  rare: { id: 'rare', name: '稀有', color: '#5cb8c8', border: 'rgba(92,184,200,0.85)' },
+  epic: { id: 'epic', name: '史诗', color: '#e0b050', border: 'rgba(224,176,80,0.95)' },
 };
 
 /**
@@ -304,26 +304,89 @@ export const UPGRADES = [
 
 const RARITY_WEIGHT = { common: 1, rare: 0.55, epic: 0.28 };
 
+/** 特殊武器 id：已拥有且未满级时大幅加权，优先凑满同一件；避免开局后总刷新枪稀释构筑 */
+const SPECIAL_WEAPONS = new Set([
+  'laser_pointer', 'chem_jug', 'nail_bomb', 'robo_vac', 'tear_gas',
+  'stapler_storm', 'orbit', 'bounce', 'split', 'fan_blade', 'extinguisher',
+]);
+
+function weightedPickOne(bag) {
+  let total = bag.reduce((s, b) => s + b.w, 0);
+  let r = Math.random() * total;
+  let idx = 0;
+  for (let j = 0; j < bag.length; j++) {
+    r -= bag[j].w;
+    if (r <= 0) { idx = j; break; }
+  }
+  return idx;
+}
+
 export function pickUpgradeChoices(ownedCounts, n = 3) {
   const pool = UPGRADES.filter((u) => (ownedCounts[u.id] || 0) < u.max);
   const list = pool.length ? pool : UPGRADES;
-  const bag = list.map((u) => ({ u, w: RARITY_WEIGHT[u.rarity] || 1 }));
-  const special = new Set(['laser_pointer', 'chem_jug', 'nail_bomb', 'robo_vac', 'tear_gas', 'stapler_storm', 'orbit', 'bounce', 'split']);
-  for (const b of bag) {
-    if (special.has(b.u.id) && (ownedCounts[b.u.id] || 0) === 0) b.w *= 1.35;
+
+  // 统计已拥有的特殊武器种类（≥1 级）
+  let ownedSpecialKinds = 0;
+  for (const id of SPECIAL_WEAPONS) {
+    if ((ownedCounts[id] || 0) >= 1) ownedSpecialKinds += 1;
   }
-  const picked = [];
-  for (let i = 0; i < n && bag.length; i++) {
-    let total = bag.reduce((s, b) => s + b.w, 0);
-    let r = Math.random() * total;
-    let idx = 0;
-    for (let j = 0; j < bag.length; j++) {
-      r -= bag[j].w;
-      if (r <= 0) { idx = j; break; }
+  const hasUnfinished = list.some((u) => {
+    const c = ownedCounts[u.id] || 0;
+    return c > 0 && c < u.max;
+  });
+  const hasUnfinishedSpecial = list.some((u) => {
+    const c = ownedCounts[u.id] || 0;
+    return SPECIAL_WEAPONS.has(u.id) && c > 0 && c < u.max;
+  });
+
+  const bag = list.map((u) => {
+    let w = RARITY_WEIGHT[u.rarity] || 1;
+    const owned = ownedCounts[u.id] || 0;
+    const isSpecial = SPECIAL_WEAPONS.has(u.id);
+
+    // 亲和：已拥有未满级 → 强力加权，鼓励凑满同一件
+    if (owned > 0 && owned < u.max) {
+      w *= (2.8 + owned * 0.9);
+    } else if (owned === 0 && isSpecial) {
+      // 早期发现：未拥有的特殊武器轻微加成
+      w *= 1.15;
+      // 已有 2+ 把特殊武器时，抑制新特殊，聚焦构筑
+      if (ownedSpecialKinds >= 2) w *= 0.45;
     }
-    picked.push(bag[idx].u);
-    bag.splice(idx, 1);
+
+    // 有未满级特殊武器时，压低全新普通填充物，让未完成件更常出现
+    if (hasUnfinishedSpecial && u.rarity === 'common' && owned === 0) {
+      w *= 0.55;
+    }
+
+    return { u, w };
+  });
+
+  const picked = [];
+  const used = new Set();
+
+  // 保底：若有未满级已拥有升级，强制塞入权重最高的一件，再按权重填满其余槽
+  if (hasUnfinished && bag.length) {
+    let best = null;
+    for (const b of bag) {
+      const c = ownedCounts[b.u.id] || 0;
+      if (c > 0 && c < b.u.max) {
+        if (!best || b.w > best.w) best = b;
+      }
+    }
+    if (best) {
+      picked.push(best.u);
+      used.add(best.u.id);
+    }
   }
+
+  const rest = bag.filter((b) => !used.has(b.u.id));
+  while (picked.length < n && rest.length) {
+    const idx = weightedPickOne(rest);
+    picked.push(rest[idx].u);
+    rest.splice(idx, 1);
+  }
+
   return picked;
 }
 
