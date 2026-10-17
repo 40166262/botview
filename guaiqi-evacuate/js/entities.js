@@ -69,7 +69,7 @@ export function makeDmgText() {
 
 export function makeChest() {
   return {
-    alive: false, x: 0, y: 0, r: 16, bob: 0, opened: false,
+    alive: false, x: 0, y: 0, r: 28, bob: 0, opened: false,
   };
 }
 

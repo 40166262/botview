@@ -83,9 +83,32 @@ export function chromaKeyToCanvas(img, opts = {}) {
     const max = Math.max(r, g, b), min = Math.min(r, g, b);
     const lum = 0.299 * r + 0.587 * g + 0.114 * b;
     const chroma = max - min;
+    // Near-white / low-chroma bright pixels → transparent (kills baked white mats)
     if ((r > whiteMin && g > whiteMin && b > whiteMin) || (lum > lumBg && chroma < 28)) {
       const t = Math.min(1, Math.max(0, (lum - lumBg) / (255 - lumBg)));
       d[i + 3] = Math.floor(d[i + 3] * (1 - t));
+    } else if (lum > 210 && chroma < 40 && d[i + 3] > 0) {
+      // Soft fringe: pale edge pixels partial fade
+      d[i + 3] = Math.floor(d[i + 3] * 0.35);
+    }
+  }
+  // Optional: erode semi-transparent pale halo (1px neighbor of fully transparent)
+  if (opts.fringe) {
+    const alpha = new Uint8Array(w * h);
+    for (let p = 0; p < w * h; p++) alpha[p] = d[p * 4 + 3];
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const p = y * w + x;
+        if (alpha[p] === 0) continue;
+        const r = d[p * 4], g = d[p * 4 + 1], b = d[p * 4 + 2];
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+        const nearEmpty =
+          alpha[p - 1] < 20 || alpha[p + 1] < 20 ||
+          alpha[p - w] < 20 || alpha[p + w] < 20;
+        if (nearEmpty && lum > 185) {
+          d[p * 4 + 3] = 0;
+        }
+      }
     }
   }
   ctx.putImageData(data, 0, 0);
@@ -134,7 +157,7 @@ function prepareOptionalArt() {
     const img = getSprite(key);
     if (!img) continue;
     try {
-      processed[key] = chromaKeyToCanvas(img, { whiteMin: 245, lumBg: 248 });
+      processed[key] = chromaKeyToCanvas(img, { whiteMin: 232, lumBg: 238, fringe: true });
     } catch (e) { /* keep raw sprite */ }
   }
 }
@@ -223,8 +246,9 @@ export function drawClippedSprite(ctx, img, x, y, radius, opts = {}) {
     ctx.globalAlpha = 1;
   }
   if (flash) {
-    ctx.globalAlpha = 0.2;
-    ctx.fillStyle = 'rgba(232,200,140,0.6)';
+    // Soft warm hit tint — avoid bright white plate on sprite edges
+    ctx.globalAlpha = 0.14;
+    ctx.fillStyle = 'rgba(200,160,90,0.55)';
     ctx.fillRect(dx, dy, dw, dh);
     ctx.globalAlpha = 1;
   }

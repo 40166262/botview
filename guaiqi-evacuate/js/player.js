@@ -4,7 +4,7 @@ export function createPlayer(cx, cy) {
   return {
     x: cx,
     y: cy,
-    r: 14,
+    r: 16,
     hp: 100,
     maxHp: 100,
     speed: 145,
@@ -70,7 +70,7 @@ export function xpNeeded(level) {
 function drawPlayerVector(ctx, p, t, bob) {
   const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 36);
   g.addColorStop(0, 'rgba(255,224,102,0.45)');
-  g.addColorStop(0.5, 'rgba(126,232,250,0.15)');
+  g.addColorStop(0.5, 'rgba(200,180,120,0.15)');
   g.addColorStop(1, 'rgba(255,224,102,0)');
   ctx.fillStyle = g;
   ctx.beginPath();
@@ -114,7 +114,7 @@ export function drawPlayer(ctx, p, t) {
   if (sprite) {
     drawClippedSprite(ctx, sprite, p.x, p.y + bob, p.r, {
       glow: 'none',
-      scale: 1.3,
+      scale: 1.95,
     });
   } else {
     drawPlayerVector(ctx, p, t, bob);
@@ -122,12 +122,12 @@ export function drawPlayer(ctx, p, t) {
 
   // shield ring
   if (p.shield > 0) {
-    ctx.strokeStyle = `rgba(126,232,250,${0.55 + Math.sin(t * 5) * 0.25})`;
+    ctx.strokeStyle = `rgba(200,180,120,${0.55 + Math.sin(t * 5) * 0.25})`;
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(p.x, p.y + bob, p.r + 8, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.fillStyle = 'rgba(126,232,250,0.12)';
+    ctx.fillStyle = 'rgba(200,180,120,0.12)';
     ctx.beginPath();
     ctx.arc(p.x, p.y + bob, p.r + 8, 0, Math.PI * 2);
     ctx.fill();
