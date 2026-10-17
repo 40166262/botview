@@ -118,17 +118,19 @@ html, body {
   align-items: center; width: 90%; gap: 8px; padding-bottom: 24px;
 }
 .daily-gift {
-  background: linear-gradient(90deg, rgba(196,136,152,0.2), rgba(160,150,130,0.18));
-  border: 1px solid rgba(160,150,130,0.45); border-radius: 99px;
-  padding: 6px 14px; font-size: 12px; color: var(--glow);
+  background: linear-gradient(90deg, rgba(40,32,22,0.82), rgba(55,42,28,0.78));
+  border: 1.5px solid rgba(240,190,110,0.75); border-radius: 99px;
+  padding: 7px 16px; font-size: 13px; font-weight: 700;
+  color: #ffe6a8; text-shadow: 0 1px 2px rgba(0,0,0,0.7);
   animation: pulse 1.8s ease-in-out infinite;
 }
 .quest-chip {
-  width: 100%; font-size: 12px; color: var(--muted); text-align: center;
-  background: rgba(255,255,255,0.04); border-radius: 12px; padding: 8px;
-  border: 1px dashed rgba(180,160,110,0.3);
+  width: 100%; font-size: 13px; font-weight: 600; color: #f2e6c8; text-align: center;
+  background: rgba(28,24,18,0.72); border-radius: 12px; padding: 9px 10px;
+  border: 1px solid rgba(220,180,100,0.45);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.65);
 }
-.quest-chip.ready { border-color: var(--glow); color: var(--glow); }
+.quest-chip.ready { border-color: #f0c060; color: #ffe6a8; }
 .stats-row { display: flex; gap: 6px; width: 100%; margin: 4px 0 8px; }
 .stat-chip {
   flex: 1; background: var(--panel); border: 1px solid var(--panel-border);
@@ -643,3 +645,12 @@ html, body {
   padding: 14px 14px;
   border-radius: 18px;
 }
+
+.char-thumb { position: relative; overflow: hidden; }
+.char-lock-badge {
+  position: absolute; inset: auto 6px 6px auto;
+  background: rgba(20,16,12,0.85); color: #ffe6a8;
+  border: 1px solid rgba(240,190,110,0.6);
+  border-radius: 8px; padding: 2px 8px; font-size: 12px; font-weight: 700;
+}
+.char-card.locked .char-thumb img { opacity: 0.9; }
