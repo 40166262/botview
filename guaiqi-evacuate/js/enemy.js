@@ -349,15 +349,78 @@ function flashColor(e) {
   return e.isBoss ? '#e8c0c8' : e.isElite ? '#e8d4a0' : '#d8c8b0';
 }
 
-function drawEnemyVector(ctx, e, bob, flash) {
-  if (e.isBoss || e.isElite) {
-    const aura = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.r * 1.5);
-    aura.addColorStop(0, e.isBoss ? 'rgba(160,80,100,0.14)' : 'rgba(160,130,50,0.14)');
+function drawEliteBossAura(ctx, e, bob, t) {
+  const pulse = 1 + 0.06 * Math.sin(t * 4.2 + e.wobble);
+  if (e.isElite) {
+    const ar = e.r * 1.55 * pulse;
+    const aura = ctx.createRadialGradient(e.x, e.y + bob, 0, e.x, e.y + bob, ar);
+    aura.addColorStop(0, 'rgba(255,170,60,0.42)');
+    aura.addColorStop(0.45, 'rgba(220,140,40,0.22)');
     aura.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = aura;
     ctx.beginPath();
-    ctx.ellipse(e.x, e.y + e.r * 0.15, e.r * 1.15, e.r * 0.8, 0, 0, Math.PI * 2);
+    ctx.ellipse(e.x, e.y + bob + e.r * 0.15, ar * 0.95, ar * 0.72, 0, 0, Math.PI * 2);
     ctx.fill();
+    // thick gold outline ring
+    ctx.strokeStyle = `rgba(255,200,80,${0.55 + 0.15 * Math.sin(t * 5)})`;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.ellipse(e.x, e.y + bob + e.r * 0.1, e.r * 1.25 * pulse, e.r * 0.95 * pulse, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // small upward spark particles
+    for (let i = 0; i < 4; i++) {
+      const a = t * 2.5 + i * 1.7 + e.wobble;
+      const sx = e.x + Math.cos(a) * e.r * 0.9;
+      const sy = e.y + bob - e.r * 0.4 - ((t * 28 + i * 11) % 22);
+      ctx.globalAlpha = 0.35 + 0.35 * Math.sin(t * 6 + i);
+      ctx.fillStyle = '#ffe080';
+      ctx.beginPath();
+      ctx.arc(sx, sy, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  } else if (e.isBoss) {
+    const ar = e.r * 1.85 * pulse;
+    const aura = ctx.createRadialGradient(e.x, e.y + bob, 0, e.x, e.y + bob, ar);
+    aura.addColorStop(0, 'rgba(220,60,120,0.48)');
+    aura.addColorStop(0.4, 'rgba(160,40,100,0.28)');
+    aura.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = aura;
+    ctx.beginPath();
+    ctx.ellipse(e.x, e.y + bob + e.r * 0.15, ar * 1.05, ar * 0.78, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // double ring
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = `rgba(255,80,140,${0.5 + 0.2 * Math.sin(t * 3)})`;
+    ctx.beginPath();
+    ctx.ellipse(e.x, e.y + bob, e.r * 1.35 * pulse, e.r * 1.05 * pulse, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = `rgba(200,60,160,${0.4 + 0.15 * Math.sin(t * 4 + 1)})`;
+    ctx.setLineDash([10, 6]);
+    ctx.beginPath();
+    ctx.ellipse(e.x, e.y + bob, e.r * 1.55 * pulse, e.r * 1.2 * pulse, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // slow rotating arc marks
+    const rot = t * 0.7;
+    ctx.strokeStyle = 'rgba(255,120,180,0.55)';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+      const a0 = rot + (i * Math.PI * 2) / 3;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y + bob, e.r * 1.45, a0, a0 + 0.7);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawEnemyVector(ctx, e, bob, flash, t = 0) {
+  if (e.isBoss || e.isElite) {
+    drawEliteBossAura(ctx, e, bob, t);
   }
 
   ctx.globalAlpha = e.phaseHidden ? 0.35 : 1;
@@ -465,24 +528,21 @@ export function drawEnemy(ctx, e, t) {
 
   if (sprite) {
     if (e.isBoss || e.isElite) {
-      // Soft elliptical aura — not a white circular plate
-      const aura = ctx.createRadialGradient(e.x, e.y + bob, 0, e.x, e.y + bob, e.r * 1.6);
-      aura.addColorStop(0, e.isBoss ? 'rgba(160,80,100,0.14)' : 'rgba(160,130,50,0.14)');
-      aura.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = aura;
-      ctx.beginPath();
-      ctx.ellipse(e.x, e.y + bob + e.r * 0.2, e.r * 1.2, e.r * 0.85, 0, 0, Math.PI * 2);
-      ctx.fill();
+      drawEliteBossAura(ctx, e, bob, t);
     }
     ctx.globalAlpha = e.phaseHidden ? 0.35 : 1;
+    const baseScale = e.type === 'bat' || e.type === 'shadow' ? 1.55
+      : e.type === 'golem' || e.type === 'beetle' ? 1.35
+      : e.isBoss ? 1.35 : 1.45;
+    const scaleBump = e.isBoss ? 1.0 : e.isElite ? 1.08 : 1;
     drawClippedSprite(ctx, sprite, e.x, e.y + bob, e.r, {
       glow: 'none',
-      scale: e.type === 'bat' || e.type === 'shadow' ? 1.55 : e.type === 'golem' || e.type === 'beetle' ? 1.35 : e.isBoss ? 1.35 : 1.45,
+      scale: baseScale * scaleBump,
       flash,
     });
     ctx.globalAlpha = 1;
   } else {
-    drawEnemyVector(ctx, e, bob, flash);
+    drawEnemyVector(ctx, e, bob, flash, t);
   }
 
   if (e.slow > 0) {
@@ -493,14 +553,22 @@ export function drawEnemy(ctx, e, t) {
     ctx.stroke();
   }
 
+  // Elite/boss always show thicker brighter HP bar
   if (e.isBoss || e.isElite || e.hp < e.maxHp * 0.99) {
-    const bw = e.r * 2;
+    const thick = e.isBoss || e.isElite;
+    const bh = thick ? 7 : 4;
+    const bw = e.r * (thick ? 2.4 : 2);
     const bx = e.x - bw / 2;
-    const by = e.y - e.r - 10;
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(bx, by, bw, 4);
-    ctx.fillStyle = e.isBoss ? '#d08098' : e.isElite ? '#d4a84a' : '#6db88a';
-    ctx.fillRect(bx, by, bw * Math.max(0, e.hp / e.maxHp), 4);
+    const by = e.y - e.r - (thick ? 14 : 10);
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+    ctx.fillStyle = e.isBoss ? '#ff6a9a' : e.isElite ? '#ffc050' : '#6db88a';
+    ctx.fillRect(bx, by, bw * Math.max(0, e.hp / e.maxHp), bh);
+    if (thick) {
+      ctx.strokeStyle = e.isBoss ? 'rgba(255,120,160,0.7)' : 'rgba(255,210,100,0.7)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(bx - 1, by - 1, bw + 2, bh + 2);
+    }
   }
   ctx.restore();
 }

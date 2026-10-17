@@ -1017,14 +1017,14 @@ export class Game {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, W, H);
 
-    // muted grounded backgrounds per chapter
+    // brighter chapter backgrounds — readable beige/teal linoleum, less charcoal
     let c0, c1, c2;
     if (theme === 'ward') {
-      c0 = [48, 52, 56]; c1 = [40, 44, 48]; c2 = [32, 36, 40];
+      c0 = [62, 72, 78]; c1 = [52, 60, 66]; c2 = [42, 50, 56];
     } else if (theme === 'basement') {
-      c0 = [28, 30, 34]; c1 = [20, 22, 26]; c2 = [14, 16, 18];
+      c0 = [40, 46, 54]; c1 = [32, 36, 44]; c2 = [24, 28, 34];
     } else {
-      c0 = [52, 48, 40]; c1 = [42, 38, 32]; c2 = [32, 28, 24];
+      c0 = [68, 60, 48]; c1 = [56, 50, 40]; c2 = [44, 38, 30];
     }
     const bg = ctx.createLinearGradient(0, 0, 0, H);
     bg.addColorStop(0, `rgb(${c0[0]},${c0[1]},${c0[2]})`);
@@ -1040,17 +1040,17 @@ export class Game {
     ctx.translate(-W / 2, -H / 2);
     ctx.translate(-this.camX + off.x, -this.camY + off.y);
 
-    // ground base — office carpet / ward tile / basement tech floor
-    if (theme === 'ward') ctx.fillStyle = 'rgba(170, 175, 178, 0.55)';
-    else if (theme === 'basement') ctx.fillStyle = 'rgba(45, 48, 52, 0.7)';
-    else ctx.fillStyle = 'rgba(168, 155, 130, 0.55)';
+    // ground base — brighter office carpet / ward linoleum / basement tech
+    if (theme === 'ward') ctx.fillStyle = 'rgba(198, 210, 215, 0.62)';
+    else if (theme === 'basement') ctx.fillStyle = 'rgba(68, 78, 88, 0.72)';
+    else ctx.fillStyle = 'rgba(198, 182, 150, 0.62)';
     ctx.fillRect(0, 0, WORLD_W, WORLD_H);
 
     // ground patches
     for (const g of (this.groundPatches || [])) {
-      if (theme === 'ward') ctx.fillStyle = `rgba(190, 195, 200, ${0.1 + g.shade * 0.12})`;
-      else if (theme === 'basement') ctx.fillStyle = `rgba(35, 40, 48, ${0.15 + g.shade * 0.15})`;
-      else ctx.fillStyle = `rgba(150, 138, 115, ${0.1 + g.shade * 0.12})`;
+      if (theme === 'ward') ctx.fillStyle = `rgba(210, 220, 225, ${0.12 + g.shade * 0.14})`;
+      else if (theme === 'basement') ctx.fillStyle = `rgba(55, 65, 78, ${0.16 + g.shade * 0.16})`;
+      else ctx.fillStyle = `rgba(175, 160, 130, ${0.12 + g.shade * 0.14})`;
       ctx.beginPath();
       ctx.ellipse(g.x, g.y, g.r, g.r * 0.65, 0, 0, Math.PI * 2);
       ctx.fill();
@@ -1062,7 +1062,7 @@ export class Game {
 
     // fog bands
     for (const f of this.fogBands) {
-      ctx.fillStyle = `rgba(160,155,140,${f.a * 0.7})`;
+      ctx.fillStyle = `rgba(180,175,155,${f.a * 0.55})`;
       ctx.fillRect(0, f.y + Math.sin(this.time * 0.3) * f.drift, WORLD_W, f.h);
     }
 
@@ -1071,15 +1071,15 @@ export class Game {
       const tile = theme === 'basement' ? 56 : theme === 'ward' ? 48 : 64;
       let gridA, gridB;
       if (theme === 'ward') {
-        gridA = 'rgba(120, 128, 136, 0.10)';
-        gridB = 'rgba(200, 205, 210, 0.06)';
+        gridA = 'rgba(130, 145, 155, 0.12)';
+        gridB = 'rgba(215, 225, 230, 0.08)';
       } else if (theme === 'basement') {
-        gridA = 'rgba(70, 80, 90, 0.14)';
-        gridB = 'rgba(40, 48, 56, 0.08)';
+        gridA = 'rgba(90, 105, 120, 0.16)';
+        gridB = 'rgba(60, 72, 86, 0.10)';
       } else {
         // beige office carpet seams — soft, not wall-like
-        gridA = 'rgba(120, 108, 88, 0.11)';
-        gridB = 'rgba(180, 168, 140, 0.05)';
+        gridA = 'rgba(140, 125, 100, 0.13)';
+        gridB = 'rgba(200, 185, 155, 0.07)';
       }
       ctx.strokeStyle = gridA;
       ctx.lineWidth = 1;
@@ -1397,9 +1397,9 @@ export class Game {
     // vignette — warmer / chapter tinted
     const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.22, W / 2, H / 2, H * 0.8);
     vig.addColorStop(0, 'rgba(0,0,0,0)');
-    if (theme === 'basement') vig.addColorStop(1, 'rgba(8,10,14,0.62)');
-    else if (theme === 'ward') vig.addColorStop(1, 'rgba(16,18,22,0.5)');
-    else vig.addColorStop(1, 'rgba(12,16,10,0.48)');
+    if (theme === 'basement') vig.addColorStop(1, 'rgba(12,16,22,0.48)');
+    else if (theme === 'ward') vig.addColorStop(1, 'rgba(20,24,28,0.38)');
+    else vig.addColorStop(1, 'rgba(18,16,12,0.36)');
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, W, H);
 

@@ -10,6 +10,7 @@ const MANIFEST = {
   golem: 'assets/enemy_securibot.png',
   boss: 'assets/enemy_boss.png',
   shadow: 'assets/enemy_shadow.png',
+  // char_* paths ready for art drops
   grin: 'assets/char_grin.png',
   medic: 'assets/char_medic.png',
   janitor: 'assets/char_janitor.png',
@@ -78,6 +79,7 @@ export function chromaKeyToCanvas(img, opts = {}) {
   const d = data.data;
   const whiteMin = opts.whiteMin ?? 235;
   const lumBg = opts.lumBg ?? 200;
+  const doFringe = opts.fringe === true;
   for (let i = 0; i < d.length; i += 4) {
     const r = d[i], g = d[i + 1], b = d[i + 2];
     const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -87,8 +89,8 @@ export function chromaKeyToCanvas(img, opts = {}) {
     if ((r > whiteMin && g > whiteMin && b > whiteMin) || (lum > lumBg && chroma < 28)) {
       const t = Math.min(1, Math.max(0, (lum - lumBg) / (255 - lumBg)));
       d[i + 3] = Math.floor(d[i + 3] * (1 - t));
-    } else if (lum > 210 && chroma < 40 && d[i + 3] > 0) {
-      // Soft fringe: pale edge pixels partial fade
+    } else if (doFringe && lum > 210 && chroma < 40 && d[i + 3] > 0) {
+      // Soft fringe only when explicitly enabled — avoids punching holes in chibi art
       d[i + 3] = Math.floor(d[i + 3] * 0.35);
     }
   }
@@ -141,6 +143,24 @@ function sliceIconSheet(img) {
   }
 }
 
+/** True if image already has transparent corner pixels (real alpha PNG). */
+function imageHasCornerAlpha(img) {
+  try {
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (w < 2 || h < 2) return false;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0);
+    const corners = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]];
+    for (const [x, y] of corners) {
+      if (ctx.getImageData(x, y, 1, 1).data[3] < 250) return true;
+    }
+  } catch (e) { /* ignore */ }
+  return false;
+}
+
 function prepareOptionalArt() {
   const icons = getSprite('icons');
   if (icons) {
@@ -148,17 +168,30 @@ function prepareOptionalArt() {
   }
   const chest = getSprite('chest');
   if (chest) processed.chest = chest;
-  // Safety net: strip residual near-white fringe on character/enemy art
-  const chromaKeys = [
-    'player', 'grin', 'medic', 'janitor', 'intern',
-    'slime', 'bat', 'golem', 'boss', 'shadow',
-  ];
-  for (const key of chromaKeys) {
+  // 角色若已有透明角则跳过抠图，避免 chroma 把肤色/亮边打成洞；敌人仅做温和白底去除
+  const charKeys = ['player', 'grin', 'medic', 'janitor', 'intern'];
+  const enemyKeys = ['slime', 'bat', 'golem', 'boss', 'shadow'];
+  for (const key of charKeys) {
     const img = getSprite(key);
     if (!img) continue;
+    if (imageHasCornerAlpha(img)) {
+      processed[key] = img; // keep original alpha
+      continue;
+    }
     try {
-      processed[key] = chromaKeyToCanvas(img, { whiteMin: 232, lumBg: 238, fringe: true });
-    } catch (e) { /* keep raw sprite */ }
+      processed[key] = chromaKeyToCanvas(img, { whiteMin: 248, lumBg: 250, fringe: false });
+    } catch (e) { /* keep raw */ }
+  }
+  for (const key of enemyKeys) {
+    const img = getSprite(key);
+    if (!img) continue;
+    if (imageHasCornerAlpha(img)) {
+      processed[key] = img;
+      continue;
+    }
+    try {
+      processed[key] = chromaKeyToCanvas(img, { whiteMin: 248, lumBg: 250, fringe: false });
+    } catch (e) { /* keep raw */ }
   }
 }
 

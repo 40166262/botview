@@ -8,7 +8,7 @@ export const CHARACTERS = [
     name: '狂笑射手',
     desc: '设施清剿队均衡枪手。冲锋枪手感起步。',
     icon: '', unlock: { type: 'default' },
-    tint: '#8a9098',
+    tint: '#c4b090',
     stats: { damage: 1, speed: 1, hp: 1, crit: 1 },
     flavor: '「笑着开枪比较准。」',
   },
@@ -17,7 +17,7 @@ export const CHARACTERS = [
     name: '急救狂魔',
     desc: '生存向。生命高，注射器投掷手感。',
     icon: '', unlock: { type: 'stage', stageId: 's1' },
-    tint: '#c8b8b0',
+    tint: '#e8d0c8',
     stats: { damage: 0.95, speed: 1.05, hp: 1.25, crit: 0.95 },
     flavor: '「先打一针再说！」',
   },
@@ -27,7 +27,7 @@ export const CHARACTERS = [
     desc: '近战清场。扇叶/拖把范围伤害。',
     icon: '', unlock: { type: 'gacha' },
     coinCost: 120,
-    tint: '#6a8aaa',
+    tint: '#7ab0c8',
     stats: { damage: 1.15, speed: 0.9, hp: 1.3, crit: 0.85 },
     flavor: '「地板要干净，怪也一样。」',
   },
@@ -36,7 +36,7 @@ export const CHARACTERS = [
     name: '倒霉实习生',
     desc: '暴击/幸运向。钉枪起步，暴击高。',
     icon: '', unlock: { type: 'gacha', rarity: 'legendary' },
-    tint: '#c4a878',
+    tint: '#e8c878',
     stats: { damage: 1.05, speed: 1.15, hp: 0.9, crit: 1.55 },
     flavor: '「合同没写要打怪啊……」',
   },
@@ -78,10 +78,10 @@ export const RARITY_LABEL = {
 };
 
 export const RARITY_COLOR = {
-  common: '#8a9090',
-  rare: '#6a8a9a',
-  epic: '#c4a050',
-  legendary: '#b08080',
+  common: '#9aaa90',
+  rare: '#5cb8c8',
+  epic: '#e0b050',
+  legendary: '#e8889a',
 };
 
 export const DEATH_LINES = [
@@ -111,17 +111,17 @@ export const GEAR_SLOTS = [
 ];
 
 export const GEAR_ITEMS = [
-  { id: 'wpn_staff', name: '应急冲锋枪', slot: 'weapon', rarity: 'common', desc: '伤害 +8%', icon: '', effect: { damageMul: 1.08 } },
-  { id: 'wpn_moonblade', name: '改装钉枪', slot: 'weapon', rarity: 'rare', desc: '伤害 +5%，攻速微增', icon: '', effect: { damageMul: 1.05, fireMul: 0.92 } },
-  { id: 'wpn_spore', name: '化学喷射器', slot: 'weapon', rarity: 'epic', desc: '附带减速，攻速微增', icon: '', effect: { frost: 0.06, fireMul: 0.95 } },
-  { id: 'hat_moss', name: '安全帽', slot: 'hat', rarity: 'common', desc: '暴击 +4%', icon: '', effect: { critChance: 0.04 } },
-  { id: 'hat_crown', name: '战术耳罩', slot: 'hat', rarity: 'epic', desc: '暴击 +8%，暴伤 +0.2', icon: '', effect: { critChance: 0.08, critDamage: 0.2 } },
-  { id: 'cloth_cloak', name: '值班外套', slot: 'clothes', rarity: 'common', desc: '生命 +15', icon: '', effect: { flatHp: 15 } },
-  { id: 'cloth_stone', name: '防暴背心', slot: 'clothes', rarity: 'rare', desc: '生命 +25，减伤 5%', icon: '', effect: { flatHp: 25, damageTakenMul: 0.95 } },
-  { id: 'cloth_star', name: '实验防护服', slot: 'clothes', rarity: 'legendary', desc: '伤害与暴击微增', icon: '', effect: { damageMul: 1.06, critMul: 1.1 } },
-  { id: 'shoe_breeze', name: '胶底跑鞋', slot: 'shoes', rarity: 'common', desc: '移速 +6%', icon: '', effect: { speedMul: 1.06 } },
-  { id: 'shoe_root', name: '防滑靴', slot: 'shoes', rarity: 'rare', desc: '移速 +10%，闪避感（残影）', icon: '', effect: { speedMul: 1.1, dashGhost: 1 } },
-  { id: 'shoe_silk', name: '静音靴', slot: 'shoes', rarity: 'epic', desc: '移速 +8%，开局残影', icon: '', effect: { speedMul: 1.08, dashGhost: 1 } },
+  { id: 'wpn_staff', name: '应急冲锋枪', slot: 'weapon', rarity: 'common', desc: '伤害 +8%', icon: 'assets/equip_weapon.png', effect: { damageMul: 1.08 } },
+  { id: 'wpn_moonblade', name: '改装钉枪', slot: 'weapon', rarity: 'rare', desc: '伤害 +5%，攻速微增', icon: 'assets/equip_weapon.png', effect: { damageMul: 1.05, fireMul: 0.92 } },
+  { id: 'wpn_spore', name: '化学喷射器', slot: 'weapon', rarity: 'epic', desc: '附带减速，攻速微增', icon: 'assets/equip_weapon.png', effect: { frost: 0.06, fireMul: 0.95 } },
+  { id: 'hat_moss', name: '安全帽', slot: 'hat', rarity: 'common', desc: '暴击 +4%', icon: 'assets/equip_hat.png', effect: { critChance: 0.04 } },
+  { id: 'hat_crown', name: '战术耳罩', slot: 'hat', rarity: 'epic', desc: '暴击 +8%，暴伤 +0.2', icon: 'assets/equip_hat.png', effect: { critChance: 0.08, critDamage: 0.2 } },
+  { id: 'cloth_cloak', name: '值班外套', slot: 'clothes', rarity: 'common', desc: '生命 +15', icon: 'assets/equip_coat.png', effect: { flatHp: 15 } },
+  { id: 'cloth_stone', name: '防暴背心', slot: 'clothes', rarity: 'rare', desc: '生命 +25，减伤 5%', icon: 'assets/equip_coat.png', effect: { flatHp: 25, damageTakenMul: 0.95 } },
+  { id: 'cloth_star', name: '实验防护服', slot: 'clothes', rarity: 'legendary', desc: '伤害与暴击微增', icon: 'assets/equip_coat.png', effect: { damageMul: 1.06, critMul: 1.1 } },
+  { id: 'shoe_breeze', name: '胶底跑鞋', slot: 'shoes', rarity: 'common', desc: '移速 +6%', icon: 'assets/equip_shoes.png', effect: { speedMul: 1.06 } },
+  { id: 'shoe_root', name: '防滑靴', slot: 'shoes', rarity: 'rare', desc: '移速 +10%，闪避感（残影）', icon: 'assets/equip_shoes.png', effect: { speedMul: 1.1, dashGhost: 1 } },
+  { id: 'shoe_silk', name: '静音靴', slot: 'shoes', rarity: 'epic', desc: '移速 +8%，开局残影', icon: 'assets/equip_shoes.png', effect: { speedMul: 1.08, dashGhost: 1 } },
 ];
 
 export function getGear(id) {

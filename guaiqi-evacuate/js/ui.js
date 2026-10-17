@@ -49,6 +49,41 @@ export function refreshHomeStats(save) {
         : `${q.name}：${q.progress || 0}/${q.target} · ${q.desc}`;
     chip.classList.toggle('ready', done && !q.claimed);
   }
+
+  // 首页英雄全身立绘 + 穿戴装备图
+  const hero = $('home-hero-art');
+  if (hero) {
+    const cid = save.selectedChar || 'grin';
+    const map = {
+      grin: 'assets/char_grin.png',
+      medic: 'assets/char_medic.png',
+      janitor: 'assets/char_janitor.png',
+      intern: 'assets/char_intern.png',
+    };
+    hero.src = map[cid] || map.grin;
+  }
+  const loadout = $('home-loadout');
+  if (loadout) {
+    loadout.innerHTML = '';
+    const gear = save.gear || {};
+    const order = ['weapon', 'hat', 'clothes', 'shoes'];
+    const fallback = {
+      weapon: 'assets/equip_weapon.png',
+      hat: 'assets/equip_hat.png',
+      clothes: 'assets/equip_coat.png',
+      shoes: 'assets/equip_shoes.png',
+    };
+    for (const slot of order) {
+      const id = gear[slot];
+      const g = id ? getGear(id) : null;
+      const img = document.createElement('img');
+      img.src = (g && g.icon) || fallback[slot];
+      img.alt = g ? g.name : slot;
+      img.title = g ? g.name : '未装备';
+      img.style.opacity = g ? '1' : '0.45';
+      loadout.appendChild(img);
+    }
+  }
 }
 
 export function updateHud(data) {
@@ -77,13 +112,16 @@ export function updateHud(data) {
 export function showUpgradeCards(choices, onPick) {
   const wrap = $('upgrade-cards');
   wrap.innerHTML = '';
-  choices.forEach((u) => {
+  // force reflow so CSS cardReveal / iconBounce restarts each level-up
+  void wrap.offsetWidth;
+  choices.forEach((u, i) => {
     const r = upRarity(u.rarity);
     const btn = document.createElement('button');
     btn.className = `card rarity-${u.rarity || 'common'}`;
     btn.type = 'button';
+    btn.style.animationDelay = `${0.04 + i * 0.08}s`;
     const iconCell = (u.sheet != null) ? getIconCell(u.sheet) : null;
-    let iconHtml = `<div class="card-icon"><span style="font-size:11px;color:#a8a890">${(u.name||'?')[0]}</span></div>`;
+    let iconHtml = `<div class="card-icon"><span style="font-size:18px;color:#c8b8a0">${(u.name||'?')[0]}</span></div>`;
     if (iconCell) {
       iconHtml = `<div class="card-icon"></div>`;
     }
@@ -317,7 +355,10 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `gear-slot${g ? '' : ' empty'}`;
-      btn.innerHTML = `<div class="gs-ico">${g ? slot.name[0] : '+'}</div>
+      const ico = g && g.icon
+        ? `<img class="gs-img" src="${g.icon}" alt=""/>`
+        : `<div class="gs-ico">${g ? slot.name[0] : '+'}</div>`;
+      btn.innerHTML = `${ico}
         <div><span class="gs-label">${slot.name}</span>
         <div class="gs-name">${g ? `${g.name} Lv.${lv}` : '空'}</div></div>`;
       if (g && onUpgradeGear) {
@@ -357,7 +398,8 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
     if (gear) {
       const lv = (save.gearLevels || {})[id] || 1;
       const eq = (save.gear || {})[gear.slot] === id;
-      btn.innerHTML = `<div class="ico">${gear.slot[0]}</div>${gear.name}<br><small style="color:${RARITY_COLOR[gear.rarity]}">${RARITY_LABEL[gear.rarity]} Lv.${lv}${eq ? ' ·装' : ''}</small>`;
+      const gico = gear.icon ? `<img class="bag-ico" src="${gear.icon}" alt=""/>` : `<div class="ico">${gear.slot[0]}</div>`;
+      btn.innerHTML = `${gico}${gear.name}<br><small style="color:${RARITY_COLOR[gear.rarity]}">${RARITY_LABEL[gear.rarity]} Lv.${lv}${eq ? ' ·装' : ''}</small>`;
       btn.addEventListener('click', () => onEquipGear && onEquipGear(id));
     } else if (item) {
       const eq = equipped.includes(id);
