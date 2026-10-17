@@ -25,6 +25,7 @@ const W = 390;
 const H = 844;
 const WORLD_W = 1200;
 const WORLD_H = 1600;
+const VIEW_ZOOM = 1.22; // pull-in so chars/loot read larger on phone
 
 export class Game {
   constructor(canvas, hooks = {}) {
@@ -345,8 +346,9 @@ export class Game {
     }
     p.ghosts = p.ghosts.filter((g) => g.age < g.life);
 
-    this.camX = Math.max(0, Math.min(WORLD_W - W, p.x - W / 2));
-    this.camY = Math.max(0, Math.min(WORLD_H - H, p.y - H / 2));
+    const vw = W / VIEW_ZOOM, vh = H / VIEW_ZOOM;
+    this.camX = Math.max(0, Math.min(WORLD_W - vw, p.x - vw / 2));
+    this.camY = Math.max(0, Math.min(WORLD_H - vh, p.y - vh / 2));
 
     this._spawnWave(dt);
     this._checkBosses();
@@ -536,7 +538,7 @@ export class Game {
             kind: 'ebolt', x: ev.x, y: ev.y,
             vx: Math.cos(ev.ang) * (ev.speed || 220),
             vy: Math.sin(ev.ang) * (ev.speed || 220),
-            r: 7, damage: ev.damage, age: 0, life: 2.2, hit: false,
+            r: 14, damage: ev.damage, age: 0, life: 2.2, hit: false,
           });
         } else if (ev.type === 'rot_beam') {
           this.hazardZones.push({
@@ -583,7 +585,7 @@ export class Game {
           p.invuln = 0.7;
           addShake(this.juice, 10, 0.25);
           SFX.hit();
-          spawnBurst(this.particles, p.x, p.y, '#ff6b8a', 10, 100);
+          spawnBurst(this.particles, p.x, p.y, '#c87860', 10, 100);
           tookDamage = true;
           this.noDamageTimer = 0;
           if (p.thorns > 0) this._hurtEnemy(e, p.thorns, false);
@@ -623,7 +625,7 @@ export class Game {
     for (const c of this.chests.active) {
       if (!c.alive || c.opened) continue;
       c.bob += dt;
-      if (Math.hypot(c.x - p.x, c.y - p.y) < c.r + p.r + 8) {
+      if (Math.hypot(c.x - p.x, c.y - p.y) < c.r + p.r + 22) {
         c.opened = true;
         c.alive = false;
         this.paused = true;
@@ -760,7 +762,7 @@ export class Game {
   _spawnChest() {
     const pos = spawnPointAround(this.player.x, this.player.y, 80, 140, WORLD_W, WORLD_H);
     const c = this.chests.acquire();
-    c.x = pos.x; c.y = pos.y; c.r = 18; c.bob = 0; c.opened = false;
+    c.x = pos.x; c.y = pos.y; c.r = 28; c.bob = 0; c.opened = false;
     spawnBurst(this.particles, pos.x, pos.y, '#ffe066', 12, 80);
     const now = this.time || 0;
     if (!this._lastChestToast || now - this._lastChestToast > 1.2) {
@@ -1032,6 +1034,10 @@ export class Game {
     ctx.fillRect(0, 0, W, H);
 
     ctx.save();
+    // Zoom toward screen center so sprites read larger
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(VIEW_ZOOM, VIEW_ZOOM);
+    ctx.translate(-W / 2, -H / 2);
     ctx.translate(-this.camX + off.x, -this.camY + off.y);
 
     // ground base — office carpet / ward tile / basement tech floor
@@ -1079,8 +1085,8 @@ export class Game {
       ctx.lineWidth = 1;
       const x0 = Math.floor(this.camX / tile) * tile;
       const y0 = Math.floor(this.camY / tile) * tile;
-      const x1 = this.camX + W + tile;
-      const y1 = this.camY + H + tile;
+      const x1 = this.camX + W / VIEW_ZOOM + tile;
+      const y1 = this.camY + H / VIEW_ZOOM + tile;
       for (let x = x0; x < x1; x += tile) {
         ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
       }
@@ -1138,31 +1144,32 @@ export class Game {
       cart: 'propCart', crate: 'propCrate', pipe: 'propPipe', rock: 'propRock',
     };
     const PROP_SIZE = {
-      desk: 38, chair: 28, bed: 42, cart: 34, crate: 32, pipe: 36, rock: 22,
+      desk: 26, chair: 18, bed: 30, cart: 22, crate: 20, pipe: 24, rock: 14,
     };
     for (const pr of (this.props || [])) {
-      const s = pr.s || 1;
+      const s = (pr.s || 1) * 0.85;
       const key = PROP_SPRITE[pr.kind];
       let spr = key ? getSprite(key) : null;
       // rock fallback: tiny crate rubble if prop_rock missing
       if (!spr && pr.kind === 'rock') spr = getSprite('propCrate');
       if (!spr && pr.kind === 'cart') spr = getSprite('propBed') || getSprite('propCrate');
       if (spr) {
-        const base = PROP_SIZE[pr.kind] || 32;
+        const base = PROP_SIZE[pr.kind] || 26;
         const sz = base * s;
         const iw = spr.naturalWidth || spr.width;
         const ih = spr.naturalHeight || spr.height;
         const aspect = iw / Math.max(1, ih);
         let dw = sz, dh = sz;
         if (aspect >= 1) { dh = sz / aspect; } else { dw = sz * aspect; }
-        // soft ground shadow only
+        // soft ground shadow only — scenery stays dull vs loot chests
         ctx.save();
-        ctx.fillStyle = 'rgba(0,0,0,0.22)';
+        ctx.globalAlpha = 0.42;
+        ctx.fillStyle = 'rgba(0,0,0,0.14)';
         ctx.beginPath();
         ctx.ellipse(pr.x, pr.y + dh * 0.38, dw * 0.42, dh * 0.14, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.restore();
         ctx.drawImage(spr, pr.x - dw / 2, pr.y - dh / 2, dw, dh);
+        ctx.restore();
       }
     }
 
@@ -1171,10 +1178,13 @@ export class Game {
       const a = 1 - z.age / z.life;
       ctx.globalAlpha = Math.max(0, a * 0.55);
       if (z.kind === 'spore') {
-        ctx.fillStyle = '#c8c050';
+        ctx.strokeStyle = `rgba(180,150,70,${0.55 * a})`;
+        ctx.lineWidth = 3;
+        ctx.setLineDash([6, 5]);
         ctx.beginPath();
-        ctx.arc(z.x, z.y, z.r * (0.7 + 0.3 * a), 0, Math.PI * 2);
-        ctx.fill();
+        ctx.arc(z.x, z.y, z.r * (0.75 + 0.25 * a), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
       } else if (z.kind === 'shockwave' || z.kind === 'nova') {
         if (z.kind === 'nova') {
           const ex = getSprite('projExtinguish');
@@ -1183,23 +1193,40 @@ export class Game {
             ctx.drawImage(ex, z.x - es / 2, z.y - es / 2, es, es);
           }
         }
-        ctx.strokeStyle = z.kind === 'nova' ? 'rgba(180,200,210,0.7)' : '#d08098';
+        ctx.strokeStyle = z.kind === 'nova' ? 'rgba(180,190,180,0.55)' : 'rgba(180,140,100,0.65)';
         ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.arc(z.x, z.y, z.r * Math.min(1, z.age * 4 + 0.2), 0, Math.PI * 2);
         ctx.stroke();
       } else if (z.kind === 'lightning') {
-        ctx.strokeStyle = '#e8d060';
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(232,190,80,0.75)';
+        ctx.lineWidth = 3.5;
+        ctx.setLineDash([6, 5]);
         ctx.beginPath();
-        ctx.arc(z.x, z.y, z.r, 0, Math.PI * 2);
+        ctx.arc(z.x, z.y, z.r, -0.3, Math.PI * 1.55);
         ctx.stroke();
-        ctx.fillStyle = 'rgba(232,208,96,0.25)';
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(200,160,60,0.10)';
+        ctx.beginPath();
+        ctx.arc(z.x, z.y, z.r * 0.65, 0, Math.PI * 2);
         ctx.fill();
       } else if (z.kind === 'ebolt') {
-        ctx.fillStyle = '#c87850';
+        const er = Math.max(10, (z.r || 6) * 2.1);
+        // dark outline halo so it pops on brown floor
         ctx.beginPath();
-        ctx.arc(z.x, z.y, z.r, 0, Math.PI * 2);
+        ctx.arc(z.x, z.y, er + 3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(20,12,8,0.65)';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(z.x, z.y, er, 0, Math.PI * 2);
+        ctx.fillStyle = '#f0a040';
+        ctx.fill();
+        ctx.strokeStyle = '#1a1208';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(z.x - er * 0.28, z.y - er * 0.28, er * 0.32, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,236,190,0.9)';
         ctx.fill();
       } else if (z.kind === 'rot_beam') {
         ctx.strokeStyle = 'rgba(200,160,80,0.7)';
@@ -1256,25 +1283,45 @@ export class Game {
       ctx.shadowBlur = 0;
     }
 
-    // chests
+    // chests — loud interactive loot (vs dull scenery props)
     const chestImg = getChestImage();
     for (const c of this.chests.active) {
       if (!c.alive) continue;
-      const by = c.y + Math.sin(c.bob * 3) * 4;
+      const by = c.y + Math.sin(c.bob * 3) * 5;
+      const pulse = 0.55 + 0.45 * Math.sin(c.bob * 5);
+      // warm pulse ring
+      ctx.save();
+      ctx.globalAlpha = 0.35 + 0.35 * pulse;
+      ctx.strokeStyle = '#e8c050';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(c.x, by, 26 + 4 * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
       if (chestImg) {
         drawClippedSprite(ctx, chestImg, c.x, by, c.r, {
-          glow: 'none', scale: 1.45,
+          glow: 'none', scale: 1.85,
         });
       } else {
         ctx.fillStyle = '#c48a3a';
-        ctx.fillRect(c.x - 14, by - 10, 28, 22);
+        ctx.strokeStyle = '#2a2418';
+        ctx.lineWidth = 2;
+        ctx.fillRect(c.x - 18, by - 14, 36, 28);
+        ctx.strokeRect(c.x - 18, by - 14, 36, 28);
         ctx.fillStyle = '#ffe066';
-        ctx.fillRect(c.x - 14, by - 2, 28, 4);
-        ctx.fillStyle = '#ffd700';
-        ctx.beginPath();
-        ctx.arc(c.x, by + 2, 3, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillRect(c.x - 18, by - 2, 36, 5);
       }
+      // floating label
+      ctx.save();
+      ctx.globalAlpha = 0.95;
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.strokeStyle = 'rgba(20,16,10,0.9)';
+      ctx.lineWidth = 3;
+      ctx.strokeText('物资', c.x, by - 34);
+      ctx.fillStyle = '#ffe8a0';
+      ctx.fillText('物资', c.x, by - 34);
+      ctx.restore();
     }
 
     for (const e of this.enemies) {
@@ -1394,7 +1441,7 @@ export class Game {
       const tint = this.charId === 'intern' ? 'rgba(200,180,120,0.35)' : null;
       drawClippedSprite(ctx, spr, p.x, p.y + bob, p.r, {
         glow: 'none',
-        scale: 1.3,
+        scale: 1.95,
         tint,
       });
       // shield / orbit still via drawPlayer partial — call drawPlayer for overlays

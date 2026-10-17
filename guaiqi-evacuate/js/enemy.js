@@ -415,27 +415,27 @@ export function drawEnemy(ctx, e, t) {
       ctx.setLineDash([]);
     } else if (e.skill === 'shockwave' || e.skill === 'spore' || e.skill === 'slime_fan' || e.skill === 'water_ring') {
       const r = e.skillRange || 80;
-      const pulse = 0.35 + 0.25 * Math.sin(t * 10);
-      ctx.strokeStyle = e.skill === 'spore' ? `rgba(180,200,80,${pulse})` : `rgba(200,100,130,${pulse})`;
-      ctx.lineWidth = 2;
+      const pulse = 0.4 + 0.3 * Math.sin(t * 10);
+      ctx.strokeStyle = e.skill === 'spore' ? `rgba(160,140,70,${pulse})` : `rgba(180,120,90,${pulse})`;
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([7, 6]);
       ctx.beginPath();
       ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.fillStyle = e.skill === 'spore' ? `rgba(180,200,80,0.08)` : `rgba(200,100,130,0.08)`;
-      ctx.fill();
+      ctx.setLineDash([]);
     } else if (e.skill === 'lightning') {
       for (const c of e.warnCircles || []) {
         const pulse = 0.4 + 0.3 * Math.sin(t * 12);
-        ctx.strokeStyle = `rgba(220,200,80,${pulse})`;
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = `rgba(200,170,80,${pulse})`;
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([6, 5]);
         ctx.beginPath();
         ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
         ctx.stroke();
-        ctx.fillStyle = `rgba(220,200,80,0.12)`;
-        ctx.fill();
+        ctx.setLineDash([]);
       }
     } else if (e.skill === 'rot_beam') {
-      ctx.strokeStyle = 'rgba(180,220,255,0.5)';
+      ctx.strokeStyle = 'rgba(200,160,90,0.55)';
       ctx.lineWidth = 14;
       ctx.lineCap = 'round';
       ctx.beginPath();
@@ -443,20 +443,24 @@ export function drawEnemy(ctx, e, t) {
       ctx.lineTo(e.x + Math.cos(e.skillAng) * 200, e.y + Math.sin(e.skillAng) * 200);
       ctx.stroke();
     } else if (e.skill === 'reflect') {
-      ctx.strokeStyle = `rgba(180,220,255,${0.5 + Math.sin(t * 10) * 0.3})`;
+      ctx.strokeStyle = `rgba(200,160,90,${0.45 + Math.sin(t * 10) * 0.2})`;
       ctx.lineWidth = 3;
+      ctx.setLineDash([5, 4]);
       ctx.beginPath();
-      ctx.arc(e.x, e.y + bob, e.r + 10, 0, Math.PI * 2);
+      ctx.arc(e.x, e.y + bob, e.r + 10, -0.2, Math.PI * 1.6);
       ctx.stroke();
+      ctx.setLineDash([]);
     }
   }
 
   if (e.reflectT > 0) {
-    ctx.strokeStyle = `rgba(150,210,255,${0.55 + Math.sin(t * 8) * 0.25})`;
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = `rgba(200,170,90,${0.5 + Math.sin(t * 8) * 0.2})`;
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([5, 4]);
     ctx.beginPath();
     ctx.arc(e.x, e.y + bob, e.r + 12, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   if (sprite) {
@@ -473,7 +477,7 @@ export function drawEnemy(ctx, e, t) {
     ctx.globalAlpha = e.phaseHidden ? 0.35 : 1;
     drawClippedSprite(ctx, sprite, e.x, e.y + bob, e.r, {
       glow: 'none',
-      scale: e.type === 'bat' || e.type === 'shadow' ? 1.4 : e.type === 'golem' || e.type === 'beetle' ? 1.2 : e.isBoss ? 1.18 : 1.25,
+      scale: e.type === 'bat' || e.type === 'shadow' ? 1.55 : e.type === 'golem' || e.type === 'beetle' ? 1.35 : e.isBoss ? 1.35 : 1.45,
       flash,
     });
     ctx.globalAlpha = 1;
@@ -482,7 +486,7 @@ export function drawEnemy(ctx, e, t) {
   }
 
   if (e.slow > 0) {
-    ctx.strokeStyle = 'rgba(150,190,160,0.65)';
+    ctx.strokeStyle = 'rgba(140,150,120,0.45)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(e.x, e.y + bob, e.r + 3, 0, Math.PI * 2);
