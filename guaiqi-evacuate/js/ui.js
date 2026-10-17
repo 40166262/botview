@@ -300,11 +300,23 @@ export function renderCharCards(save, selectedId, onSelect, onBuy) {
     const spr = getCharSprite(c.id);
     const thumb = document.createElement('div');
     thumb.className = 'char-thumb';
-    if (spr && unlocked) {
+    const CHAR_FALLBACK = {
+      grin: 'assets/char_grin.png', medic: 'assets/char_medic.png',
+      janitor: 'assets/char_janitor.png', intern: 'assets/char_intern.png',
+    };
+    const artSrc = (spr && spr.src) || CHAR_FALLBACK[c.id];
+    if (artSrc) {
       const img = document.createElement('img');
-      img.src = spr.src;
+      img.src = artSrc;
       img.alt = c.name;
+      if (!unlocked) img.style.filter = 'grayscale(0.85) brightness(0.55)';
       thumb.appendChild(img);
+      if (!unlocked) {
+        const lock = document.createElement('span');
+        lock.className = 'char-lock-badge';
+        lock.textContent = '锁';
+        thumb.appendChild(lock);
+      }
     } else {
       thumb.textContent = unlocked ? (c.name[0] || '*') : '锁';
     }

@@ -1017,14 +1017,14 @@ export class Game {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, W, H);
 
-    // brighter chapter backgrounds — readable beige/teal linoleum, less charcoal
+    // warm chapter backgrounds — cream / teal linoleum, not pale gray
     let c0, c1, c2;
     if (theme === 'ward') {
-      c0 = [62, 72, 78]; c1 = [52, 60, 66]; c2 = [42, 50, 56];
+      c0 = [78, 88, 82]; c1 = [68, 78, 74]; c2 = [56, 66, 62];
     } else if (theme === 'basement') {
-      c0 = [40, 46, 54]; c1 = [32, 36, 44]; c2 = [24, 28, 34];
+      c0 = [52, 48, 42]; c1 = [42, 38, 34]; c2 = [32, 28, 24];
     } else {
-      c0 = [68, 60, 48]; c1 = [56, 50, 40]; c2 = [44, 38, 30];
+      c0 = [86, 74, 56]; c1 = [72, 62, 46]; c2 = [58, 50, 38];
     }
     const bg = ctx.createLinearGradient(0, 0, 0, H);
     bg.addColorStop(0, `rgb(${c0[0]},${c0[1]},${c0[2]})`);
@@ -1040,17 +1040,17 @@ export class Game {
     ctx.translate(-W / 2, -H / 2);
     ctx.translate(-this.camX + off.x, -this.camY + off.y);
 
-    // ground base — brighter office carpet / ward linoleum / basement tech
-    if (theme === 'ward') ctx.fillStyle = 'rgba(198, 210, 215, 0.62)';
-    else if (theme === 'basement') ctx.fillStyle = 'rgba(68, 78, 88, 0.72)';
-    else ctx.fillStyle = 'rgba(198, 182, 150, 0.62)';
+    // ground base — warm beige carpet / mint linoleum / warm basement
+    if (theme === 'ward') ctx.fillStyle = 'rgba(186, 210, 198, 0.72)';
+    else if (theme === 'basement') ctx.fillStyle = 'rgba(92, 82, 68, 0.78)';
+    else ctx.fillStyle = 'rgba(214, 192, 152, 0.78)';
     ctx.fillRect(0, 0, WORLD_W, WORLD_H);
 
     // ground patches
     for (const g of (this.groundPatches || [])) {
-      if (theme === 'ward') ctx.fillStyle = `rgba(210, 220, 225, ${0.12 + g.shade * 0.14})`;
-      else if (theme === 'basement') ctx.fillStyle = `rgba(55, 65, 78, ${0.16 + g.shade * 0.16})`;
-      else ctx.fillStyle = `rgba(175, 160, 130, ${0.12 + g.shade * 0.14})`;
+      if (theme === 'ward') ctx.fillStyle = `rgba(200, 220, 210, ${0.14 + g.shade * 0.14})`;
+      else if (theme === 'basement') ctx.fillStyle = `rgba(110, 98, 80, ${0.16 + g.shade * 0.16})`;
+      else ctx.fillStyle = `rgba(190, 168, 128, ${0.14 + g.shade * 0.14})`;
       ctx.beginPath();
       ctx.ellipse(g.x, g.y, g.r, g.r * 0.65, 0, 0, Math.PI * 2);
       ctx.fill();
@@ -1071,15 +1071,15 @@ export class Game {
       const tile = theme === 'basement' ? 56 : theme === 'ward' ? 48 : 64;
       let gridA, gridB;
       if (theme === 'ward') {
-        gridA = 'rgba(130, 145, 155, 0.12)';
-        gridB = 'rgba(215, 225, 230, 0.08)';
+        gridA = 'rgba(110, 145, 130, 0.14)';
+        gridB = 'rgba(210, 228, 218, 0.10)';
       } else if (theme === 'basement') {
-        gridA = 'rgba(90, 105, 120, 0.16)';
-        gridB = 'rgba(60, 72, 86, 0.10)';
+        gridA = 'rgba(120, 105, 85, 0.16)';
+        gridB = 'rgba(78, 68, 54, 0.12)';
       } else {
-        // beige office carpet seams — soft, not wall-like
-        gridA = 'rgba(140, 125, 100, 0.13)';
-        gridB = 'rgba(200, 185, 155, 0.07)';
+        // warm beige office carpet seams
+        gridA = 'rgba(150, 125, 90, 0.16)';
+        gridB = 'rgba(230, 210, 170, 0.10)';
       }
       ctx.strokeStyle = gridA;
       ctx.lineWidth = 1;
