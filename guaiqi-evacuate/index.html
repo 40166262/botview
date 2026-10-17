@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#3a3a36" />
+  <title>怪奇撤离</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="loading" class="screen">
+      <div class="load-art" aria-hidden="true"></div>
+      <div class="load-scrim"></div>
+      <div class="load-inner">
+        <img class="logo-img" src="assets/logo_evacuate.jpg" alt=""/>
+        <h1 class="title-zh">怪奇撤离</h1>
+        <p class="subtitle">废弃设施 · 清怪撤离</p>
+        <div class="progress-wrap"><div id="load-bar" class="progress-bar"></div></div>
+        <p id="load-text" class="load-text">加载中… 0%</p>
+      </div>
+    </div>
+
+    <div id="home" class="screen hidden">
+      <div class="home-bg"></div>
+      <div id="meta-player-lv" class="meta-lv">撤离员 Lv.1</div>
+      <div class="currency-bar">
+        <div class="cur-chip coin"><img class="cur-ico" src="assets/icon_coin.png" alt=""/><strong id="meta-coins">0</strong></div>
+        <div class="cur-chip dia"><img class="cur-ico" src="assets/icon_diamond.png" alt=""/><strong id="meta-diamonds">0</strong></div>
+      </div>
+      <div class="home-content">
+        <img class="logo-img home-logo" src="assets/logo_evacuate.jpg" alt=""/>
+        <h1 class="title-zh">怪奇撤离</h1>
+        <p class="tagline">短局爽感 · 关卡推进 · 装备与抽奖</p>
+        <div id="daily-gift" class="daily-gift hidden">每日免费抽奖待领取</div>
+        <div id="daily-quest-chip" class="quest-chip"></div>
+        <div class="stats-row">
+          <div class="stat-chip"><span>最长存活</span><strong id="best-time">0:00</strong></div>
+          <div class="stat-chip"><span>最多击杀</span><strong id="best-kills">0</strong></div>
+          <div class="stat-chip"><span>最高连击</span><strong id="best-combo">0</strong></div>
+        </div>
+        <button id="btn-play" class="btn primary glow btn-play"><img class="play-ico" src="assets/ui_btn_play.png" alt=""/><span>开始撤离</span></button>
+        <div class="hub-grid">
+          <button id="btn-stages" class="hub-btn"><img src="assets/hub_stages.png" alt=""/><span>章节</span></button>
+          <button id="btn-chars" class="hub-btn"><img src="assets/hub_chars.png" alt=""/><span>角色</span></button>
+          <button id="btn-gacha" class="hub-btn hub-gift"><img src="assets/hub_gacha.png" alt=""/><span>抽奖</span></button>
+          <button id="btn-gallery" class="hub-btn"><img src="assets/hub_gallery.png" alt=""/><span>图鉴</span></button>
+          <button id="btn-bag" class="hub-btn"><img src="assets/hub_bag.png" alt=""/><span>装备</span></button>
+          <button id="btn-settings" class="hub-btn"><img src="assets/hub_settings.png" alt=""/><span>设置</span></button>
+        </div>
+        <p class="hint">点开始即进当前关卡 · 单指移动 · 自动射击</p>
+      </div>
+    </div>
+
+    <!-- Stage select -->
+    <div id="stages" class="overlay hidden">
+      <div class="panel wide">
+        <h2>选择关卡</h2>
+        <div id="stage-cards" class="stage-cards"></div>
+        <button id="btn-stages-close" class="btn ghost">返回</button>
+      </div>
+    </div>
+
+    <!-- Characters -->
+    <div id="chars" class="overlay hidden">
+      <div class="panel wide">
+        <h2>选择角色</h2>
+        <div id="char-cards" class="char-cards"></div>
+        <button id="btn-chars-close" class="btn ghost">返回</button>
+      </div>
+    </div>
+
+    <!-- Gacha -->
+    <div id="gacha" class="overlay hidden">
+      <div class="panel">
+        <h2>设施补给抽奖</h2>
+        <p class="gacha-pity">保底进度 <strong id="pity-num">0</strong>/10（史诗↑）</p>
+        <div id="gacha-result" class="gacha-result hidden"></div>
+        <button id="btn-gacha-free" class="btn primary glow">每日免费 ×1</button>
+        <button id="btn-gacha-ad" class="btn secondary">看广告再抽</button>
+        <button id="btn-gacha-coin" class="btn secondary">金币抽（80）</button>
+        <button id="btn-gacha-dia" class="btn secondary">钻石抽（15）</button>
+        <button id="btn-gacha-close" class="btn ghost">返回</button>
+      </div>
+    </div>
+
+    <!-- Gallery -->
+    <div id="gallery" class="overlay hidden">
+      <div class="panel wide">
+        <h2>设施图鉴 <small id="gallery-count"></small></h2>
+        <div id="gallery-grid" class="gallery-grid"></div>
+        <div id="gallery-detail" class="gallery-detail hidden"></div>
+        <button id="btn-gallery-close" class="btn ghost">返回</button>
+      </div>
+    </div>
+
+    <!-- Gear + charm bag -->
+    <div id="bag" class="overlay hidden">
+      <div class="panel wide premium-panel">
+        <h2>装备栏</h2>
+        <p id="mat-line" class="mat-line">材料 —</p>
+        <div id="gear-slots" class="gear-slots"></div>
+        <h3 class="subhead">被动挂件（最多2）</h3>
+        <div id="equip-slots" class="equip-slots"></div>
+        <h3 class="subhead">背包</h3>
+        <div id="bag-grid" class="bag-grid"></div>
+        <button id="btn-bag-close" class="btn ghost">返回</button>
+      </div>
+    </div>
+
+    <div id="game-wrap" class="screen hidden">
+      <canvas id="game" width="390" height="844"></canvas>
+      <div id="hud" class="hud">
+        <button type="button" id="btn-pause" class="hud-pause" aria-label="暂停" title="暂停">
+          <img src="assets/ui_btn_pause.png" alt="暂停"/>
+        </button>
+        <div class="hud-stage"><span id="hud-stage">办公区</span> · <span id="hud-wave">波次 1</span></div>
+        <div class="hud-top">
+          <div class="hp-wrap"><div id="hp-bar" class="hp-bar"></div></div>
+          <div class="hud-meta">
+            <span id="hud-time">0:00</span>
+            <span id="hud-kills">击杀 0</span>
+            <span id="hud-lv">Lv.1</span>
+          </div>
+        </div>
+        <div class="xp-wrap"><div id="xp-bar" class="xp-bar"></div></div>
+        <div class="hud-progress"><div id="clear-bar" class="clear-bar"></div></div>
+        <div id="hud-combo" class="hud-combo hidden">×0</div>
+        <div id="hud-shield" class="hud-shield hidden">盾×0</div>
+      </div>
+      <div id="joystick" class="joystick">
+        <div id="joy-base" class="joy-base"></div>
+        <div id="joy-knob" class="joy-knob"></div>
+      </div>
+    </div>
+
+    <div id="upgrade" class="overlay hidden">
+      <div class="panel pulse-panel premium-panel">
+        <h2>升级！选择一项</h2>
+        <div id="upgrade-cards" class="cards"></div>
+      </div>
+    </div>
+
+    <div id="chest-pick" class="overlay hidden">
+      <div class="panel premium-panel">
+        <h2>打开物资箱</h2>
+        <div class="chest-choices">
+          <button class="chest-btn" data-kind="heal"><img src="assets/chest_heal.png" alt=""/><span>回复生命</span></button>
+          <button class="chest-btn" data-kind="coin"><img src="assets/chest_coin.png" alt=""/><span>金币奖励</span></button>
+          <button class="chest-btn" data-kind="upgrade"><img src="assets/chest_upgrade.png" alt=""/><span>随机升级</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div id="result" class="overlay hidden">
+      <div class="panel result-panel premium-panel">
+        <h2 id="res-title">撤离失败</h2>
+        <p id="res-flavor" class="res-flavor"></p>
+        <div id="res-reward-line" class="res-reward-line hidden">
+          <span>通关奖励</span>
+          <span class="rw"><img src="assets/icon_coin.png" alt=""/>+<strong id="res-reward-coins">0</strong></span>
+          <span class="rw"><img src="assets/icon_diamond.png" alt=""/>+<strong id="res-reward-dias">0</strong></span>
+        </div>
+        <div class="result-stats">
+          <p>章节 <strong id="res-stage">—</strong></p>
+          <p>存活时间 <strong id="res-time">0:00</strong></p>
+          <p>击杀数 <strong id="res-kills">0</strong></p>
+          <p>最高连击 <strong id="res-combo">0</strong></p>
+          <p>获得金币 <strong id="res-coins">0</strong></p>
+          <p id="res-dia-row" class="hidden">钻石 <strong id="res-diamonds">0</strong></p>
+        </div>
+        <button id="btn-revive" class="btn secondary">看广告复活</button>
+        <button id="btn-double" class="btn secondary">双倍金币（广告）</button>
+        <div id="res-power-hint" class="res-power-hint hidden"></div>
+        <div id="res-cta-row" class="res-cta-row hidden">
+          <button id="btn-goto-upgrade" class="btn secondary">去强化</button>
+          <button id="btn-goto-gacha" class="btn secondary">去抽奖</button>
+        </div>
+        <button id="btn-next-stage" class="btn primary glow hidden">下一章</button>
+        <button id="btn-retry" class="btn primary glow">再来一局</button>
+        <button id="btn-home" class="btn ghost">返回首页</button>
+      </div>
+    </div>
+
+    <div id="settings" class="overlay hidden">
+      <div class="panel">
+        <h2>设置</h2>
+        <label class="toggle-row"><span>音效</span><input type="checkbox" id="chk-sound" checked /></label>
+        <button id="btn-settings-close" class="btn primary">关闭</button>
+      </div>
+    </div>
+
+    <div id="pause-menu" class="overlay hidden">
+      <div class="panel premium-panel">
+        <h2>暂停</h2>
+        <button id="btn-pause-resume" class="btn primary">继续</button>
+        <button id="btn-pause-retry" class="btn secondary">重新开始</button>
+        <button id="btn-pause-home" class="btn ghost">返回首页</button>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+  </div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
