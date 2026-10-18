@@ -146,65 +146,23 @@ function hexAlpha(hex, a) {
   return `rgba(196,165,116,${a})`;
 }
 
-/** Soft colored kill spark — no white ring sparks */
+const KILL_WARM = ['#e7c48a', '#f0d7a4', '#d7a15a', '#c4845a', '#f6e2c0'];
+
+/** Soft warm paper sparks — short, few, never enemy-neon or white. */
 export function spawnKillBurst(pool, x, y, color, big = false) {
-  const n = big ? 10 : 6;
-  const speed = big ? 140 : 85;
+  void color;
+  const n = big ? 7 : 4;
+  const speed = big ? 70 : 46;
   for (let i = 0; i < n; i++) {
     const p = pool.acquire();
-    const a = (Math.PI * 2 * i) / n + Math.random() * 0.45;
-    const s = speed * (0.3 + Math.random() * 0.7);
+    const a = (Math.PI * 2 * i) / n + Math.random() * 0.4;
+    const s = speed * (0.45 + Math.random() * 0.55);
     p.x = x; p.y = y;
     p.vx = Math.cos(a) * s;
-    p.vy = Math.sin(a) * s;
-    p.life = 0.2 + Math.random() * 0.28;
+    p.vy = Math.sin(a) * s - 12;
+    p.life = 0.18 + Math.random() * 0.16;
     p.age = 0;
-    p.r = 1.2 + Math.random() * (big ? 2.4 : 1.6);
-    p.color = warmKillColor(color);
+    p.r = big ? 2.4 + Math.random() * 1.6 : 2 + Math.random() * 1.2;
+    p.color = KILL_WARM[i % KILL_WARM.length];
   }
-  // Soft matching-color outer sparks (never pure white)
-  const soft = softenColor(color);
-  for (let i = 0; i < 5; i++) {
-    const p = pool.acquire();
-    const a = (Math.PI * 2 * i) / 5 + Math.random() * 0.3;
-    p.x = x + Math.cos(a) * 4;
-    p.y = y + Math.sin(a) * 4;
-    p.vx = Math.cos(a) * (big ? 160 : 100);
-    p.vy = Math.sin(a) * (big ? 160 : 100);
-    p.life = 0.14;
-    p.age = 0;
-    p.r = 1.5;
-    p.color = soft;
-  }
-}
-
-/** Pull cold cyan/violet kill sparks toward warm paper so bursts don't flash. */
-function warmKillColor(c) {
-  if (!c || typeof c !== 'string' || !c.startsWith('#') || c.length < 7) return '#e8c878';
-  let r = parseInt(c.slice(1, 3), 16);
-  let g = parseInt(c.slice(3, 5), 16);
-  let b = parseInt(c.slice(5, 7), 16);
-  if (Number.isNaN(r)) return '#e8c878';
-  if (b > r + 15 && b > 80) {
-    r = Math.min(230, r + 70);
-    g = Math.min(210, Math.floor(g * 0.75 + 50));
-    b = Math.floor(b * 0.35);
-  }
-  const max = Math.max(r, g, b, 1);
-  if (max > 200) {
-    const k = 200 / max;
-    r = Math.floor(r * k); g = Math.floor(g * k); b = Math.floor(b * k);
-  }
-  return `rgb(${r},${g},${b})`;
-}
-
-function softenColor(c) {
-  if (!c || typeof c !== 'string') return '#d4c4a0';
-  if (c.startsWith('#') && c.length === 7) {
-    const r = Math.min(255, parseInt(c.slice(1, 3), 16) + 40);
-    const g = Math.min(255, parseInt(c.slice(3, 5), 16) + 30);
-    const b = Math.min(255, parseInt(c.slice(5, 7), 16) + 20);
-    return `rgb(${r},${g},${b})`;
-  }
-  return '#d4c4a0';
 }

@@ -4,6 +4,7 @@ import {
   CHARACTERS, GALLERY, PASSIVE_ITEMS, RARITY_LABEL, RARITY_COLOR,
   isCharUnlocked, galleryCount, ensureDailyQuest, canFreeGacha,
   GEAR_SLOTS, GEAR_ITEMS, getGear, ensureGearSave, equipGear,
+  CHARM_ICON_CELL,
 } from './meta.js';
 import { getIconCell, getCharSprite, getChestImage, getUiIcon } from './sprites.js';
 import { rarityMeta as upRarity } from './upgrades.js';
@@ -49,11 +50,15 @@ export function refreshHomeStats(save) {
   const chip = $('daily-quest-chip');
   if (q) {
     const done = (q.progress || 0) >= q.target;
+    const rewardBits = [];
+    if (q.reward && q.reward.coins) rewardBits.push(`金币 +${q.reward.coins}`);
+    if (q.reward && q.reward.diamonds) rewardBits.push(`钻石 +${q.reward.diamonds}`);
+    const rewardTxt = rewardBits.join(' · ') || '奖励';
     chip.textContent = done && !q.claimed
-      ? `日常完成！点击领取奖励`
+      ? `日常完成 · 点此领取 ${rewardTxt}`
       : q.claimed
-        ? `日常已领 · ${q.name}`
-        : `${q.name}：${q.progress || 0}/${q.target} · ${q.desc}`;
+        ? `今日日常已领 · ${q.name}`
+        : `${q.name} ${q.progress || 0}/${q.target} · 完成得 ${rewardTxt}`;
     chip.classList.toggle('ready', done && !q.claimed);
   }
 
@@ -261,6 +266,31 @@ export function toast(msg) {
   toastTimer = setTimeout(() => hide(el), 1800);
 }
 
+const achieveQ = [];
+let achieveTimer = null;
+/** Cardboard achievement plaque. Queues so two unlocks don't overwrite each other. */
+export function pushAchievement(a) {
+  if (!a || !a.name) return;
+  achieveQ.push(a);
+  pumpAchieve();
+}
+function pumpAchieve() {
+  if (achieveTimer) return;
+  const a = achieveQ.shift();
+  const el = $('achieve');
+  if (!a || !el) return;
+  const name = el.querySelector('.achieve-name');
+  const desc = el.querySelector('.achieve-desc');
+  if (name) name.textContent = a.name;
+  if (desc) desc.textContent = a.desc || '';
+  show(el);
+  achieveTimer = setTimeout(() => {
+    hide(el);
+    achieveTimer = null;
+    setTimeout(pumpAchieve, 160);
+  }, 2200);
+}
+
 export function renderStageCards(save, selectedId, onSelect, page = 0) {
   const wrap = $('stage-cards');
   wrap.innerHTML = '';
@@ -275,7 +305,7 @@ export function renderStageCards(save, selectedId, onSelect, page = 0) {
   const pager = document.createElement('div');
   pager.className = 'stage-pager';
   pager.innerHTML = `<button type="button" data-pg="-1" ${pg<=0?'disabled':''}>上一页</button>
-    <span>第 ${start+1}–${Math.min(STAGE_COUNT, start+PAGE)} / ${STAGE_COUNT} 关 · 撤离员 Lv.${save.playerLevel||1}</span>
+    <div class="stage-pager-mid"><b>${start+1}–${Math.min(STAGE_COUNT, start+PAGE)} 关</b><span>共 ${STAGE_COUNT} 关 · 撤离员 Lv.${save.playerLevel||1}</span></div>
     <button type="button" data-pg="1" ${pg>=totalPages-1?'disabled':''}>下一页</button>`;
   pager.querySelectorAll('button').forEach((b) => {
     b.addEventListener('click', () => {
@@ -294,12 +324,16 @@ export function renderStageCards(save, selectedId, onSelect, page = 0) {
     btn.className = `stage-card${unlocked ? '' : ' locked'}${selectedId === s.id ? ' selected' : ''}`;
     const thumbArt = s.theme === 'ward' ? 'enemy_crawler' : s.theme === 'basement' ? 'enemy_armored' : 'enemy_office_zombie';
     const bossTag = s.clearMode === 'boss' ? '<span class="st-boss">首领</span>' : '';
+    const goal = s.clearMode === 'boss'
+      ? `击败首领 · ${formatTime(s.clearTime)} 或 ${s.clearKills} 杀`
+      : `生存 ${formatTime(s.clearTime)} 或 ${s.clearKills} 杀`;
+    const now = selectedId === s.id ? '<span class="st-now">当前</span>' : '';
     btn.innerHTML = `
-      <div class="stage-thumb theme-${s.theme}"><img src="assets/${thumbArt}.png" alt=""/>${unlocked ? '' : '<span class="char-lock-badge">锁</span>'}${bossTag}</div>
+      <div class="stage-thumb theme-${s.theme}"><img src="assets/${thumbArt}.png" alt=""/><span class="st-num">${s.stageNum}</span>${unlocked ? '' : '<span class="char-lock-badge">锁</span>'}${bossTag}</div>
       <div class="stage-info">
-        <h3>${s.name} ${cleared ? '<span class="st-clear">已通关</span>' : ''}</h3>
-        <p>${s.subtitle}</p>
-        <p>${unlocked ? (s.clearMode === 'boss' ? `击杀首领 · 目标 ${Math.floor(s.clearTime/60)}:${String(s.clearTime%60).padStart(2,'0')} / ${s.clearKills}杀` : `目标 ${Math.floor(s.clearTime/60)}:${String(s.clearTime%60).padStart(2,'0')} / ${s.clearKills}杀`) : `<span class="lock-tag">${reason || '未解锁'}</span>`}</p>
+        <h3><span class="st-title">${s.name}</span>${cleared ? '<span class="st-clear">已通关</span>' : ''}${now}</h3>
+        <p class="st-sub">${s.subtitle}</p>
+        <p class="st-goal">${unlocked ? goal : `<span class="lock-tag">${reason || '未解锁'}</span>`}</p>
       </div>`;
     btn.addEventListener('click', () => {
       if (!unlocked) { toast(reason || '尚未解锁'); return; }
@@ -313,13 +347,14 @@ export function renderStageCards(save, selectedId, onSelect, page = 0) {
   const eu = isStageUnlocked(save, en.id);
   const ebtn = document.createElement('button');
   ebtn.type = 'button';
-  ebtn.className = `stage-card${eu ? '' : ' locked'}${selectedId === en.id ? ' selected' : ''}`;
+  ebtn.className = `stage-card endless${eu ? '' : ' locked'}${selectedId === en.id ? ' selected' : ''}`;
+  const enow = selectedId === en.id ? '<span class="st-now">当前</span>' : '';
   ebtn.innerHTML = `
-    <div class="stage-thumb theme-basement"><img src="assets/enemy_boss.png" alt=""/>${eu ? '' : '<span class="char-lock-badge">锁</span>'}</div>
+    <div class="stage-thumb theme-basement"><img src="assets/enemy_boss.png" alt=""/><span class="st-num">∞</span>${eu ? '' : '<span class="char-lock-badge">锁</span>'}</div>
     <div class="stage-info">
-      <h3>${en.name}</h3>
-      <p>${en.subtitle}</p>
-      <p>${eu ? `最高 ${formatTime(save.bestEndlessTime||0)} · 击杀 ${save.bestEndlessKills||0}` : `<span class="lock-tag">${stageLockReason(save, en.id)}</span>`}</p>
+      <h3><span class="st-title">${en.name}</span>${enow}</h3>
+      <p class="st-sub">${en.subtitle}</p>
+      <p class="st-goal">${eu ? `纪录 ${formatTime(save.bestEndlessTime||0)} · 击杀 ${save.bestEndlessKills||0}` : `<span class="lock-tag">${stageLockReason(save, en.id)}</span>`}</p>
     </div>`;
   ebtn.addEventListener('click', () => {
     if (!eu) { toast(stageLockReason(save, en.id)); return; }
@@ -349,7 +384,6 @@ export function renderCharCards(save, selectedId, onSelect, onBuy) {
       const img = document.createElement('img');
       img.src = artSrc;
       img.alt = c.name;
-      if (!unlocked) img.style.filter = 'grayscale(0.85) brightness(0.55)';
       thumb.appendChild(img);
       if (!unlocked) {
         const lock = document.createElement('span');
@@ -363,9 +397,9 @@ export function renderCharCards(save, selectedId, onSelect, onBuy) {
     const info = document.createElement('div');
     info.className = 'char-info';
     let extra = '';
-    if (!unlocked && c.coinCost) extra = `<p class="lock-tag">金币 ${c.coinCost} 解锁 · 或抽奖获得</p>`;
-    else if (!unlocked) extra = `<p class="lock-tag">通关/抽奖解锁</p>`;
-    info.innerHTML = `<h3>${c.name}</h3><p>${c.desc}</p><p class="char-flavor" style="border-color:${c.tint}">${c.flavor}</p>${extra}`;
+    if (!unlocked && c.coinCost) extra = `<p class="char-buy">金币 ${c.coinCost} 解锁</p>`;
+    else if (!unlocked) extra = `<p class="char-buy alt">通关或抽奖解锁</p>`;
+    info.innerHTML = `<h3>${c.name}${selectedId === c.id ? '<span class="st-now">出战</span>' : ''}</h3><p class="char-desc">${c.desc}</p><p class="char-flavor" style="border-color:${c.tint}">${c.flavor}</p>${extra}`;
     btn.appendChild(thumb);
     btn.appendChild(info);
     btn.addEventListener('click', () => {
@@ -425,13 +459,26 @@ const SLOT_ICON = {
   clothes: 'assets/equip_coat.png',
   shoes: 'assets/equip_shoes.png',
 };
+const iconUrlCache = new Map();
+function sheetIconUrl(index) {
+  if (iconUrlCache.has(index)) return iconUrlCache.get(index);
+  const cell = getIconCell(index);
+  const url = cell ? cell.toDataURL() : '';
+  if (url) iconUrlCache.set(index, url);
+  return url;
+}
+function charmIconSrc(id) {
+  const idx = CHARM_ICON_CELL[id];
+  return (idx != null && sheetIconUrl(idx)) || 'assets/chest_rare.png';
+}
 
 export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
   ensureGearSave(save);
   const matEl = $('mat-line');
   if (matEl) {
     const m = save.materials || {};
-    matEl.textContent = `材料  废料${m.scrap||0} · 电池${m.battery||0} · 胶带${m.tape||0} · 芯片${m.chip||0}  |  点装备槽可强化`;
+    const chips = Object.keys(MAT_NAMES).map((k) => `<span class="mat-chip"><b>${MAT_NAMES[k]}</b> ${m[k] || 0}</span>`).join('');
+    matEl.innerHTML = `${chips}<span class="mat-hint">点装备槽，用金币和材料强化</span>`;
   }
   const gearWrap = $('gear-slots');
   if (gearWrap) {
@@ -443,10 +490,12 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `gear-slot${g ? '' : ' empty'}`;
-      const ico = `<img class="gs-img" src="${(g && g.icon) || SLOT_ICON[slot.id]}" alt=""/>`;
+      const src = (g && g.icon) || SLOT_ICON[slot.id];
+      const ico = `<img class="gs-img${g ? '' : ' dim'}" src="${src}" alt=""/>`;
       btn.innerHTML = `${ico}
-        <div><span class="gs-label">${slot.name}</span>
-        <div class="gs-name">${g ? `${g.name} Lv.${lv}` : '空'}</div></div>`;
+        <div class="gs-copy"><span class="gs-label">${slot.name}</span>
+        <div class="gs-name">${g ? g.name : '未装备'}</div>
+        ${g ? `<span class="gs-lv">Lv.${lv}</span>` : ''}</div>`;
       if (g && onUpgradeGear) {
         btn.addEventListener('click', () => onUpgradeGear(g.id));
       }
@@ -465,8 +514,8 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
     el.className = 'equip-slot';
     if (item) {
       const n = Math.min(5, (save.inventory || {})[item.id] || 1);
-      el.innerHTML = `<img src="assets/chest_rare.png" alt=""/><span class="eq-name">${item.name}</span><span class="eq-stars">${'★'.repeat(n)}</span>`;
-    } else el.textContent = '+';
+      el.innerHTML = `<img src="${charmIconSrc(item.id)}" alt=""/><span class="eq-name">${item.name}</span><span class="eq-stars">${'★'.repeat(n)}</span>`;
+    } else el.innerHTML = '<span class="eq-empty">空挂件</span>';
     el.title = item ? item.name : '空槽';
     if (item) el.addEventListener('click', () => onToggleEquip(item.id));
     slots.appendChild(el);
@@ -488,13 +537,13 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
       const lv = (save.gearLevels || {})[id] || 1;
       const eq = (save.gear || {})[gear.slot] === id;
       const gico = `<img class="bag-ico" src="${gear.icon || SLOT_ICON[gear.slot]}" alt=""/>`;
-      btn.innerHTML = `${gico}${gear.name}<br><small class="r-${gear.rarity}">${RARITY_LABEL[gear.rarity]} Lv.${lv}${eq ? ' ·已装' : ''}</small>`;
+      btn.innerHTML = `${gico}<span class="bag-txt"><b>${gear.name}</b><small class="r-${gear.rarity}">${RARITY_LABEL[gear.rarity]} · Lv.${lv}</small></span>${eq ? '<span class="bag-eq">已装</span>' : ''}`;
       if (eq) btn.classList.add('equipped');
       btn.addEventListener('click', () => onEquipGear && onEquipGear(id));
     } else if (item) {
       const eq = equipped.includes(id);
       const stars = Math.min(5, save.inventory[id]);
-      btn.innerHTML = `<img class="bag-ico" src="assets/chest_rare.png" alt=""/>${item.name}<br><small class="r-${item.rarity}">${RARITY_LABEL[item.rarity]} ${'★'.repeat(stars)}${eq ? ' ·已戴' : ''}</small>`;
+      btn.innerHTML = `<img class="bag-ico" src="${charmIconSrc(id)}" alt=""/><span class="bag-txt"><b>${item.name}</b><small class="r-${item.rarity}">${RARITY_LABEL[item.rarity]} ${'★'.repeat(stars)}</small></span>${eq ? '<span class="bag-eq">已戴</span>' : ''}`;
       btn.addEventListener('click', () => onToggleEquip(id));
     } else return;
     grid.appendChild(btn);

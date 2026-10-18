@@ -38,7 +38,11 @@
         </div>
         <h1 class="title-zh">怪奇撤离</h1>
         <p class="tagline">短局爽感 · 关卡推进 · 装备与抽奖</p>
-        <div id="daily-gift" class="daily-gift hidden">每日免费抽奖待领取</div>
+        <button type="button" id="daily-gift" class="daily-gift hidden">
+          <span class="dg-kicker">今日免费</span>
+          <span class="dg-main">点此领取抽奖 ×1</span>
+          <span class="dg-sub">不花金币，不花钻石</span>
+        </button>
         <div id="daily-quest-chip" class="quest-chip"></div>
         <div class="stats-row">
           <div class="stat-chip"><span>最长存活</span><strong id="best-time">0:00</strong></div>
@@ -82,6 +86,7 @@
         <h2 class="with-ico"><img src="assets/hub_gacha.png" alt=""/>设施补给抽奖</h2>
         <p class="gacha-pity">保底进度 <strong id="pity-num">0</strong>/10（必出史诗+）</p>
         <p class="gacha-note">已拥有的装备/挂件出率提升，重复抽到 = 免费强化</p>
+        <p id="gacha-free-status" class="gacha-free-status">今日免费还没领，点下面的金色按钮</p>
         <div id="gacha-result" class="gacha-result hidden"></div>
         <button id="btn-gacha-free" class="btn primary glow">每日免费 ×1</button>
         <button id="btn-gacha-ad" class="btn secondary">看广告再抽</button>
@@ -210,6 +215,11 @@
       </div>
     </div>
 
+    <div id="achieve" class="achieve hidden" role="status">
+      <div class="achieve-kicker">成就</div>
+      <div class="achieve-name"></div>
+      <div class="achieve-desc"></div>
+    </div>
     <div id="confirm-reset" class="overlay hidden">
       <div class="panel confirm-panel">
         <h2>重置存档？</h2>
@@ -218,7 +228,6 @@
         <button id="btn-reset-no" class="btn ghost" type="button">取消</button>
       </div>
     </div>
-
     <div id="toast" class="toast hidden"></div>
   </div>
   <script type="module" src="js/main.js"></script>

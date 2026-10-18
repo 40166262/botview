@@ -8,7 +8,7 @@ import { setSoundEnabled, resumeAudio, SFX } from './audio.js';
 import {
   $, show, hide, setLoadingProgress, refreshHomeStats,
   updateHud, showUpgradeCards, hideUpgrade, showResult, hideResult,
-  toast, bindJoystick, renderStageCards, renderCharCards, renderGallery,
+  toast, pushAchievement, bindJoystick, renderStageCards, renderCharCards, renderGallery,
   renderBag, showChestPick, showGachaResult, showPause, hidePause,
 } from './ui.js';
 import { preloadSprites } from './sprites.js';
@@ -16,13 +16,29 @@ import { STAGES, getStage, isStageUnlocked, markStageCleared, runXpGain, ENDLESS
 import { CHARACTERS, rollGacha, canFreeGacha, markFreeGacha, randomDeathLine, maybeEggToast,
   ensureDailyQuest, updateDailyQuest, claimDailyQuest, checkGalleryMilestone,
   unlockChar, isCharUnlocked, unlockGallery, galleryCount,
-  ensureGearSave, equipGear } from './meta.js';
+  ensureGearSave, equipGear, takeNewAchievements } from './meta.js';
 
 const canvas = $('game');
 let save = loadSave();
 ensureGearSave(save);
 ensureDailyQuest(save);
+takeNewAchievements(save);
 writeSave(save);
+
+function flushAchievements() {
+  const fresh = takeNewAchievements(save);
+  if (!fresh.length) return;
+  writeSave(save);
+  fresh.forEach((a) => pushAchievement(a));
+}
+
+function noteGalleryMilestone() {
+  const mile = checkGalleryMilestone(save);
+  if (!mile) return;
+  save.achievements = save.achievements || {};
+  save.achievements.gallery_10 = true;
+  pushAchievement({ name: '图鉴启程', desc: '收藏 10 项 · 钻石 +20' });
+}
 
 let lastResult = null;
 let doubled = false;
@@ -86,6 +102,7 @@ const game = new Game(canvas, {
     const prog = applyRunProgress(result, false);
     writeSave(save);
     refreshHomeStats(save);
+    flushAchievements();
     const failN = (save.failStreak || {})[result.stageId] || 0;
     let suggest = null;
     if (failN >= 2 || (result.time || 0) < 45) {
@@ -119,9 +136,10 @@ const game = new Game(canvas, {
     addDiamonds(save, result.rewardDiamonds || 0);
     updateDailyQuest(save, result);
     const prog = applyRunProgress(result, true);
-    const mile = checkGalleryMilestone(save);
+    noteGalleryMilestone();
     writeSave(save);
     refreshHomeStats(save);
+    flushAchievements();
     const idx = STAGES.findIndex((s) => s.id === result.stageId);
     const hasNext = idx >= 0 && idx < STAGES.length - 1;
     showResult({
@@ -139,7 +157,6 @@ const game = new Game(canvas, {
       canDouble: true,
       hasNext,
     });
-    if (mile) toast(mile.msg);
   },
   onToast: toast,
   onBanner() {},
@@ -350,8 +367,16 @@ $('btn-goto-gacha')?.addEventListener('click', () => {
 // —— Gacha ——
 function refreshGachaUI() {
   $('pity-num').textContent = String(save.pity || 0);
-  $('btn-gacha-free').disabled = !canFreeGacha(save);
-  $('btn-gacha-free').textContent = canFreeGacha(save) ? '每日免费 ×1' : '今日已免费抽取';
+  const free = canFreeGacha(save);
+  const btn = $('btn-gacha-free');
+  btn.disabled = !free;
+  btn.textContent = free ? '领取今日免费 ×1' : '今日免费已领';
+  btn.classList.toggle('claim-ready', free);
+  const st = $('gacha-free-status');
+  if (st) {
+    st.textContent = free ? '今日免费还没领，点下面的金色按钮' : '今日免费已领取，明天 0 点再来';
+    st.classList.toggle('claimed', !free);
+  }
 }
 $('btn-gacha').addEventListener('click', () => {
   SFX.click();
@@ -369,15 +394,17 @@ function doGacha(paid) {
   refreshGachaUI();
   refreshHomeStats(save);
   SFX.chest(); // result card shows the detail — no duplicate toast
-  const mile = checkGalleryMilestone(save);
-  if (mile) { writeSave(save); toast(mile.msg); }
+  noteGalleryMilestone();
+  writeSave(save);
+  flushAchievements();
 }
 
 $('btn-gacha-free').addEventListener('click', () => {
-  if (!canFreeGacha(save)) { toast('今日已领取'); return; }
+  if (!canFreeGacha(save)) { toast('今日免费已经领过了'); return; }
   markFreeGacha(save);
   writeSave(save);
   doGacha(false);
+  pushAchievement({ name: '今日免费已领', desc: '明天 0 点刷新 · 奖励在上方卡片' });
 });
 $('btn-gacha-ad').addEventListener('click', () => {
   Ads.showRewarded((ok) => {
@@ -404,7 +431,13 @@ $('daily-quest-chip').addEventListener('click', () => {
   if (reward) {
     writeSave(save);
     refreshHomeStats(save);
-    toast(`日常奖励已领取！`);
+    const bits = [];
+    if (reward.coins) bits.push(`金币 +${reward.coins}`);
+    if (reward.diamonds) bits.push(`钻石 +${reward.diamonds}`);
+    pushAchievement({ name: '日常奖励已领', desc: bits.join(' · ') || '奖励已放入账户' });
+  } else {
+    const q = save.dailyQuest;
+    if (q && !q.claimed) toast(`还差 ${Math.max(0, q.target - (q.progress || 0))}，打完一局再来领`);
   }
 });
 $('daily-gift').addEventListener('click', () => {
