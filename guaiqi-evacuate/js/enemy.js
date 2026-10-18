@@ -377,8 +377,8 @@ function drawEliteBossAura(ctx, e, bob, t) {
     ctx.beginPath();
     ctx.ellipse(e.x, e.y + bob + e.r * 0.15, ar * 1.02, ar * 0.72, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = `rgba(180,90,40,${0.28 + 0.08 * Math.sin(t * 2)})`;
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = `rgba(176, 92, 42, ${0.42 + 0.08 * Math.sin(t * 2)})`;
     ctx.beginPath();
     ctx.ellipse(e.x, e.y + bob, e.r * 1.28 * pulse, e.r * 0.98 * pulse, 0, 0, Math.PI * 2);
     ctx.stroke();
@@ -524,9 +524,9 @@ export function drawEnemy(ctx, e, t) {
       walk,
       tint: e.isElite ? '#ffb45a' : stand.tint || null,
       tintAlpha: e.isElite ? 0.1 : 0.2,
-      rim: e.isElite ? '#f2b15a' : (e.isSlacker ? '#ffe0a8' : null),
-      rimAlpha: e.isElite ? 0.9 : 0.55,
-      rimPx: e.isElite ? 4 : 2,
+      rim: e.isBoss ? '#d47848' : e.isElite ? '#f2b15a' : (e.isSlacker ? '#ffe0a8' : null),
+      rimAlpha: e.isBoss ? 0.82 : e.isElite ? 0.9 : 0.55,
+      rimPx: e.isBoss ? 4 : e.isElite ? 4 : 2,
       flash,
     });
     ctx.globalAlpha = 1;
@@ -543,9 +543,9 @@ export function drawEnemy(ctx, e, t) {
       walk,
       tint: e.isElite ? '#ffb45a' : null,
       tintAlpha: e.isElite ? 0.1 : 0.2,
-      rim: e.isElite ? '#f2b15a' : (e.isSlacker ? '#ffe0a8' : null),
-      rimAlpha: e.isElite ? 0.9 : 0.55,
-      rimPx: e.isElite ? 4 : 2,
+      rim: e.isBoss ? '#d47848' : e.isElite ? '#f2b15a' : (e.isSlacker ? '#ffe0a8' : null),
+      rimAlpha: e.isBoss ? 0.82 : e.isElite ? 0.9 : 0.55,
+      rimPx: e.isBoss ? 4 : e.isElite ? 4 : 2,
       flash,
     });
     ctx.globalAlpha = 1;
@@ -561,27 +561,41 @@ export function drawEnemy(ctx, e, t) {
     ctx.stroke();
   }
 
-  // Elite/boss always show thicker brighter HP bar
-  if (e.isBoss || e.isElite || e.hp < e.maxHp * 0.99) {
-    const thick = e.isBoss || e.isElite;
-    const bh = thick ? 7 : 4;
-    const bw = e.r * (thick ? 2.4 : 2);
+  // Damaged foes show a cream bar. Elite and boss keep one even at full health.
+  if (e.isBoss || e.isElite || e.hp < e.maxHp - 0.4) {
+    const bh = e.isBoss ? 10 : e.isElite ? 7 : 4;
+    const bw = e.r * (e.isBoss ? 2.7 : e.isElite ? 2.4 : 2);
     const bx = e.x - bw / 2;
     const top = stand && sprite ? e.y + e.r * (stand.foot - stand.h * (e.isElite ? 1.1 : 1)) : e.y - e.r;
-    const by = top - (thick ? 10 : 6);
-    // ink-framed pill bar (matches HUD bars) instead of a flat black strip
+    const by = top - (e.isBoss ? 20 : e.isElite ? 10 : 6);
     const rr = (x, y, w, h, r) => {
       ctx.beginPath();
       if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
     };
-    rr(bx - 1.5, by - 1.5, bw + 3, bh + 3, (bh + 3) / 2);
+    rr(bx - 2, by - 2, bw + 4, bh + 4, (bh + 4) / 2);
     ctx.fillStyle = '#3b2a1a';
     ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#2a1c12';
+    ctx.stroke();
     const fw = Math.max(0, bw * Math.max(0, e.hp / e.maxHp));
     if (fw > 0.5) {
       rr(bx, by, fw, bh, bh / 2);
-      ctx.fillStyle = e.isBoss ? '#ff6a5a' : e.isElite ? '#ffc23a' : '#ff8a5a';
+      ctx.fillStyle = e.isBoss ? '#fff6dc' : e.isElite ? '#ffe08a' : '#fff1c8';
       ctx.fill();
+    }
+    if (e.isBoss && e.tag && e.tagT > 0) {
+      ctx.globalAlpha = Math.max(0, Math.min(1, e.tagT * 1.6));
+      ctx.font = '900 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#3b2a1a';
+      ctx.strokeText(e.tag, e.x, by - 6);
+      ctx.fillStyle = '#fff6dc';
+      ctx.fillText(e.tag, e.x, by - 6);
+      ctx.globalAlpha = 1;
     }
   }
   ctx.restore();

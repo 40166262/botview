@@ -29,24 +29,40 @@ const VIEW_ZOOM = 1.22; // pull-in so chars/loot read larger on phone
 
 /**
  * Opening density and timed events. Stages 1–2 stay sparse so a new player
- * can move, open the first crate, and clear. 40+ keeps the old seed and
+ * can move, open the first crate, and clear. Stages 3–5 blend that opening
+ * back into the mid pace (same t as stages.js). 40+ keeps the old seed and
  * adds a little more swarm pressure.
  */
+function mixPace(t) {
+  const a = { seed: 5, minD: 210, maxD: 310, scale: 0.78, spawnAcc: 0.3, earlyBoost: 1.0, swarmAt: 26, swarmBase: 8, swarmStep: 1, eliteAt: 50, announceExtra: 3, swarmCap: 18, swarmGap: 24 };
+  const b = { seed: 7, minD: 150, maxD: 220, scale: 0.85, spawnAcc: 0.85, earlyBoost: 1.6, swarmAt: 14, swarmBase: 10, swarmStep: 2, eliteAt: 38, announceExtra: 5, swarmCap: 22, swarmGap: 20 };
+  const ints = new Set(['seed', 'minD', 'maxD', 'swarmAt', 'swarmBase', 'swarmStep', 'eliteAt', 'announceExtra', 'swarmCap', 'swarmGap']);
+  const out = {};
+  for (const k of Object.keys(a)) {
+    const v = a[k] + (b[k] - a[k]) * t;
+    out[k] = ints.has(k) ? Math.round(v) : Math.round(v * 1000) / 1000;
+  }
+  return out;
+}
+
 function paceProfile(stage) {
   const n = stage.stageNum || 1;
   if (n <= 1) {
-    return { seed: 4, minD: 240, maxD: 340, scale: 0.7, spawnAcc: 0.08, earlyBoost: 0.85, swarmAt: 34, swarmBase: 6, swarmStep: 1, eliteAt: 64, announceExtra: 2, swarmCap: 16 };
+    return { seed: 4, minD: 240, maxD: 340, scale: 0.7, spawnAcc: 0.08, earlyBoost: 0.85, swarmAt: 34, swarmBase: 6, swarmStep: 1, eliteAt: 64, announceExtra: 2, swarmCap: 16, swarmGap: 24 };
   }
   if (n === 2) {
-    return { seed: 5, minD: 210, maxD: 310, scale: 0.78, spawnAcc: 0.3, earlyBoost: 1.0, swarmAt: 26, swarmBase: 8, swarmStep: 1, eliteAt: 50, announceExtra: 3, swarmCap: 18 };
+    return { seed: 5, minD: 210, maxD: 310, scale: 0.78, spawnAcc: 0.3, earlyBoost: 1.0, swarmAt: 26, swarmBase: 8, swarmStep: 1, eliteAt: 50, announceExtra: 3, swarmCap: 18, swarmGap: 24 };
   }
+  if (n === 3) return mixPace(0.42);
+  if (n === 4) return mixPace(0.70);
+  if (n === 5) return mixPace(0.88);
   if (n >= 70) {
-    return { seed: 7, minD: 140, maxD: 210, scale: 0.9, spawnAcc: 0.9, earlyBoost: 1.8, swarmAt: 12, swarmBase: 12, swarmStep: 2, eliteAt: 28, announceExtra: 6, swarmCap: 26 };
+    return { seed: 7, minD: 140, maxD: 210, scale: 0.9, spawnAcc: 0.9, earlyBoost: 1.8, swarmAt: 12, swarmBase: 12, swarmStep: 2, eliteAt: 28, announceExtra: 6, swarmCap: 26, swarmGap: 20 };
   }
   if (n >= 40) {
-    return { seed: 7, minD: 150, maxD: 220, scale: 0.88, spawnAcc: 0.85, earlyBoost: 1.75, swarmAt: 13, swarmBase: 11, swarmStep: 2, eliteAt: 32, announceExtra: 5, swarmCap: 24 };
+    return { seed: 7, minD: 150, maxD: 220, scale: 0.88, spawnAcc: 0.85, earlyBoost: 1.75, swarmAt: 13, swarmBase: 11, swarmStep: 2, eliteAt: 32, announceExtra: 5, swarmCap: 24, swarmGap: 20 };
   }
-  return { seed: 7, minD: 150, maxD: 220, scale: 0.85, spawnAcc: 0.85, earlyBoost: 1.6, swarmAt: 14, swarmBase: 10, swarmStep: 2, eliteAt: 38, announceExtra: 5, swarmCap: 22 };
+  return { seed: 7, minD: 150, maxD: 220, scale: 0.85, spawnAcc: 0.85, earlyBoost: 1.6, swarmAt: 14, swarmBase: 10, swarmStep: 2, eliteAt: 38, announceExtra: 5, swarmCap: 22, swarmGap: 20 };
 }
 
 /** r6 floor palettes — warm pixel-grid tiles (stronger grout, less soft bevel). */
@@ -523,6 +539,7 @@ export class Game {
       if (!e.alive) continue;
       if (e.hitFlash > 0) e.hitFlash -= dt;
       if (e.slow > 0) e.slow -= dt;
+      if (e.tagT > 0) e.tagT -= dt;
 
       // elite / boss skills
       const skEvents = updateEnemySkill(e, p, dt);
@@ -886,7 +903,8 @@ export class Game {
     // 1) zombie swarm ring every ~22s: weak fodder closing in from all sides = AoE payoff
     if (t >= ev.swarmNext && t < endT - 6) {
       const pace = this.pace || paceProfile(this.stage);
-      ev.swarmNext = t + (pace.swarmBase <= 8 ? 24 : 20) + Math.random() * 5;
+      const gap = pace.swarmGap != null ? pace.swarmGap : (pace.swarmBase <= 8 ? 24 : 20);
+      ev.swarmNext = t + gap + Math.random() * 5;
       const n = Math.min(pace.swarmCap || 22, pace.swarmBase + Math.floor(t / 25) * pace.swarmStep);
       const R = 250;
       for (let i = 0; i < n; i++) {
@@ -1022,6 +1040,8 @@ export class Game {
     const stageMul = this.stage.hpScale || 1;
     boss.hp = boss.maxHp = Math.round(500 * stageMul * 1.4 * (1 + (this.stage.stageNum || 1) * 0.01));
     boss.damage = Math.round(18 + stageMul * 4);
+    boss.tag = '首领';
+    boss.tagT = 2.2;
     this.enemies.push(boss);
     if (!bonus) this.bossesSpawned = (this.bossesSpawned || 0) + 1;
     addShake(this.juice, 16, 0.4);
@@ -1087,16 +1107,18 @@ export class Game {
     }
     const showNum = dmg >= 1 && (crit || !(e._numCd > this.time));
     if (showNum) {
-    e._numCd = this.time + 0.12;
-    const dt = this.dmgTexts.acquire();
-    dt.x = e.x + (Math.random() - 0.5) * 16;
-    dt.y = e.y - e.r;
-    dt.text = String(Math.round(dmg));
-    dt.age = 0;
-    dt.life = crit ? 0.75 : 0.55;
-    dt.color = crit ? '#ffe7a0' : '#fff6dc';
-    dt.crit = crit;
-    dt.scale = crit ? 1.25 : 1;
+      e._numCd = this.time + 0.12;
+      const dt = this.dmgTexts.acquire();
+      const big = dmg >= 20;
+      dt.x = e.x + (Math.random() - 0.5) * 16;
+      dt.y = e.y - e.r;
+      dt.text = String(Math.round(dmg));
+      dt.age = 0;
+      dt.life = crit ? 0.7 : 0.55;
+      dt.color = crit ? '#ffe7a0' : '#fff6dc';
+      dt.crit = crit;
+      dt.big = big && !crit;
+      dt.scale = crit ? 1.16 : dt.big ? 1.08 : 1;
     }
 
     if (e.hp <= 0) {
@@ -1628,14 +1650,15 @@ export class Game {
       ctx.translate(d.x, d.y);
       ctx.scale(d.scale || 1, d.scale || 1);
       // every number gets an ink outline so it reads on bright floors (was cream-on-beige)
-      ctx.font = d.crit ? '900 20px sans-serif' : '900 16px sans-serif';
+      const px = d.crit ? 19 : d.big ? 17 : 16;
+      ctx.font = `900 ${px}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.lineJoin = 'round';
-      ctx.shadowColor = 'rgba(90, 42, 12, 0.55)';
-      ctx.shadowBlur = 5;
+      ctx.shadowColor = 'rgba(90, 42, 12, 0.45)';
+      ctx.shadowBlur = 4;
       ctx.shadowOffsetY = 1;
       ctx.strokeStyle = '#6b3a14';
-      ctx.lineWidth = d.crit ? 4 : 3.5;
+      ctx.lineWidth = d.crit ? 3.5 : 3;
       ctx.strokeText(d.text, 0, 0);
       ctx.shadowBlur = 0;
       ctx.fillStyle = d.color;
@@ -1681,10 +1704,31 @@ export class Game {
       this._vigTheme = theme;
     }
     ctx.drawImage(this._vig, 0, 0);
+    this._drawLowHp(ctx);
 
     drawJuiceOverlay(ctx, this.juice, W, H);
 
     this._drawBanners(ctx);
+  }
+
+  /** Soft warm edge when health is low. Slow breathe, no red flash. */
+  _drawLowHp(ctx) {
+    const p = this.player;
+    if (!p || !this.alive || !(p.maxHp > 0)) return;
+    const ratio = p.hp / p.maxHp;
+    if (ratio >= 0.34) return;
+    const k = (0.34 - ratio) / 0.34;
+    const breathe = 0.72 + 0.28 * (0.5 + 0.5 * Math.sin(this.time * 2.2));
+    const a = (0.16 + 0.14 * k) * breathe;
+    const cx = W / 2;
+    const cy = H * 0.42;
+    const outer = Math.hypot(cx, H - cy);
+    const g = ctx.createRadialGradient(cx, cy, outer * 0.45, cx, cy, outer);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(0.28, 'rgba(0,0,0,0)');
+    g.addColorStop(1, `rgba(112, 62, 24, ${a.toFixed(3)})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
   }
 
   /** Cartoon plaque banners (cream + thick outline). Soft fades only, no strobe. */

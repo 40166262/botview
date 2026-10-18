@@ -324,7 +324,7 @@ html, body {
 }
 .clear-bar {
   height: 100%; width: 0%;
-  background: linear-gradient(90deg, #7a9e8e, #c48898); border-radius: 99px;
+  background: linear-gradient(90deg, #ffb35c, #e2741e); border-radius: 99px;
   transition: width 0.2s;
 }
 .hud-combo {
@@ -1646,6 +1646,13 @@ body:has(#achieve:not(.hidden)) .overlay {
     1px 0 0 #5a3414,
     -1px 0 0 #5a3414,
     0 2px 7px rgba(90, 42, 12, 0.4);
+}
+.hud.low-hp .hp-wrap {
+  animation: hpWarm 1.35s ease-in-out infinite;
+}
+@keyframes hpWarm {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(196, 122, 48, 0); }
+  50% { box-shadow: 0 0 8px 1px rgba(214, 150, 72, 0.55); }
 }
 .hud-combo.pop { animation: comboPop 0.22s ease; }
 @keyframes comboPop {

@@ -127,6 +127,8 @@ export function refreshHomeStats(save) {
 export function updateHud(data) {
   const hpPct = Math.max(0, (data.hp / data.maxHp) * 100);
   $('hp-bar').style.width = hpPct + '%';
+  const hud = $('hud');
+  if (hud) hud.classList.toggle('low-hp', data.maxHp > 0 && data.hp / data.maxHp < 0.34);
   const xpPct = Math.max(0, (data.xp / data.xpToNext) * 100);
   $('xp-bar').style.width = xpPct + '%';
   $('hud-time').textContent = formatTime(data.time);
