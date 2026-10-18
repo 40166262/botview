@@ -38,6 +38,7 @@ const defaults = () => ({
   failStreak: {},
   achievements: {},
   achievementsSeeded: false,
+  coachSeen: false,
 });
 
 function migrateFacility(save) {

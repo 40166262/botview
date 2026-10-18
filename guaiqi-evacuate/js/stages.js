@@ -51,10 +51,43 @@ export const STAGE_LEVEL_GATES = {
 function buildStage(n) {
   const th = themeFor(n);
   const tier = n;
-  // Raised difficulty vs earlier trivial clears (~56s on stage 8)
-  const clearTime = Math.min(300, 105 + Math.floor(tier * 1.35));
-  const clearKills = Math.min(360, 95 + Math.floor(tier * 2.4)); // swarms raise kill pace
-  const eliteEvery = Math.max(7, 28 - Math.floor(tier / 5));
+  // Base curve (stage 8 ~2:00). Stages 1–2 are eased below so a first clear
+  // lands inside one short sitting; 40+ tightens a little.
+  let clearTime = Math.min(300, 105 + Math.floor(tier * 1.35));
+  let clearKills = Math.min(360, 95 + Math.floor(tier * 2.4));
+  let eliteEvery = Math.max(7, 28 - Math.floor(tier / 5));
+  let spawnBase = 0.78 + tier * 0.014;
+  let spawnRamp = 0.018 + tier * 0.0004;
+  let hpScale = 1.12 + (tier - 1) * 0.085;
+  let dmgScale = 0.9 + (tier - 1) * 0.058;
+  if (n === 1) {
+    // Was 1:46 / 97 kills, spawn 0.79, hp 1.12, dmg 0.90, elite every 28.
+    clearTime = 78;
+    clearKills = 48;
+    spawnBase = 0.52;
+    spawnRamp = 0.011;
+    hpScale = 0.86;
+    dmgScale = 0.62;
+    eliteEvery = 42;
+  } else if (n === 2) {
+    // Was 1:47 / 99 kills, spawn 0.81, hp 1.21, dmg 0.96.
+    clearTime = 92;
+    clearKills = 62;
+    spawnBase = 0.66;
+    spawnRamp = 0.013;
+    hpScale = 1.02;
+    dmgScale = 0.76;
+    eliteEvery = 34;
+  } else if (n >= 70) {
+    spawnBase *= 1.12;
+    hpScale *= 1.05;
+    dmgScale *= 1.06;
+    eliteEvery = Math.max(6, eliteEvery - 1);
+  } else if (n >= 40) {
+    spawnBase *= 1.08;
+    hpScale *= 1.05;
+    eliteEvery = Math.max(6, eliteEvery - 1);
+  }
   const hasBoss = n >= 5;
   const dualBoss = n >= 15;
   const bosses = [];
@@ -99,8 +132,8 @@ function buildStage(n) {
     clearTime,
     clearKills,
     clearMode,
-    spawnBase: 0.78 + tier * 0.014,
-    spawnRamp: 0.018 + tier * 0.0004,
+    spawnBase,
+    spawnRamp,
     maxEnemies: Math.min(130, 52 + Math.floor(tier * 0.75)),
     enemies,
     eliteEvery,
@@ -108,14 +141,14 @@ function buildStage(n) {
     bosses,
     introBanner: {
       title: `第${n}关 · 波次 1`,
-      sub: `目标 · ${clearMode === 'boss' ? '击败首领' : `生存 ${fmt(clearTime)} 或 ${clearKills}杀`}`,
+      sub: `目标 · ${clearMode === 'boss' ? '击败首领' : `生存 ${fmt(clearTime)} 或 ${clearKills} 杀`}`,
     },
     midAnnounces,
     rewardCoins: 15 + tier * 3,
     rewardDiamonds: n % 5 === 0 ? 5 + Math.floor(n / 10) : (n === 1 ? 5 : 0),
     bgTint: th.bgTint,
-    hpScale: 1.12 + (tier - 1) * 0.085,
-    dmgScale: 0.9 + (tier - 1) * 0.058,
+    hpScale,
+    dmgScale,
     levelGate: STAGE_LEVEL_GATES[n] || 0,
     difficultyTag: difficultyTag(n),
   };
@@ -295,6 +328,13 @@ export function stageGoalLine(stage) {
   if (!stage || stage.endless) return '撑住';
   if (stage.clearMode === 'boss' || (stage.bosses && stage.bosses.length)) return '击败首领';
   return '生存或清场';
+}
+
+/** One sentence that matches the real clear rule (boss kill, or survive OR kills). */
+export function stageWinLine(stage) {
+  if (!stage || stage.endless) return '撑得越久越好';
+  if (stage.clearMode === 'boss' || (stage.bosses && stage.bosses.length)) return '击败首领';
+  return `生存 ${fmt(stage.clearTime)} 或 ${stage.clearKills} 杀`;
 }
 
 export function waveLabel(stage, timeSec) {

@@ -368,6 +368,16 @@ export function drawStandingSprite(ctx, img, x, footY, h, opts = {}) {
   ctx.imageSmoothingEnabled = true;
   if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = true;
   if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = true;
+  if (opts.rim) {
+    const rim = silhouette(img, opts.rim);
+    ctx.save();
+    ctx.globalAlpha = opts.rimAlpha ?? 0.62;
+    const o = opts.rimPx ?? 2;
+    for (const [ox, oy] of [[o, 0], [-o, 0], [0, o], [0, -o]]) {
+      ctx.drawImage(rim, 0, 0, iw, ih, dx + ox, dy + oy, dw, dh);
+    }
+    ctx.restore();
+  }
   ctx.drawImage(img, 0, 0, iw, ih, dx, dy, dw, dh);
   if (opts.tint) {
     ctx.globalAlpha = opts.tintAlpha ?? 0.22;

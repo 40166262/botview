@@ -1,5 +1,5 @@
 import { formatTime, gearUpgradeCost } from './save.js';
-import { STAGES, ENDLESS, isStageUnlocked, stageLockReason, allStagesIncludingEndless, STAGE_COUNT } from './stages.js';
+import { STAGES, ENDLESS, isStageUnlocked, stageLockReason, allStagesIncludingEndless, STAGE_COUNT, stageWinLine } from './stages.js';
 import {
   CHARACTERS, GALLERY, PASSIVE_ITEMS, RARITY_LABEL, RARITY_COLOR,
   isCharUnlocked, charLockLine, galleryCount, ensureDailyQuests, canFreeGacha,
@@ -73,15 +73,12 @@ export function refreshHomeStats(save) {
     const cleared = !!(save.stagesCleared && save.stagesCleared[frontier.id]);
     let text;
     if (!cleared) {
-      const goal = frontier.clearMode === 'boss'
-        ? '击败首领'
-        : `生存 ${formatTime(frontier.clearTime)} 或 ${frontier.clearKills} 杀`;
-      text = `下一关目标 · 第${frontier.stageNum}关 · ${goal}`;
+      text = `下一关目标 · 第${frontier.stageNum}关 · ${stageWinLine(frontier)}`;
     } else {
       const next = STAGES.find((s) => s.stageNum === frontier.stageNum + 1);
       if (next) {
         const reason = stageLockReason(save, next.id);
-        text = reason ? `下一关 · ${reason}` : `下一关目标 · 第${next.stageNum}关`;
+        text = reason ? `下一关 · ${reason}` : `下一关目标 · 第${next.stageNum}关 · ${stageWinLine(next)}`;
       } else if (isStageUnlocked(save, 'endless')) {
         text = '章节已清空 · 无尽设施等你';
       } else {
@@ -377,9 +374,7 @@ export function renderStageCards(save, selectedId, onSelect, page = 0) {
     btn.className = `stage-card${unlocked ? '' : ' locked'}${selectedId === s.id ? ' selected' : ''}`;
     const thumbArt = s.theme === 'ward' ? 'enemy_crawler' : s.theme === 'basement' ? 'enemy_armored' : 'enemy_office_zombie';
     const bossTag = s.clearMode === 'boss' ? '<span class="st-boss">首领</span>' : '';
-    const goal = s.clearMode === 'boss'
-      ? `击败首领 · ${formatTime(s.clearTime)} 或 ${s.clearKills} 杀`
-      : `生存 ${formatTime(s.clearTime)} 或 ${s.clearKills} 杀`;
+    const goal = stageWinLine(s);
     const now = selectedId === s.id ? '<span class="st-now">当前</span>' : '';
     btn.innerHTML = `
       <div class="stage-thumb theme-${s.theme}"><img src="assets/${thumbArt}.png" alt=""/><span class="st-num">${s.stageNum}</span>${unlocked ? '' : '<span class="char-lock-badge">锁</span>'}${bossTag}</div>
@@ -407,7 +402,7 @@ export function renderStageCards(save, selectedId, onSelect, page = 0) {
     <div class="stage-info">
       <h3><span class="st-title">${en.name}</span>${enow}</h3>
       <p class="st-sub">${en.subtitle}</p>
-      <p class="st-goal">${eu ? `纪录 ${formatTime(save.bestEndlessTime||0)} · 击杀 ${save.bestEndlessKills||0}` : `<span class="lock-tag">${stageLockReason(save, en.id)}</span>`}</p>
+      <p class="st-goal">${eu ? ((save.bestEndlessTime || save.bestEndlessKills) ? `撑得越久越好 · 纪录 ${formatTime(save.bestEndlessTime||0)}` : '撑得越久越好') : `<span class="lock-tag">${stageLockReason(save, en.id)}</span>`}</p>
     </div>`;
   ebtn.addEventListener('click', () => {
     if (!eu) { toast(stageLockReason(save, en.id)); return; }
@@ -676,6 +671,26 @@ export function showGachaResult(result) {
   show(el);
 }
 
+/** Under-HUD coach plaques. The game owns timing; this only mirrors it. */
+export function syncBattleTips(tips) {
+  const stack = $('battle-tips');
+  const move = $('move-hint');
+  const act = $('act-hint');
+  const idle = $('idle-hint');
+  const setOn = (el, on) => { if (el) el.classList.toggle('hidden', !on); };
+  if (!tips) {
+    setOn(move, false);
+    setOn(act, false);
+    setOn(idle, false);
+    if (stack) stack.classList.remove('settled');
+    return;
+  }
+  setOn(move, !!tips.move);
+  setOn(act, !!tips.act);
+  setOn(idle, !!tips.idle);
+  if (stack) stack.classList.toggle('settled', !!tips.settled);
+}
+
 /** Virtual joystick */
 export function bindJoystick(game, joyRoot, knob) {
   const maxR = 40;
@@ -691,8 +706,7 @@ export function bindJoystick(game, joyRoot, knob) {
     game.setJoystick(kx, ky, len > 4);
   }
   function dismissMoveHint() {
-    const hint = $('move-hint');
-    if (hint) hint.classList.add('hidden');
+    if (game.dismissCoach) game.dismissCoach('move');
     const joy = $('joystick');
     if (joy) joy.classList.remove('ghost');
   }
