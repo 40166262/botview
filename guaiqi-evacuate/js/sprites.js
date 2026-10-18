@@ -14,7 +14,8 @@ const MANIFEST = {
   golem: 'assets/enemy_securibot.png',
   boss: 'assets/enemy_boss.png',
   shadow: 'assets/enemy_shadow.png',
-  // char_* paths ready for art drops
+  // v6 chibi player art: 390x520 (aspect 0.75 = drawClippedSprite clamp, no stretch),
+  // feet baseline y=511, figure ~490px tall, centred x=195. *_full.png = 512x768 UI art.
   grin: 'assets/char_grin.png',
   medic: 'assets/char_medic.png',
   janitor: 'assets/char_janitor.png',
