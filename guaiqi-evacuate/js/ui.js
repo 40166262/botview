@@ -62,10 +62,10 @@ export function refreshHomeStats(save) {
   if (hero) {
     const cid = save.selectedChar || 'grin';
     const map = {
-      grin: 'assets/char_grin.png',
-      medic: 'assets/char_medic.png',
-      janitor: 'assets/char_janitor.png',
-      intern: 'assets/char_intern.png',
+      grin: 'assets/char_grin_full.png',
+      medic: 'assets/char_medic_full.png',
+      janitor: 'assets/char_janitor_full.png',
+      intern: 'assets/char_intern_full.png',
     };
     hero.src = map[cid] || map.grin;
   }
@@ -339,11 +339,12 @@ export function renderCharCards(save, selectedId, onSelect, onBuy) {
     const spr = getCharSprite(c.id);
     const thumb = document.createElement('div');
     thumb.className = 'char-thumb';
-    const CHAR_FALLBACK = {
-      grin: 'assets/char_grin.png', medic: 'assets/char_medic.png',
-      janitor: 'assets/char_janitor.png', intern: 'assets/char_intern.png',
+    // v6: high-res full-body art for cards (in-game sprite stays char_<id>.png)
+    const CHAR_FULL = {
+      grin: 'assets/char_grin_full.png', medic: 'assets/char_medic_full.png',
+      janitor: 'assets/char_janitor_full.png', intern: 'assets/char_intern_full.png',
     };
-    const artSrc = (spr && spr.src) || CHAR_FALLBACK[c.id];
+    const artSrc = CHAR_FULL[c.id] || (spr && spr.src);
     if (artSrc) {
       const img = document.createElement('img');
       img.src = artSrc;
@@ -402,10 +403,10 @@ const GALLERY_ART = {
   enemy_elite: 'assets/enemy_office_zombie.png',
   enemy_slacker: 'assets/enemy_slacker_zombie.png',
   enemy_secret: 'assets/enemy_shadow.png',
-  char_grin: 'assets/char_grin.png',
-  char_medic: 'assets/char_medic.png',
-  char_janitor: 'assets/char_janitor.png',
-  char_intern: 'assets/char_intern.png',
+  char_grin: 'assets/char_grin_full.png',
+  char_medic: 'assets/char_medic_full.png',
+  char_janitor: 'assets/char_janitor_full.png',
+  char_intern: 'assets/char_intern_full.png',
   item_chest: 'assets/chest_normal.png',
   milestone_10: 'assets/icon_diamond.png',
 };

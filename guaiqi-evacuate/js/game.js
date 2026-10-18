@@ -1691,7 +1691,7 @@ export class Game {
     const bob = Math.sin(this.time * 4 + p.pulse) * 2;
     const spr = getCharSprite(this.charId);
     if (spr) {
-      const tint = this.charId === 'intern' ? 'rgba(200,180,120,0.35)' : null;
+      const tint = null; // v6 art is colour-matched; old intern wash tint removed
       drawClippedSprite(ctx, spr, p.x, p.y + bob, p.r, {
         glow: 'none',
         scale: 1.95,
