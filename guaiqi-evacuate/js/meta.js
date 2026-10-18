@@ -361,8 +361,8 @@ export function rollGacha(save) {
     detail: '',
   };
 
-  if (entry.type === 'coins') result.icon = 'assets/icon_coin.png';
-  if (entry.type === 'diamonds') result.icon = 'assets/icon_diamond.png';
+  if (entry.type === 'coins') result.icon = 'assets/ui_coin_mark.png';
+  if (entry.type === 'diamonds') result.icon = 'assets/ui_gem_mark.png';
   if (entry.type === 'char' || entry.type === 'shards') result.icon = `assets/char_${entry.charId}.png`;
 
   if (entry.type === 'coins') {

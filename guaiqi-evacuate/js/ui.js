@@ -197,8 +197,8 @@ export function showResult(opts) {
   const chips = $('res-chips');
   if (chips) {
     const c = [];
-    c.push(`<div class="rchip"><img src="assets/icon_coin.png" alt=""/><b id="res-chip-coins">${opts.coins || 0}</b><span>金币</span></div>`);
-    if (opts.diamonds) c.push(`<div class="rchip"><img src="assets/icon_diamond.png" alt=""/><b>${opts.diamonds}</b><span>钻石</span></div>`);
+    c.push(`<div class="rchip"><img src="assets/ui_coin_mark.png" alt=""/><b id="res-chip-coins">${opts.coins || 0}</b><span>金币</span></div>`);
+    if (opts.diamonds) c.push(`<div class="rchip"><img src="assets/ui_gem_mark.png" alt=""/><b>${opts.diamonds}</b><span>钻石</span></div>`);
     if (opts.xp) c.push(`<div class="rchip xp"><i>EXP</i><b>${opts.xp}</b><span>经验</span></div>`);
     chips.innerHTML = c.join('');
   }
@@ -408,7 +408,7 @@ const GALLERY_ART = {
   char_janitor: 'assets/char_janitor_full.png',
   char_intern: 'assets/char_intern_full.png',
   item_chest: 'assets/chest_normal.png',
-  milestone_10: 'assets/icon_diamond.png',
+  milestone_10: 'assets/ui_gem_mark.png',
 };
 const GALLERY_SHEET = { item_crit: 8, item_frost: 13, item_shield: 11 };
 const GALLERY_GOLD = new Set(['enemy_elite']);

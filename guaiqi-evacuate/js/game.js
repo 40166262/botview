@@ -952,7 +952,7 @@ export class Game {
     dt.text = String(Math.round(dmg));
     dt.age = 0;
     dt.life = crit ? 0.75 : 0.55;
-    dt.color = crit ? '#ffc23a' : (e.isBoss ? '#ffb090' : '#ffe3b0');
+    dt.color = crit ? '#ff9a00' : (e.isBoss ? '#e23b22' : '#d85a08');
     dt.crit = crit;
     dt.scale = crit ? 1.25 : 1;
     }
@@ -1174,14 +1174,6 @@ export class Game {
     if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = true;
 
     this._drawFloor(ctx, FLOOR);
-
-    // Keep sprites out of the HTML HUD band so enemies don't draw through the bars.
-    ctx.save();
-    const hudCut = 104;
-    const hudWorldY = (hudCut - H / 2) / VIEW_ZOOM + H / 2 + this.camY - off.y;
-    ctx.beginPath();
-    ctx.rect(-4000, hudWorldY, 20000, 20000);
-    ctx.clip();
 
     // hazard zones visual
     for (const z of (this.hazardZones || [])) {
@@ -1429,7 +1421,7 @@ export class Game {
       ctx.translate(d.x, d.y);
       ctx.scale(d.scale || 1, d.scale || 1);
       // every number gets an ink outline so it reads on bright floors (was cream-on-beige)
-      ctx.font = d.crit ? '900 17px sans-serif' : 'bold 12px sans-serif';
+      ctx.font = d.crit ? '900 20px sans-serif' : '900 15px sans-serif';
       ctx.textAlign = 'center';
       ctx.lineJoin = 'round';
       ctx.strokeStyle = '#3b2a1a';
@@ -1450,7 +1442,6 @@ export class Game {
     }
     ctx.globalAlpha = 1;
 
-    ctx.restore(); // HUD clip
     // world-space combo popups removed (duplicated the HUD ×N counter and cluttered the fight)
 
     ctx.restore();
