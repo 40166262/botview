@@ -5,8 +5,12 @@
 
 const MANIFEST = {
   player: 'assets/player_grin.png',
-  slime: 'assets/enemy_zombie.png',
+  // v4 enemy art (keyed offline, real alpha, bbox-trimmed)
+  slime: 'assets/enemy_office_zombie.png',
   bat: 'assets/enemy_crawler.png',
+  armored: 'assets/enemy_armored.png',
+  monitor: 'assets/enemy_monitor_bot.png',
+  slacker: 'assets/enemy_slacker_zombie.png',
   golem: 'assets/enemy_securibot.png',
   boss: 'assets/enemy_boss.png',
   shadow: 'assets/enemy_shadow.png',
@@ -17,6 +21,9 @@ const MANIFEST = {
   intern: 'assets/char_intern.png',
   icons: 'assets/upgrade_icons_sheet.png',
   chest: 'assets/item_chest.png',
+  chestNormal: 'assets/chest_normal.png',
+  chestRare: 'assets/chest_rare.png',
+  chestGold: 'assets/chest_gold.png',
   chestHeal: 'assets/chest_heal.png',
   chestCoin: 'assets/chest_coin.png',
   chestUpgrade: 'assets/chest_upgrade.png',
@@ -163,7 +170,7 @@ function prepareOptionalArt() {
   if (chest) processed.chest = chest;
   // 角色若已有透明角则跳过抠图，避免 chroma 把肤色/亮边打成洞；敌人仅做温和白底去除
   const charKeys = ['player', 'grin', 'medic', 'janitor', 'intern'];
-  const enemyKeys = ['slime', 'bat', 'golem', 'boss', 'shadow'];
+  const enemyKeys = ['slime', 'bat', 'armored', 'monitor', 'slacker', 'golem', 'boss', 'shadow'];
   for (const key of charKeys) {
     const img = getSprite(key);
     if (!img) continue;
@@ -228,9 +235,10 @@ export function getIconCell(index) {
   return _trimmed[key];
 }
 
-export function getChestImage() {
-  // clean outlined chest art (item_chest.png has a torn paper border baked in)
-  return getSprite('chestUpgrade') || processed.chest || getSprite('chest');
+/** Loot chest art by tier: 'normal' | 'rare' | 'gold'. */
+export function getChestImage(tier = 'normal') {
+  const key = tier === 'gold' ? 'chestGold' : tier === 'rare' ? 'chestRare' : 'chestNormal';
+  return getSprite(key) || getSprite('chestUpgrade') || processed.chest || getSprite('chest');
 }
 
 export function getUiIcon(key) {
@@ -315,6 +323,41 @@ export function drawClippedSprite(ctx, img, x, y, radius, opts = {}) {
     ctx.drawImage(silhouette(img, '#ffe2b0'), 0, 0, iw, ih, dx, dy, dw, dh);
     ctx.restore();
   }
+}
+
+/**
+ * Draw an upright 3/4 top-down sprite standing on (x, footY): true aspect (no stretch),
+ * contact shadow under the feet. `h` = target height; wide sprites are capped at `maxW`.
+ */
+export function drawStandingSprite(ctx, img, x, footY, h, opts = {}) {
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  const aspect = iw / Math.max(1, ih);
+  let dh = h, dw = h * aspect;
+  if (opts.maxW && dw > opts.maxW) { dw = opts.maxW; dh = dw / aspect; }
+  const dx = x - dw / 2;
+  const dy = footY - dh;
+  ctx.save();
+  ctx.fillStyle = opts.shadow || 'rgba(70,45,20,0.30)';
+  ctx.beginPath();
+  ctx.ellipse(x, footY - dh * 0.03, Math.max(dw * 0.42, 8), Math.max(dh * 0.09, 3.5), 0, 0, Math.PI * 2);
+  ctx.fill();
+  if (opts.flip) {
+    ctx.translate(x * 2, 0);
+    ctx.scale(-1, 1);
+  }
+  ctx.drawImage(img, 0, 0, iw, ih, dx, dy, dw, dh);
+  if (opts.tint) {
+    ctx.globalAlpha = opts.tintAlpha ?? 0.22;
+    ctx.drawImage(silhouette(img, opts.tint), 0, 0, iw, ih, dx, dy, dw, dh);
+    ctx.globalAlpha = 1;
+  }
+  if (opts.flash) {
+    ctx.globalAlpha = 0.35; // soft warm hit tint — never pure white
+    ctx.drawImage(silhouette(img, '#ffe2b0'), 0, 0, iw, ih, dx, dy, dw, dh);
+  }
+  ctx.restore();
+  return { dw, dh };
 }
 
 const _silCache = new Map();

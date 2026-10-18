@@ -19,7 +19,7 @@ import {
   drawJuiceOverlay, drawFloatCombos, spawnKillBurst, addShake, shakeOffset,
 } from './juice.js';
 import { applyCharacterToPlayer, applyPassivesToPlayer, applyGearToPlayer, applyCharLevelToPlayer, unlockGallery } from './meta.js';
-import { getIconCell, getChestImage, getCharSprite, getSprite, drawClippedSprite } from './sprites.js';
+import { getIconCell, getChestImage, getCharSprite, getSprite, drawClippedSprite, drawStandingSprite } from './sprites.js';
 
 const W = 390;
 const H = 844;
@@ -174,11 +174,12 @@ export class Game {
   _genProps(n) {
     // Facility props only — never reed/lantern/pillar/stone/stump
     const theme = (this.stage && this.stage.theme) || 'office';
+    // weighted: new clean v4 props (desk/bed/cart/crate) dominate, legacy bits are filler
     const kinds = theme === 'ward'
-      ? ['bed', 'cart', 'rock']
+      ? ['bed', 'bed', 'cart', 'cart', 'crate', 'rock']
       : theme === 'basement'
-        ? ['crate', 'pipe', 'rock']
-        : ['desk', 'chair', 'rock'];
+        ? ['crate', 'crate', 'crate', 'cart', 'pipe', 'rock']
+        : ['desk', 'desk', 'desk', 'crate', 'chair', 'rock'];
     const a = [];
     for (let i = 0; i < n; i++) {
       a.push({
@@ -677,7 +678,13 @@ export class Game {
           this._coinPop(c.x, c.y, '+30金');
           if (this.hooks.onGoldenChest) this.hooks.onGoldenChest(this.getUpgradeChoices({ minRarity: 'rare' }));
           else if (this.hooks.onChest) this.hooks.onChest();
-        } else if (this.hooks.onChest) this.hooks.onChest();
+        } else {
+          if (c.tier === 'rare') {
+            this.coinsEarned += 10;
+            this._coinPop(c.x, c.y, '+10金');
+          }
+          if (this.hooks.onChest) this.hooks.onChest();
+        }
       }
     }
     this.chests.sweep();
@@ -793,10 +800,11 @@ export class Game {
     if (this.time >= this.events.chestNext && this.time < this.stage.clearTime - 15) {
       this.events.chestNext = this.time + 40;
       // 70% guaranteed + 30% surprise extra
-      this._spawnChest();
+      // later supply drops can roll rare; plus a 30% surprise extra that is always rare
+      this._spawnChest(this.time > 80 && Math.random() < 0.35 ? 'rare' : 'normal');
       if (Math.random() < 0.3) {
         setTimeout(() => {
-          if (this.alive && !this.cleared) this._spawnChest();
+          if (this.alive && !this.cleared) this._spawnChest('rare');
         }, 800);
       }
     }
@@ -864,7 +872,7 @@ export class Game {
     // 4) golden chest — once per run, rare loot (epic picks + coins)
     if (!ev.goldenDone && t >= ev.goldenAt && t < endT - 8) {
       ev.goldenDone = true;
-      this._spawnChest(true);
+      this._spawnChest('gold');
     }
 
     // 5) 摸鱼丧尸: runs AWAY carrying a bonus briefcase; catch it in 9s for a payout
@@ -883,11 +891,15 @@ export class Game {
     }
   }
 
-  _spawnChest(golden = false) {
+  /** tier: 'normal' | 'rare' | 'gold' (gold = once-per-run golden chest) */
+  _spawnChest(tier = 'normal') {
+    if (tier === true) tier = 'gold';
+    const golden = tier === 'gold';
     const pos = spawnPointAround(this.player.x, this.player.y, 80, 140, WORLD_W, WORLD_H);
     const c = this.chests.acquire();
-    c.x = pos.x; c.y = pos.y; c.r = golden ? 32 : 28; c.bob = 0; c.opened = false;
+    c.x = pos.x; c.y = pos.y; c.r = golden ? 32 : tier === 'rare' ? 30 : 28; c.bob = 0; c.opened = false;
     c.golden = golden;
+    c.tier = tier;
     spawnBurst(this.particles, pos.x, pos.y, '#ffe066', golden ? 22 : 12, golden ? 120 : 80);
     if (golden) {
       this._banner('金色物资箱！', 'gold', 2);
@@ -897,7 +909,7 @@ export class Game {
     const now = this.time || 0;
     if (!this._lastChestToast || now - this._lastChestToast > 1.2) {
       this._lastChestToast = now;
-      if (this.hooks.onToast) this.hooks.onToast('物资箱出现！');
+      if (this.hooks.onToast) this.hooks.onToast(tier === 'rare' ? '稀有物资箱出现！' : '物资箱出现！');
     }
   }
 
@@ -1292,24 +1304,23 @@ export class Game {
       cart: 'propCart', crate: 'propCrate', pipe: 'propPipe', rock: 'propRock',
     };
     const PROP_SIZE = {
-      desk: 58, chair: 34, bed: 62, cart: 40, crate: 40, pipe: 56, rock: 24,
+      desk: 66, chair: 34, bed: 68, cart: 52, crate: 44, pipe: 56, rock: 24,
     };
-    // source rects: prop PNGs carry stray guide lines / sheet neighbours → draw the body only
-    const PROP_CROP = {
-      desk: [43, 50, 115, 86], chair: [58, 47, 59, 90], bed: [95, 7, 97, 165],
-      cart: [0, 32, 107, 107], crate: [0, 32, 107, 107], pipe: [0, 45, 192, 102], rock: [1, 1, 112, 98],
+    // desk/bed/cart/crate are clean v4 single images; only the legacy chair/pipe/rock sheets need a body rect
+    const LEGACY_CROP = {
+      chair: [58, 47, 59, 90], pipe: [0, 45, 192, 102], rock: [1, 1, 112, 98],
     };
     for (const pr of (this.props || [])) {
       const s = (pr.s || 1) * 0.85;
       const key = PROP_SPRITE[pr.kind];
       let spr = key ? getSprite(key) : null;
-      // rock fallback: tiny crate rubble if prop_rock missing
-      if (!spr && pr.kind === 'rock') spr = getSprite('propCrate');
-      if (!spr && pr.kind === 'cart') spr = getSprite('propBed') || getSprite('propCrate');
+      let crop = LEGACY_CROP[pr.kind] || null;
+      // rock fallback: small crate if prop_rock missing
+      if (!spr && pr.kind === 'rock') { spr = getSprite('propCrate'); crop = null; }
       if (spr) {
         const base = PROP_SIZE[pr.kind] || 26;
         const sz = base * s;
-        const crop = PROP_CROP[pr.kind] || [0, 0, spr.naturalWidth || spr.width, spr.naturalHeight || spr.height];
+        if (!crop) crop = [0, 0, spr.naturalWidth || spr.width, spr.naturalHeight || spr.height];
         const iw = crop[2];
         const ih = crop[3];
         const aspect = iw / Math.max(1, ih);
@@ -1317,10 +1328,10 @@ export class Game {
         if (aspect >= 1) { dh = sz / aspect; } else { dw = sz * aspect; }
         // soft ground shadow only — scenery stays dull vs loot chests
         ctx.save();
-        ctx.globalAlpha = 0.88; // readable scenery; loot keeps its pulse ring + label
-        ctx.fillStyle = 'rgba(60,40,20,0.18)';
+        ctx.globalAlpha = 0.92; // readable scenery; loot keeps its pulse ring + label
+        ctx.fillStyle = 'rgba(70,45,20,0.20)';
         ctx.beginPath();
-        ctx.ellipse(pr.x, pr.y + dh * 0.38, dw * 0.42, dh * 0.14, 0, 0, Math.PI * 2);
+        ctx.ellipse(pr.x, pr.y + dh * 0.4, dw * 0.46, dh * 0.15, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.drawImage(spr, crop[0], crop[1], crop[2], crop[3], pr.x - dw / 2, pr.y - dh / 2, dw, dh);
         ctx.restore();
@@ -1444,9 +1455,11 @@ export class Game {
     }
 
     // chests — loud interactive loot (vs dull scenery props)
-    const chestImg = getChestImage();
     for (const c of this.chests.active) {
       if (!c.alive) continue;
+      const tier = c.tier || (c.golden ? 'gold' : 'normal');
+      const chestImg = getChestImage(tier);
+      const rare = tier === 'rare';
       const by = c.y + Math.sin(c.bob * 3) * 5;
       const pulse = 0.55 + 0.45 * Math.sin(c.bob * 5);
       // warm pulse ring
@@ -1459,16 +1472,17 @@ export class Game {
         ctx.beginPath(); ctx.arc(c.x, by, 58, 0, Math.PI * 2); ctx.fill();
       }
       ctx.globalAlpha = 0.45 + 0.4 * pulse;
-      ctx.strokeStyle = c.golden ? '#ffb43a' : '#e8a040';
+      ctx.strokeStyle = c.golden ? '#ffb43a' : rare ? '#2fb5b0' : '#e8a040';
       ctx.lineWidth = c.golden ? 4 : 3;
       ctx.beginPath();
-      ctx.arc(c.x, by, (c.golden ? 32 : 26) + 4 * pulse, 0, Math.PI * 2);
+      ctx.arc(c.x, by + 4, (c.golden ? 38 : 32) + 3 * pulse, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
       if (chestImg) {
-        drawClippedSprite(ctx, chestImg, c.x, by, c.r, {
-          glow: 'none', scale: c.golden ? 1.3 : 1.05, tint: c.golden ? '#ffc840' : null,
-        });
+        // chest art already carries its tier colour (gold has its own glow outline) — no tint
+        const cw = c.r * (c.golden ? 2.05 : rare ? 1.85 : 1.75);
+        const ch = cw * (chestImg.naturalHeight || chestImg.height) / Math.max(1, chestImg.naturalWidth || chestImg.width);
+        drawStandingSprite(ctx, chestImg, c.x, by + ch * 0.5, cw, { maxW: cw, shadow: 'rgba(70,45,20,0.28)' });
       } else {
         ctx.fillStyle = '#c48a3a';
         ctx.strokeStyle = '#2a2418';
@@ -1485,9 +1499,9 @@ export class Game {
       ctx.textAlign = 'center';
       ctx.strokeStyle = 'rgba(20,16,10,0.9)';
       ctx.lineWidth = 3;
-      const lab = c.golden ? '金色物资' : '物资';
+      const lab = c.golden ? '金色物资' : rare ? '稀有物资' : '物资';
       ctx.strokeText(lab, c.x, by - 38);
-      ctx.fillStyle = c.golden ? '#ffd050' : '#fff0c0';
+      ctx.fillStyle = c.golden ? '#ffd050' : rare ? '#8ff0e8' : '#fff0c0';
       ctx.fillText(lab, c.x, by - 38);
       ctx.restore();
     }
@@ -1508,9 +1522,10 @@ export class Game {
       ctx.lineWidth = 3;
       ctx.strokeStyle = '#3b2a1a';
       const lab = `摸鱼中 ${Math.ceil(e.fleeT)}s`;
-      ctx.strokeText(lab, e.x, e.y - e.r - 26);
+      const ly = e.y - e.r * 2.15 - 14;
+      ctx.strokeText(lab, e.x, ly);
       ctx.fillStyle = '#ffd050';
-      ctx.fillText(lab, e.x, e.y - e.r - 26);
+      ctx.fillText(lab, e.x, ly);
       ctx.restore();
     }
 

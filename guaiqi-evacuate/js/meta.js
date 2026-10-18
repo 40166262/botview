@@ -45,7 +45,9 @@ export const CHARACTERS = [
 export const GALLERY = [
   { id: 'enemy_slime', kind: 'enemy', name: '绿皮丧尸', icon: '', flavor: '工牌还挂着，脑子不太行。' },
   { id: 'enemy_bat', kind: 'enemy', name: '爬行患者', icon: '', flavor: '病房跑出来的，贴地超快。' },
-  { id: 'enemy_golem', kind: 'enemy', name: '保安机器人', icon: '', flavor: '护盾模块还半好使。' },
+  { id: 'enemy_beetle', kind: 'enemy', name: '铠甲尸', icon: '', flavor: '防暴服穿反了也照样扛揍。' },
+  { id: 'enemy_wisp', kind: 'enemy', name: '故障监视器', icon: '', flavor: '屏幕雪花一闪，就开始远程放电。' },
+  { id: 'enemy_golem', kind: 'enemy', name: '重装保安', icon: '', flavor: '全套护甲加身，下班了还在巡逻。' },
   { id: 'enemy_boss', kind: 'enemy', name: '设施霸主', icon: '', flavor: '开会从不迟到，溃烂除外。' },
   { id: 'enemy_elite', kind: 'enemy', name: '精英变异体', icon: '', flavor: '身上镀了层假金，气场却是真的。' },
   { id: 'enemy_slacker', kind: 'enemy', name: '摸鱼丧尸', icon: '', flavor: '抱着公文包到处跑，抓住它奖金翻倍。' },
@@ -96,7 +98,7 @@ export const DEATH_LINES = [
 ];
 
 export const TOAST_EGGS = [
-  '提示：保安机器人其实怕水。',
+  '提示：故障监视器其实怕水。',
   '有人在图鉴里偷偷摆了假工牌。',
   '今日运势：适合抽卡，不适合硬刚 Boss。',
   '丧尸申请加入清洁阿姨粉丝群。',
@@ -374,7 +376,7 @@ export function rollGacha(save) {
     save.inventory[entry.itemId] = had + 1;
     const item = PASSIVE_ITEMS.find((i) => i.id === entry.itemId);
     const stars = Math.min(CHARM_MAX_STARS, had + 1);
-    result.icon = 'assets/chest_upgrade.png';
+    result.icon = 'assets/chest_rare.png';
     if (had > 0) {
       result.dup = true;
       result.detail = stars >= CHARM_MAX_STARS && had >= CHARM_MAX_STARS

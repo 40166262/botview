@@ -1,4 +1,4 @@
-import { getSprite, drawClippedSprite } from './sprites.js';
+import { getSprite, drawClippedSprite, drawStandingSprite } from './sprites.js';
 
 /** Enemy types + bosses — DESIGN §6 */
 export const ENEMY_TYPES = {
@@ -52,7 +52,7 @@ export const ENEMY_TYPES = {
     ranged: true,
   },
   golem: {
-    name: '保安机器人',
+    name: '重装保安',
     color: '#9aa8b8',
     color2: '#5a6a78',
     r: 18,
@@ -453,17 +453,32 @@ function drawEnemyVector(ctx, e, bob, flash, t = 0) {
   ctx.fill();
 }
 
+/**
+ * v4 standing art per enemy type. h = sprite height in hit-radius units, foot = feet offset
+ * below centre (r units), maxW caps wide art (crawler). faceLeft: art looks left by default.
+ */
+const STANDING = {
+  slime: { key: 'slime', h: 4.0, foot: 0.85, faceLeft: true, waddle: true },          // 上班族丧尸
+  bat: { key: 'bat', h: 3.2, maxW: 3.9, foot: 0.8, faceLeft: true },                   // 爬行患者
+  beetle: { key: 'armored', h: 3.4, foot: 0.85, faceLeft: false, waddle: true },     // 铠甲尸
+  golem: { key: 'armored', h: 3.2, foot: 0.85, faceLeft: false, waddle: true, tint: '#7a8fa8' }, // 重装保安 (steel tint)
+  wisp: { key: 'monitor', h: 3.8, foot: 0.85, faceLeft: false },                       // 故障监视器
+  slacker: { key: 'slacker', h: 3.0, maxW: 3.4, foot: 0.85, faceLeft: false },         // 摸鱼丧尸
+};
+
 export function drawEnemy(ctx, e, t) {
   ctx.save();
   const flash = e.hitFlash > 0;
   const bob = Math.sin(t * 3 + e.wobble) * (e.isBoss ? 3 : 2);
   const typeMeta = ENEMY_TYPES[e.type] || ENEMY_TYPES.slime;
-  const spriteKey = e.type === 'boss' ? 'boss'
-    : e.type === 'beetle' ? 'golem'
-    : e.type === 'wisp' ? 'golem'
-    : e.type === 'shadow' ? 'shadow'
-    : e.type;
-  const sprite = getSprite(spriteKey);
+  const stand = e.isSlacker ? STANDING.slacker : STANDING[e.type];
+  const sprite = stand ? (getSprite(stand.key) || getSprite(e.type)) : getSprite(e.type === 'boss' ? 'boss' : e.type);
+  // face the walking direction (art faces left by default)
+  if (e._lx != null) {
+    const dx = e.x - e._lx;
+    if (Math.abs(dx) > 0.15) e._faceR = dx > 0;
+  }
+  e._lx = e.x;
 
   // skill telegraph
   if (e.skillState === 'windup') {
@@ -526,7 +541,21 @@ export function drawEnemy(ctx, e, t) {
     ctx.setLineDash([]);
   }
 
-  if (sprite) {
+  if (sprite && stand) {
+    if (e.isBoss || e.isElite) drawEliteBossAura(ctx, e, bob, t);
+    ctx.globalAlpha = e.phaseHidden ? 0.35 : 1;
+    const bump = e.isElite ? 1.1 : 1;
+    // feet sit just below the hit-circle centre; body rises above it (3/4 view)
+    const step = stand.waddle ? Math.abs(Math.sin(t * 7 + e.wobble)) * 2 : 0;
+    drawStandingSprite(ctx, sprite, e.x, e.y + e.r * stand.foot, e.r * stand.h * bump - step, {
+      maxW: stand.maxW ? e.r * stand.maxW * bump : 0,
+      flip: stand.faceLeft ? !!e._faceR : !e._faceR,
+      tint: e.isElite ? '#ffb640' : stand.tint || null,
+      tintAlpha: e.isElite ? 0.16 : 0.2,
+      flash,
+    });
+    ctx.globalAlpha = 1;
+  } else if (sprite) {
     if (e.isBoss || e.isElite) {
       drawEliteBossAura(ctx, e, bob, t);
     }
@@ -559,7 +588,8 @@ export function drawEnemy(ctx, e, t) {
     const bh = thick ? 7 : 4;
     const bw = e.r * (thick ? 2.4 : 2);
     const bx = e.x - bw / 2;
-    const by = e.y - e.r - (thick ? 14 : 10);
+    const top = stand && sprite ? e.y + e.r * (stand.foot - stand.h * (e.isElite ? 1.1 : 1)) : e.y - e.r;
+    const by = top - (thick ? 10 : 6);
     ctx.fillStyle = 'rgba(0,0,0,0.65)';
     ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
     ctx.fillStyle = e.isBoss ? '#ff6a9a' : e.isElite ? '#ffc050' : '#6db88a';
