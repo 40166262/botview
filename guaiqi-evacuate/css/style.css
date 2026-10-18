@@ -1142,6 +1142,67 @@ html, body {
 }
 .hud-top { padding-right: 76px; }
 .hud-pause { right: 8px; }
+
+/* Faint joystick ghost until the first touch of a run. */
+.joystick.ghost {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.4 !important;
+  visibility: visible !important;
+  pointer-events: none !important;
+}
+.joystick.ghost .joy-base,
+.joystick.ghost .joy-knob {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: none !important;
+  position: absolute;
+  border-radius: 50%;
+}
+.joystick.ghost .joy-base {
+  width: 92px; height: 92px;
+  border: 3px dashed rgba(59, 42, 26, 0.55);
+  background: rgba(255, 243, 220, 0.22);
+}
+.joystick.ghost .joy-knob {
+  width: 34px; height: 34px;
+  border: 3px solid rgba(59, 42, 26, 0.6);
+  background: rgba(255, 246, 220, 0.72);
+}
+
+.home-hero { margin-top: -18px; }
+.home-hero-art { margin-top: -4px; }
+.home-loadout img { width: 80px; height: 80px; }
+.hint {
+  color: #fffaf0;
+  font-weight: 900;
+  background: rgba(59, 42, 26, 0.72);
+  border-radius: 99px;
+  padding: 4px 12px;
+  text-shadow: none;
+}
+
+.gacha-result {
+  padding: 12px 14px;
+  border-width: 3px;
+}
+.gacha-result .gr-art { width: 80px; height: 80px; }
+.gacha-result .big { font-size: 22px; letter-spacing: 0.01em; }
+.gacha-result .sub { font-size: 13px; line-height: 1.4; color: #6b3a14; }
+.gr-rar { font-size: 12px; color: #8a3a20; }
+
+.gallery-grid { gap: 8px; }
+.gal-art {
+  width: 58px; height: 58px;
+  background: #fff6e4;
+  border-radius: 12px;
+  border: 2px solid var(--ink);
+}
+.gal-art img { image-rendering: auto; }
+.gal-item.locked .gal-art img {
+  filter: sepia(0.25) saturate(0.7) brightness(0.72);
+}
 .panel h2.with-ico {
   display: flex;
   align-items: center;

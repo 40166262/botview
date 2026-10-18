@@ -128,7 +128,7 @@ export class Game {
       swarmNext: 14,          // first zombie swarm ring
       eliteNext: 38,          // timed elite every ~45s
       goldenAt: 24 + Math.random() * 12, // one golden chest per run (mid-run surprise)
-      chestNext: 8, // first supply chest within the opening seconds
+      chestNext: 5, // first chest inside the opening 10s
       goldenDone: false,
       slackerAt: 30 + Math.random() * 8, // funny 摸鱼丧尸 easter egg
       slackerDone: false,
@@ -952,7 +952,7 @@ export class Game {
     dt.text = String(Math.round(dmg));
     dt.age = 0;
     dt.life = crit ? 0.75 : 0.55;
-    dt.color = crit ? '#ff9a00' : (e.isBoss ? '#e23b22' : '#d85a08');
+    dt.color = crit ? '#ffe7a0' : '#fff6dc';
     dt.crit = crit;
     dt.scale = crit ? 1.25 : 1;
     }
@@ -1291,22 +1291,27 @@ export class Game {
       const tier = c.tier || (c.golden ? 'gold' : 'normal');
       const chestImg = getChestImage(tier);
       const rare = tier === 'rare';
-      const by = c.y + Math.sin(c.bob * 3) * 5;
-      const pulse = 0.55 + 0.45 * Math.sin(c.bob * 5);
-      // warm pulse ring
+      const by = c.y + Math.sin(c.bob * 4.2) * 7;
+      const pulse = 0.45 + 0.55 * Math.sin(c.bob * 6.5);
+      // warm pulse ring — two beats so the chest reads from across the room
       ctx.save();
       if (c.golden) {
-        const g = ctx.createRadialGradient(c.x, by, 6, c.x, by, 58);
-        g.addColorStop(0, `rgba(255,214,110,${0.35 + 0.15 * pulse})`);
+        const g = ctx.createRadialGradient(c.x, by, 6, c.x, by, 64);
+        g.addColorStop(0, `rgba(255,214,110,${0.4 + 0.2 * pulse})`);
         g.addColorStop(1, 'rgba(255,214,110,0)');
         ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(c.x, by, 58, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(c.x, by, 64, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.globalAlpha = 0.7 + 0.3 * pulse;
+      ctx.globalAlpha = 0.85;
       ctx.strokeStyle = c.golden ? '#ffb43a' : rare ? '#e09030' : '#e8a040';
       ctx.lineWidth = c.golden ? 5 : 4;
       ctx.beginPath();
-      ctx.arc(c.x, by + 4, (c.golden ? 46 : 40) + 4 * pulse, 0, Math.PI * 2);
+      ctx.arc(c.x, by + 4, (c.golden ? 50 : 44) + 8 * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 0.45 + 0.35 * pulse;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(c.x, by + 4, (c.golden ? 62 : 56) + 10 * pulse, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
       if (chestImg) {
@@ -1421,12 +1426,16 @@ export class Game {
       ctx.translate(d.x, d.y);
       ctx.scale(d.scale || 1, d.scale || 1);
       // every number gets an ink outline so it reads on bright floors (was cream-on-beige)
-      ctx.font = d.crit ? '900 20px sans-serif' : '900 15px sans-serif';
+      ctx.font = d.crit ? '900 20px sans-serif' : '900 16px sans-serif';
       ctx.textAlign = 'center';
       ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#3b2a1a';
-      ctx.lineWidth = d.crit ? 4 : 3;
+      ctx.shadowColor = 'rgba(90, 42, 12, 0.55)';
+      ctx.shadowBlur = 5;
+      ctx.shadowOffsetY = 1;
+      ctx.strokeStyle = '#6b3a14';
+      ctx.lineWidth = d.crit ? 4 : 3.5;
       ctx.strokeText(d.text, 0, 0);
+      ctx.shadowBlur = 0;
       ctx.fillStyle = d.color;
       ctx.fillText(d.text, 0, 0);
       ctx.restore();

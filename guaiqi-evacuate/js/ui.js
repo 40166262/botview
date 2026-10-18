@@ -534,6 +534,8 @@ export function bindJoystick(game, joyRoot, knob) {
   function dismissMoveHint() {
     const hint = $('move-hint');
     if (hint) hint.classList.add('hidden');
+    const joy = $('joystick');
+    if (joy) joy.classList.remove('ghost');
   }
   function reset() {
     tracking = false; pid = null;
