@@ -19,7 +19,7 @@ import {
   drawJuiceOverlay, spawnKillBurst, addShake, shakeOffset,
 } from './juice.js';
 import { applyCharacterToPlayer, applyPassivesToPlayer, applyGearToPlayer, applyCharLevelToPlayer, unlockGallery } from './meta.js';
-import { getIconCell, getChestImage, getCharSprite, getSprite, drawClippedSprite, drawStandingSprite, walkPose } from './sprites.js';
+import { getIconCell, getChestImage, getCharSprite, getSprite, drawStandingSprite, walkPose } from './sprites.js';
 
 const W = 390;
 const H = 844;
@@ -1519,20 +1519,19 @@ export class Game {
     const bob = Math.sin(this.time * 4 + p.pulse) * 2 * (1 - this._pWalk);
     const spr = getCharSprite(this.charId);
     if (spr) {
-      // style-B: soft teal ground ring under player (contact shadow still drawn in sprite helper)
-      const rr = p.r * 1.95;
+      // soft teal ground ring under feet; body via standing draw (true aspect, no fat stretch)
+      const footY = p.y + bob;
+      const hh = p.r * 4.0;
       ctx.save();
       ctx.fillStyle = 'rgba(64, 180, 168, 0.22)';
       ctx.beginPath();
-      ctx.ellipse(p.x, p.y + bob + rr * 0.72, rr * 0.78, rr * 0.26, 0, 0, Math.PI * 2);
+      ctx.ellipse(p.x, footY, p.r * 1.55, p.r * 0.42, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
-      const tint = null; // v6 art is colour-matched; old intern wash tint removed
-      drawClippedSprite(ctx, spr, p.x, p.y + bob, p.r, {
-        glow: 'none',
-        scale: 1.95,
-        tint,
+      drawStandingSprite(ctx, spr, p.x, footY, hh, {
+        maxW: p.r * 2.4,
         walk,
+        shadow: 'rgba(70,45,20,0.28)',
       });
       // shield / orbit still via drawPlayer partial — call drawPlayer for overlays
       // but avoid double body: manually draw orbit+shield

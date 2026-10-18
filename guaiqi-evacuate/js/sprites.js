@@ -14,7 +14,7 @@ const MANIFEST = {
   golem: 'assets/enemy_securibot.png',
   boss: 'assets/enemy_boss.png',
   shadow: 'assets/enemy_shadow.png',
-  // v6 chibi player art: 390x520 (aspect 0.75 = drawClippedSprite clamp, no stretch),
+  // Style E pixel chars ~195x384 (aspect ~0.51); drawStandingSprite uses true aspect.
   // feet baseline y=511, figure ~490px tall, centred x=195. *_full.png = 512x768 UI art.
   grin: 'assets/char_grin.png',
   medic: 'assets/char_medic.png',
@@ -300,10 +300,10 @@ export function drawClippedSprite(ctx, img, x, y, radius, opts = {}) {
   const r = radius * scale;
   const iw = img.naturalWidth || img.width;
   const ih = img.naturalHeight || img.height;
-  // Prefer full sprite aspect; fit height to 2r
+  // True aspect (Style E tall pixels ~0.5); only cap absurdly wide
   const aspect = iw / Math.max(1, ih);
   const dh = r * 2;
-  const dw = dh * Math.min(1.35, Math.max(0.75, aspect));
+  const dw = dh * Math.min(1.35, aspect);
   const dx = x - dw / 2;
   const dy = y - dh / 2;
 
