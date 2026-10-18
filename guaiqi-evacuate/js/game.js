@@ -1534,7 +1534,7 @@ export class Game {
     const moving = this.joy && this.joy.active && Math.hypot(this.joy.dx, this.joy.dy) > 0.12 && this.alive && !this.paused;
     this._pWalk = (this._pWalk || 0) + ((moving ? 1 : 0) - (this._pWalk || 0)) * 0.2;
     const walk = walkPose(this.time * 10, this._pWalk);
-    const bob = Math.sin(this.time * 4 + p.pulse) * 2 * (1 - this._pWalk);
+    const bob = Math.sin(this.time * 4 + p.pulse) * 0.5 * (1 - this._pWalk);
     const spr = getCharSprite(this.charId);
     if (spr) {
       // No teal sticker ring — warm contact shadow only (matches enemies via drawStandingSprite)

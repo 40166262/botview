@@ -268,20 +268,11 @@ export async function preloadSprites(onProgress) {
 }
 
 /**
- * Front-facing walk cycle (art is never mirrored). amt 0..1 = how much the unit is moving.
- * Soft hop (≤1.5px), squash (±2%), sway (±1°) — readable without subpixel smear.
+ * Walk pose disabled — sprites stay stable while moving (no sway/rotate/squash).
+ * Signature kept so call sites need no edits; applyWalk no-ops on null.
  */
-export function walkPose(phase, amt) {
-  if (!amt || amt < 0.01) return null;
-  const s = Math.sin(phase);
-  const hop = Math.abs(s);                 // 0 at foot contact, 1 mid-stride
-  const k = (hop - 0.5) * 2 * amt;         // -1 contact … +1 airborne
-  return {
-    lift: hop * 1.5 * amt,
-    sx: 1 - 0.02 * k,
-    sy: 1 + 0.02 * k,
-    rot: s * (1 * Math.PI / 180) * amt,
-  };
+export function walkPose(/* phase, amt */) {
+  return null;
 }
 
 /** Apply a walkPose about pivot (px, py). */
