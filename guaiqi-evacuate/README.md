@@ -59,5 +59,8 @@ python3 -m http.server 8765
   css/     半透明深色功能 UI
   js/      游戏与元系统
   refs/    画风参考
+  docs/    文档索引（docs/README.md）
   DESIGN.md
 ```
+
+文档索引：[docs/README.md](docs/README.md)。
