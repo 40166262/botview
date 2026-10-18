@@ -50,6 +50,15 @@ export class Game {
   constructor(canvas, hooks = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
+    // HiDPI backing store: CSS still displays at 100%, game draws in 390×844 logical coords
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    this.dpr = dpr;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.ctx.imageSmoothingEnabled = false;
+    if ('webkitImageSmoothingEnabled' in this.ctx) this.ctx.webkitImageSmoothingEnabled = false;
+    if ('mozImageSmoothingEnabled' in this.ctx) this.ctx.mozImageSmoothingEnabled = false;
     this.hooks = hooks;
     this.running = false;
     this.paused = false;
@@ -1144,7 +1153,8 @@ export class Game {
     const off = shakeOffset(this.juice);
     const theme = this.stage.theme || 'office';
 
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // Reset to dpr identity so logical coords stay 390×844 (not CSS-stretched blur)
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
 
     // outside-world fill = floor tone (camera clamp keeps it off-screen anyway)
