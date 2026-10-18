@@ -1519,6 +1519,14 @@ export class Game {
     const bob = Math.sin(this.time * 4 + p.pulse) * 2 * (1 - this._pWalk);
     const spr = getCharSprite(this.charId);
     if (spr) {
+      // style-B: soft teal ground ring under player (contact shadow still drawn in sprite helper)
+      const rr = p.r * 1.95;
+      ctx.save();
+      ctx.fillStyle = 'rgba(64, 180, 168, 0.22)';
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y + bob + rr * 0.72, rr * 0.78, rr * 0.26, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
       const tint = null; // v6 art is colour-matched; old intern wash tint removed
       drawClippedSprite(ctx, spr, p.x, p.y + bob, p.r, {
         glow: 'none',
