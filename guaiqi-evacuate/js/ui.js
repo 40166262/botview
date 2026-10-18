@@ -292,7 +292,7 @@ export function renderStageCards(save, selectedId, onSelect, page = 0) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `stage-card${unlocked ? '' : ' locked'}${selectedId === s.id ? ' selected' : ''}`;
-    const thumbArt = s.theme === 'ward' ? 'enemy_crawler' : s.theme === 'basement' ? 'enemy_securibot' : 'enemy_zombie';
+    const thumbArt = s.theme === 'ward' ? 'enemy_crawler' : s.theme === 'basement' ? 'enemy_armored' : 'enemy_office_zombie';
     const bossTag = s.clearMode === 'boss' ? '<span class="st-boss">首领</span>' : '';
     btn.innerHTML = `
       <div class="stage-thumb theme-${s.theme}"><img src="assets/${thumbArt}.png" alt=""/>${unlocked ? '' : '<span class="char-lock-badge">锁</span>'}${bossTag}</div>
@@ -393,22 +393,24 @@ export function renderGallery(save, onTap) {
 }
 
 const GALLERY_ART = {
-  enemy_slime: 'assets/enemy_zombie.png',
+  enemy_slime: 'assets/enemy_office_zombie.png',
   enemy_bat: 'assets/enemy_crawler.png',
-  enemy_golem: 'assets/enemy_securibot.png',
+  enemy_beetle: 'assets/enemy_armored.png',
+  enemy_wisp: 'assets/enemy_monitor_bot.png',
+  enemy_golem: 'assets/enemy_armored.png',
   enemy_boss: 'assets/enemy_boss.png',
-  enemy_elite: 'assets/enemy_slime.png',
-  enemy_slacker: 'assets/enemy_zombie.png',
+  enemy_elite: 'assets/enemy_office_zombie.png',
+  enemy_slacker: 'assets/enemy_slacker_zombie.png',
   enemy_secret: 'assets/enemy_shadow.png',
   char_grin: 'assets/char_grin.png',
   char_medic: 'assets/char_medic.png',
   char_janitor: 'assets/char_janitor.png',
   char_intern: 'assets/char_intern.png',
-  item_chest: 'assets/chest_coin.png',
+  item_chest: 'assets/chest_normal.png',
   milestone_10: 'assets/icon_diamond.png',
 };
 const GALLERY_SHEET = { item_crit: 8, item_frost: 13, item_shield: 11 };
-const GALLERY_GOLD = new Set(['enemy_elite', 'enemy_slacker']);
+const GALLERY_GOLD = new Set(['enemy_elite']);
 function galleryArt(id) {
   if (GALLERY_ART[id]) return GALLERY_ART[id];
   const cell = GALLERY_SHEET[id] != null ? getIconCell(GALLERY_SHEET[id]) : null;
@@ -458,7 +460,7 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
     el.className = 'equip-slot';
     if (item) {
       const n = Math.min(5, (save.inventory || {})[item.id] || 1);
-      el.innerHTML = `<img src="assets/chest_upgrade.png" alt=""/><span class="eq-name">${item.name}</span><span class="eq-stars">${'★'.repeat(n)}</span>`;
+      el.innerHTML = `<img src="assets/chest_rare.png" alt=""/><span class="eq-name">${item.name}</span><span class="eq-stars">${'★'.repeat(n)}</span>`;
     } else el.textContent = '+';
     el.title = item ? item.name : '空槽';
     if (item) el.addEventListener('click', () => onToggleEquip(item.id));
@@ -487,7 +489,7 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
     } else if (item) {
       const eq = equipped.includes(id);
       const stars = Math.min(5, save.inventory[id]);
-      btn.innerHTML = `<img class="bag-ico" src="assets/chest_upgrade.png" alt=""/>${item.name}<br><small class="r-${item.rarity}">${RARITY_LABEL[item.rarity]} ${'★'.repeat(stars)}${eq ? ' ·已戴' : ''}</small>`;
+      btn.innerHTML = `<img class="bag-ico" src="assets/chest_rare.png" alt=""/>${item.name}<br><small class="r-${item.rarity}">${RARITY_LABEL[item.rarity]} ${'★'.repeat(stars)}${eq ? ' ·已戴' : ''}</small>`;
       btn.addEventListener('click', () => onToggleEquip(id));
     } else return;
     grid.appendChild(btn);
