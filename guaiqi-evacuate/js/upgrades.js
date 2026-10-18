@@ -321,8 +321,16 @@ function weightedPickOne(bag) {
   return idx;
 }
 
-export function pickUpgradeChoices(ownedCounts, n = 3) {
-  const pool = UPGRADES.filter((u) => (ownedCounts[u.id] || 0) < u.max);
+const RARITY_RANK = { common: 0, rare: 1, epic: 2 };
+
+export function pickUpgradeChoices(ownedCounts, n = 3, opts = {}) {
+  let pool = UPGRADES.filter((u) => (ownedCounts[u.id] || 0) < u.max);
+  // golden chest: only rare+ picks (fallback to full pool if exhausted)
+  if (opts.minRarity) {
+    const min = RARITY_RANK[opts.minRarity] || 0;
+    const hi = pool.filter((u) => (RARITY_RANK[u.rarity] || 0) >= min);
+    if (hi.length >= n) pool = hi;
+  }
   const list = pool.length ? pool : UPGRADES;
 
   // 统计已拥有的特殊武器种类（≥1 级）

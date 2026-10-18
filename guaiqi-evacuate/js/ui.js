@@ -36,7 +36,14 @@ export function refreshHomeStats(save) {
   if (lvEl) lvEl.textContent = `撤离员 Lv.${save.playerLevel || 1}`;
 
   const gift = $('daily-gift');
-  if (canFreeGacha(save)) show(gift); else hide(gift);
+  const dot = $('hub-gacha-dot');
+  if (canFreeGacha(save)) { show(gift); if (dot) show(dot); } else { hide(gift); if (dot) hide(dot); }
+  const playLabel = $('btn-play-label');
+  if (playLabel) {
+    let n = 1;
+    for (const st of STAGES) if (isStageUnlocked(save, st.id)) n = st.stageNum;
+    playLabel.textContent = `开始撤离 · 第${n}关`;
+  }
 
   const q = ensureDailyQuest(save);
   const chip = $('daily-quest-chip');
@@ -109,9 +116,14 @@ export function updateHud(data) {
   else hide(sh);
 }
 
-export function showUpgradeCards(choices, onPick) {
+export function showUpgradeCards(choices, onPick, owned = {}, opts = {}) {
   const wrap = $('upgrade-cards');
   wrap.innerHTML = '';
+  const panel = $('upgrade').querySelector('.panel');
+  panel.classList.toggle('golden', !!opts.golden);
+  panel.querySelector('h2').textContent = opts.title || '升级！选择一项';
+  // restart pop animation each time
+  panel.classList.remove('pulse-panel'); void panel.offsetWidth; panel.classList.add('pulse-panel');
   // force reflow so CSS cardReveal / iconBounce restarts each level-up
   void wrap.offsetWidth;
   choices.forEach((u, i) => {
@@ -133,11 +145,22 @@ export function showUpgradeCards(choices, onPick) {
     const iconCell = (!propSrc && u.sheet != null) ? getIconCell(u.sheet) : null;
     let iconHtml = `<div class="card-icon"><span style="font-size:18px;color:#c8b8a0">${(u.name||'?')[0]}</span></div>`;
     if (propSrc || iconCell) iconHtml = `<div class="card-icon"></div>`;
+    const lv = owned[u.id] || 0;
+    const maxPips = Math.min(u.max || 1, 8);
+    let pips = '';
+    for (let k = 0; k < maxPips; k++) {
+      const cls = k < lv ? 'on' : k === lv ? 'next' : '';
+      pips += `<i class="${cls}"></i>`;
+    }
+    const tag = lv === 0
+      ? '<span class="card-tag new">NEW</span>'
+      : `<span class="card-tag lv">Lv.${lv}→${lv + 1}${lv + 1 >= u.max ? ' 满' : ''}</span>`;
     btn.innerHTML = `
       ${iconHtml}
       <div class="card-body">
-        <h3>${u.name}<span class="card-rarity" style="color:${r.color}">${r.name}</span></h3>
+        <h3>${u.name}<span class="card-rarity r-${u.rarity || 'common'}">${r.name}</span>${tag}</h3>
         <p>${u.desc}</p>
+        <div class="card-pips">${pips}</div>
       </div>`;
     if (propSrc || iconCell) {
       const holder = btn.querySelector('.card-icon');
@@ -169,7 +192,16 @@ export function showChestPick(onPick) {
 }
 
 export function showResult(opts) {
-  $('res-title').textContent = opts.cleared ? '关卡通关！' : '撤离失败';
+  $('res-title').textContent = opts.cleared ? '撤离成功！' : '撤离失败';
+  $('result').querySelector('.panel').classList.toggle('win', !!opts.cleared);
+  const chips = $('res-chips');
+  if (chips) {
+    const c = [];
+    c.push(`<div class="rchip"><img src="assets/icon_coin.png" alt=""/><b id="res-chip-coins">${opts.coins || 0}</b><span>金币</span></div>`);
+    if (opts.diamonds) c.push(`<div class="rchip"><img src="assets/icon_diamond.png" alt=""/><b>${opts.diamonds}</b><span>钻石</span></div>`);
+    if (opts.xp) c.push(`<div class="rchip xp"><i>EXP</i><b>${opts.xp}</b><span>经验</span></div>`);
+    chips.innerHTML = c.join('');
+  }
   $('res-flavor').textContent = opts.flavor || '';
   $('res-stage').textContent = opts.stageName || '—';
   $('res-time').textContent = formatTime(opts.time);
@@ -191,8 +223,14 @@ export function showResult(opts) {
   $('btn-revive').style.display = opts.canRevive ? '' : 'none';
   $('btn-double').style.display = opts.canDouble ? '' : 'none';
   $('btn-double').disabled = false;
-  if (opts.cleared && opts.hasNext) show('btn-next-stage');
+  $('btn-double').innerHTML = '<span class="ad-tag">AD</span>看广告 · 金币翻倍';
+  const nextShown = opts.cleared && opts.hasNext;
+  if (nextShown) show('btn-next-stage');
   else hide('btn-next-stage');
+  // one hero CTA only: when "next stage" leads, retry drops to secondary
+  $('btn-retry').classList.toggle('primary', !nextShown);
+  $('btn-retry').classList.toggle('glow', !nextShown);
+  $('btn-retry').classList.toggle('secondary', nextShown);
   // underpowered fail → CTA
   const hint = $('res-power-hint');
   const cta = $('res-cta-row');
@@ -254,11 +292,12 @@ export function renderStageCards(save, selectedId, onSelect, page = 0) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `stage-card${unlocked ? '' : ' locked'}${selectedId === s.id ? ' selected' : ''}`;
-    const thumbLabel = s.theme === 'ward' ? '病' : s.theme === 'basement' ? '机' : '办';
+    const thumbArt = s.theme === 'ward' ? 'enemy_crawler' : s.theme === 'basement' ? 'enemy_securibot' : 'enemy_zombie';
+    const bossTag = s.clearMode === 'boss' ? '<span class="st-boss">首领</span>' : '';
     btn.innerHTML = `
-      <div class="stage-thumb">${unlocked ? thumbLabel : '锁'}</div>
+      <div class="stage-thumb theme-${s.theme}"><img src="assets/${thumbArt}.png" alt=""/>${unlocked ? '' : '<span class="char-lock-badge">锁</span>'}${bossTag}</div>
       <div class="stage-info">
-        <h3>${s.name} ${cleared ? '通关' : ''}</h3>
+        <h3>${s.name} ${cleared ? '<span class="st-clear">已通关</span>' : ''}</h3>
         <p>${s.subtitle}</p>
         <p>${unlocked ? (s.clearMode === 'boss' ? `击杀首领 · 目标 ${Math.floor(s.clearTime/60)}:${String(s.clearTime%60).padStart(2,'0')} / ${s.clearKills}杀` : `目标 ${Math.floor(s.clearTime/60)}:${String(s.clearTime%60).padStart(2,'0')} / ${s.clearKills}杀`) : `<span class="lock-tag">${reason || '未解锁'}</span>`}</p>
       </div>`;
@@ -276,7 +315,7 @@ export function renderStageCards(save, selectedId, onSelect, page = 0) {
   ebtn.type = 'button';
   ebtn.className = `stage-card${eu ? '' : ' locked'}${selectedId === en.id ? ' selected' : ''}`;
   ebtn.innerHTML = `
-    <div class="stage-thumb">∞</div>
+    <div class="stage-thumb theme-basement"><img src="assets/enemy_boss.png" alt=""/>${eu ? '' : '<span class="char-lock-badge">锁</span>'}</div>
     <div class="stage-info">
       <h3>${en.name}</h3>
       <p>${en.subtitle}</p>
@@ -325,7 +364,7 @@ export function renderCharCards(save, selectedId, onSelect, onBuy) {
     let extra = '';
     if (!unlocked && c.coinCost) extra = `<p class="lock-tag">金币 ${c.coinCost} 解锁 · 或抽奖获得</p>`;
     else if (!unlocked) extra = `<p class="lock-tag">通关/抽奖解锁</p>`;
-    info.innerHTML = `<h3>${c.name}</h3><p>${c.desc}</p><p style="color:${c.tint}">${c.flavor}</p>${extra}`;
+    info.innerHTML = `<h3>${c.name}</h3><p>${c.desc}</p><p class="char-flavor" style="border-color:${c.tint}">${c.flavor}</p>${extra}`;
     btn.appendChild(thumb);
     btn.appendChild(info);
     btn.addEventListener('click', () => {
@@ -346,14 +385,34 @@ export function renderGallery(save, onTap) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `gal-item${unlocked ? '' : ' locked'}`;
-    const kindMark = ({ enemy: '敌', char: '员', item: '物', milestone: '纪', charm: '饰' })[g.kind] || '记';
-    const kindCol = ({ enemy: '#8a6a5a', char: '#6a7a5a', item: '#7a6a4a', milestone: '#5a6a7a', charm: '#7a5a6a' })[g.kind] || '#6a6558';
-    btn.innerHTML = unlocked
-      ? `<div class="ico" style="background:${kindCol};border:2px solid #2a2418;border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;margin:0 auto 4px;font-weight:800;color:#f0e6d0">${kindMark}</div>${g.name}`
-      : `<div class="ico" style="background:#3a3830;border:2px solid #2a2418;border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;margin:0 auto 4px;color:#888">?</div>???`;
+    const src = galleryArt(g.id);
+    btn.innerHTML = `<div class="gal-art kind-${g.kind}${GALLERY_GOLD.has(g.id) ? ' gold' : ''}">${src ? `<img src="${src}" alt=""/>` : ''}${unlocked ? '' : '<span class="gal-q">?</span>'}</div><span class="gal-name">${unlocked ? g.name : '???'}</span>`;
     btn.addEventListener('click', () => onTap(g, unlocked));
     wrap.appendChild(btn);
   });
+}
+
+const GALLERY_ART = {
+  enemy_slime: 'assets/enemy_zombie.png',
+  enemy_bat: 'assets/enemy_crawler.png',
+  enemy_golem: 'assets/enemy_securibot.png',
+  enemy_boss: 'assets/enemy_boss.png',
+  enemy_elite: 'assets/enemy_slime.png',
+  enemy_slacker: 'assets/enemy_zombie.png',
+  enemy_secret: 'assets/enemy_shadow.png',
+  char_grin: 'assets/char_grin.png',
+  char_medic: 'assets/char_medic.png',
+  char_janitor: 'assets/char_janitor.png',
+  char_intern: 'assets/char_intern.png',
+  item_chest: 'assets/chest_coin.png',
+  milestone_10: 'assets/icon_diamond.png',
+};
+const GALLERY_SHEET = { item_crit: 8, item_frost: 13, item_shield: 11 };
+const GALLERY_GOLD = new Set(['enemy_elite', 'enemy_slacker']);
+function galleryArt(id) {
+  if (GALLERY_ART[id]) return GALLERY_ART[id];
+  const cell = GALLERY_SHEET[id] != null ? getIconCell(GALLERY_SHEET[id]) : null;
+  return cell ? cell.toDataURL() : '';
 }
 
 const MAT_NAMES = { scrap: '废料', battery: '电池', tape: '胶带', chip: '芯片' };
@@ -397,7 +456,10 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
     const el = document.createElement('button');
     el.type = 'button';
     el.className = 'equip-slot';
-    el.textContent = item ? item.name.slice(0, 2) : '+';
+    if (item) {
+      const n = Math.min(5, (save.inventory || {})[item.id] || 1);
+      el.innerHTML = `<img src="assets/chest_upgrade.png" alt=""/><span class="eq-name">${item.name}</span><span class="eq-stars">${'★'.repeat(n)}</span>`;
+    } else el.textContent = '+';
     el.title = item ? item.name : '空槽';
     if (item) el.addEventListener('click', () => onToggleEquip(item.id));
     slots.appendChild(el);
@@ -406,7 +468,7 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
   grid.innerHTML = '';
   const ids = Object.keys(save.inventory || {}).filter((k) => save.inventory[k] > 0);
   if (!ids.length) {
-    grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#a8a890;font-size:12px">背包空空，去抽奖吧</p>';
+    grid.innerHTML = '<p class="bag-empty">背包空空，去抽奖吧</p>';
     return;
   }
   ids.forEach((id) => {
@@ -419,11 +481,13 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
       const lv = (save.gearLevels || {})[id] || 1;
       const eq = (save.gear || {})[gear.slot] === id;
       const gico = gear.icon ? `<img class="bag-ico" src="${gear.icon}" alt=""/>` : `<div class="ico">${gear.slot[0]}</div>`;
-      btn.innerHTML = `${gico}${gear.name}<br><small style="color:${RARITY_COLOR[gear.rarity]}">${RARITY_LABEL[gear.rarity]} Lv.${lv}${eq ? ' ·装' : ''}</small>`;
+      btn.innerHTML = `${gico}${gear.name}<br><small class="r-${gear.rarity}">${RARITY_LABEL[gear.rarity]} Lv.${lv}${eq ? ' ·已装' : ''}</small>`;
+      if (eq) btn.classList.add('equipped');
       btn.addEventListener('click', () => onEquipGear && onEquipGear(id));
     } else if (item) {
       const eq = equipped.includes(id);
-      btn.innerHTML = `<div class="ico">吊</div>${item.name}<br><small style="color:${RARITY_COLOR[item.rarity]}">${RARITY_LABEL[item.rarity]} ×${save.inventory[id]}${eq ? ' ·已装备' : ''}</small>`;
+      const stars = Math.min(5, save.inventory[id]);
+      btn.innerHTML = `<img class="bag-ico" src="assets/chest_upgrade.png" alt=""/>${item.name}<br><small class="r-${item.rarity}">${RARITY_LABEL[item.rarity]} ${'★'.repeat(stars)}${eq ? ' ·已戴' : ''}</small>`;
       btn.addEventListener('click', () => onToggleEquip(id));
     } else return;
     grid.appendChild(btn);
@@ -432,8 +496,17 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
 
 export function showGachaResult(result) {
   const el = $('gacha-result');
-  el.innerHTML = `<div class="big" style="color:${RARITY_COLOR[result.rarity] || '#ffe066'}">${result.label}</div>
-    <div class="sub">${result.detail} · ${RARITY_LABEL[result.rarity] || ''}</div>`;
+  const rar = result.rarity || 'common';
+  el.className = `gacha-result r-${rar}`;
+  el.innerHTML = `
+    <div class="gr-art">${result.icon ? `<img src="${result.icon}" alt=""/>` : ''}</div>
+    <div class="gr-text">
+      <div class="gr-rar">${RARITY_LABEL[rar] || ''}${result.dup ? '<span class="gr-dup">重复加成</span>' : ''}</div>
+      <div class="big">${result.label}</div>
+      <div class="sub">${result.detail || ''}</div>
+    </div>`;
+  void el.offsetWidth;
+  el.classList.add('reveal');
   show(el);
 }
 

@@ -45,9 +45,8 @@ function applyRunProgress(result, cleared) {
   if (!save.failStreak) save.failStreak = {};
   if (cleared) save.failStreak[result.stageId] = 0;
   else save.failStreak[result.stageId] = (save.failStreak[result.stageId] || 0) + 1;
-  let msg = `经验 +${xp}`;
-  if (pr.leveled) msg += ` · 撤离员升至 Lv.${pr.newLevel}！`;
-  return msg;
+  const msg = pr.leveled ? `撤离员升至 Lv.${pr.newLevel}！` : '';
+  return { msg, xp };
 }
 
 const game = new Game(canvas, {
@@ -59,7 +58,16 @@ const game = new Game(canvas, {
       hideUpgrade();
       game.setPaused(false);
       toast(`获得：${u.name}`);
-    });
+    }, game.owned, { title: `升级！Lv.${game.player.level} · 选择一项` });
+  },
+  onGoldenChest(choices) {
+    showUpgradeCards(choices, (u) => {
+      SFX.click();
+      game.applyUpgrade(u);
+      hideUpgrade();
+      game.setPaused(false);
+      toast(`金色物资：${u.name} · 金币 +30`);
+    }, game.owned, { title: '金色物资箱！稀有以上任选', golden: true });
   },
   onChest() {
     showChestPick((kind) => {
@@ -75,7 +83,7 @@ const game = new Game(canvas, {
     updateBest(save, result.time, result.kills, result.maxCombo, endless);
     addCoins(save, result.coins);
     updateDailyQuest(save, result);
-    const progMsg = applyRunProgress(result, false);
+    const prog = applyRunProgress(result, false);
     writeSave(save);
     refreshHomeStats(save);
     const failN = (save.failStreak || {})[result.stageId] || 0;
@@ -86,7 +94,8 @@ const game = new Game(canvas, {
     }
     showResult({
       cleared: false,
-      flavor: `${randomDeathLine()}（${progMsg}）`,
+      flavor: [randomDeathLine(), prog.msg].filter(Boolean).join(' · '),
+      xp: prog.xp,
       stageName: result.stageName,
       time: result.time,
       kills: result.kills,
@@ -109,7 +118,7 @@ const game = new Game(canvas, {
     addCoins(save, result.coins);
     addDiamonds(save, result.rewardDiamonds || 0);
     updateDailyQuest(save, result);
-    const progMsg = applyRunProgress(result, true);
+    const prog = applyRunProgress(result, true);
     const mile = checkGalleryMilestone(save);
     writeSave(save);
     refreshHomeStats(save);
@@ -117,7 +126,8 @@ const game = new Game(canvas, {
     const hasNext = idx >= 0 && idx < STAGES.length - 1;
     showResult({
       cleared: true,
-      flavor: progMsg,
+      flavor: prog.msg || '设施又干净了一层，继续向下撤离！',
+      xp: prog.xp,
       stageName: result.stageName,
       time: result.time,
       kills: result.kills,
@@ -136,6 +146,8 @@ const game = new Game(canvas, {
 });
 
 bindJoystick(game, $('joystick'), $('joy-knob'));
+// QA hook: expose the game only when ?debug is in the URL
+if (new URLSearchParams(location.search).has('debug')) window.__game = game;
 
 function goHome() {
   game.stop();
@@ -206,7 +218,13 @@ async function bootLoad() {
 }
 
 // —— Home ——
-$('btn-play').addEventListener('click', () => startRun(selectedStage));
+// Home "play" always goes to the frontier stage (chapter select handles replays)
+function frontierStage() {
+  let id = 's1';
+  for (const s of STAGES) if (isStageUnlocked(save, s.id)) id = s.id;
+  return id;
+}
+$('btn-play').addEventListener('click', () => startRun(frontierStage()));
 
 $('btn-stages').addEventListener('click', () => {
   SFX.click();
@@ -346,8 +364,7 @@ function doGacha(paid) {
   showGachaResult(result);
   refreshGachaUI();
   refreshHomeStats(save);
-  SFX.chest();
-  toast(result.detail || result.label);
+  SFX.chest(); // result card shows the detail — no duplicate toast
   const mile = checkGalleryMilestone(save);
   if (mile) { writeSave(save); toast(mile.msg); }
 }
@@ -434,9 +451,12 @@ $('btn-double').addEventListener('click', () => {
     addCoins(save, lastResult.coins);
     lastResult.coins *= 2;
     $('res-coins').textContent = String(lastResult.coins);
+    const chip = $('res-chip-coins');
+    if (chip) chip.textContent = String(lastResult.coins);
     $('btn-double').disabled = true;
+    $('btn-double').innerHTML = '<span class="ad-tag">AD</span>奖励已翻倍';
     refreshHomeStats(save);
-    toast('金币已双倍！');
+    toast(`奖励翻倍！金币 +${lastResult.coins / 2}`);
   });
 });
 

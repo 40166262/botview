@@ -78,7 +78,6 @@ export class Game {
     this.bossesSpawned = 0;
     this.finalBossDead = false;
     this.announceFired = {};
-    this.chestWave = 0;
     this.shake = 0;
     this.camX = 0;
     this.camY = 0;
@@ -94,6 +93,19 @@ export class Game {
     this.bannerSub = this.stage.introBanner.sub;
     this.midBanner = null;
     this.midBannerT = 0;
+    this.midBannerKind = 'info';
+    this.bannerQueue = [];
+    this.lvRing = 0; // soft level-up ring timer
+    this.events = {
+      swarmNext: 14,          // first zombie swarm ring
+      eliteNext: 38,          // timed elite every ~45s
+      goldenAt: 24 + Math.random() * 12, // one golden chest per run (mid-run surprise)
+      chestNext: 18, // first supply chest early, then every ~40s
+      goldenDone: false,
+      slackerAt: 30 + Math.random() * 8, // funny 摸鱼丧尸 easter egg
+      slackerDone: false,
+      bossWarned: {},
+    };
     this.bgStars = []; // indoor facility — no night-sky starfield
     this.trees = this._genTrees(10);
     this.props = this._genProps(48);
@@ -205,9 +217,10 @@ export class Game {
     this.cleared = false;
     this._last = performance.now();
     // Retention: seed nearby enemies so first 2s has targets
-    for (let i = 0; i < 4; i++) {
-      const pos = spawnPointAround(this.player.x, this.player.y, 140, 220, WORLD_W, WORLD_H);
-      this.enemies.push(createEnemy('slime', pos.x, pos.y, 0.85));
+    for (let i = 0; i < 7; i++) {
+      const a = (Math.PI * 2 * i) / 7;
+      const d = 150 + Math.random() * 70;
+      this.enemies.push(createEnemy('slime', this.player.x + Math.cos(a) * d, this.player.y + Math.sin(a) * d, 0.85));
     }
     if (this.hooks.onBanner) this.hooks.onBanner(this.bannerTitle, this.bannerSub);
     this._raf = requestAnimationFrame((t) => this._loop(t));
@@ -246,8 +259,8 @@ export class Game {
     }
   }
 
-  getUpgradeChoices() {
-    return pickUpgradeChoices(this.owned, 3);
+  getUpgradeChoices(opts = {}) {
+    return pickUpgradeChoices(this.owned, 3, opts);
   }
 
   applyChestReward(kind) {
@@ -307,9 +320,14 @@ export class Game {
     tickJuice(this.juice, dt);
 
     if (this.bannerTimer > 0) this.bannerTimer -= dt;
+    if (this.lvRing > 0) this.lvRing -= dt;
     if (this.midBannerT > 0) {
       this.midBannerT -= dt;
-      if (this.midBannerT <= 0) this.midBanner = null;
+      if (this.midBannerT <= 0) {
+        this.midBanner = null;
+        const nx = this.bannerQueue.shift();
+        if (nx) this._banner(nx[0], nx[1], nx[2]);
+      }
     }
 
     // move
@@ -355,6 +373,7 @@ export class Game {
     this._checkAnnounces();
     this._checkChests();
     this._checkSecret();
+    this._checkEvents();
 
     // auto fire — fast first feel
     p.fireTimer -= dt;
@@ -538,7 +557,7 @@ export class Game {
             kind: 'ebolt', x: ev.x, y: ev.y,
             vx: Math.cos(ev.ang) * (ev.speed || 220),
             vy: Math.sin(ev.ang) * (ev.speed || 220),
-            r: 14, damage: ev.damage, age: 0, life: 2.2, hit: false,
+            r: 9, damage: ev.damage, age: 0, life: 2.2, hit: false,
           });
         } else if (ev.type === 'rot_beam') {
           this.hazardZones.push({
@@ -569,8 +588,25 @@ export class Game {
         wy = Math.sin(this.time * 4 + e.wobble) * 20;
       }
       const spd = (e.baseSpeed || e.speed) * spdMul;
-      e.x += ((dx / d) * spd + wx) * dt;
-      e.y += ((dy / d) * spd + wy) * dt;
+      const dir = e.isSlacker ? -1 : 1; // 摸鱼丧尸 runs away
+      e.x += ((dx / d) * spd * dir + wx) * dt;
+      e.y += ((dy / d) * spd * dir + wy) * dt;
+      if (e.kbx || e.kby) { // soft knockback decays fast
+        e.x += e.kbx * dt; e.y += e.kby * dt;
+        e.kbx *= 0.82; e.kby *= 0.82;
+        if (Math.abs(e.kbx) + Math.abs(e.kby) < 4) { e.kbx = 0; e.kby = 0; }
+      }
+      e.x = Math.max(20, Math.min(WORLD_W - 20, e.x));
+      e.y = Math.max(20, Math.min(WORLD_H - 20, e.y));
+      }
+      if (e.isSlacker) {
+        e.fleeT -= dt;
+        if (e.fleeT <= 0) {
+          e.alive = false;
+          if (this.hooks.onToast) this.hooks.onToast('摸鱼丧尸溜回工位了……');
+          continue;
+        }
+        continue; // harmless: never touches the player
       }
 
       if (e.phaseHidden) continue;
@@ -582,13 +618,16 @@ export class Game {
           SFX.hit();
         } else {
           p.hp -= e.damage * (p.damageTakenMul || 1);
-          p.invuln = 0.7;
+          p.invuln = 0.9;
           addShake(this.juice, 10, 0.25);
           SFX.hit();
           spawnBurst(this.particles, p.x, p.y, '#c87860', 10, 100);
           tookDamage = true;
           this.noDamageTimer = 0;
           if (p.thorns > 0) this._hurtEnemy(e, p.thorns, false);
+          // shove the attacker back so a hit gives breathing room
+          { const ad = Math.hypot(e.x - p.x, e.y - p.y) || 1;
+            e.kbx = ((e.x - p.x) / ad) * 260; e.kby = ((e.y - p.y) / ad) * 260; }
           if (p.hp <= 0) {
             p.hp = 0;
             this._die();
@@ -605,11 +644,12 @@ export class Game {
       if (!g.alive) continue;
       g.age += dt;
       const d = Math.hypot(g.x - p.x, g.y - p.y);
-      if (d < p.magnet) {
+      // stale gems (>5s) drift home on their own → no dead stretch between level-ups
+      if (d < p.magnet || g.age > 5) {
         g.magnetized = true;
         g.trail.push({ x: g.x, y: g.y });
         if (g.trail.length > 5) g.trail.shift();
-        const pull = Math.min(480, 200 + (p.magnet - d) * 5);
+        const pull = d < p.magnet ? Math.min(480, 200 + (p.magnet - d) * 5) : 260 + g.age * 20;
         g.x += ((p.x - g.x) / (d || 1)) * pull * dt;
         g.y += ((p.y - g.y) / (d || 1)) * pull * dt;
       }
@@ -631,7 +671,13 @@ export class Game {
         this.paused = true;
         if (this.saveRef) unlockGallery(this.saveRef, 'item_chest');
         SFX.chest();
-        if (this.hooks.onChest) this.hooks.onChest();
+        spawnBurst(this.particles, c.x, c.y, '#f0b850', c.golden ? 26 : 14, 140);
+        if (c.golden) {
+          this.coinsEarned += 30;
+          this._coinPop(c.x, c.y, '+30金');
+          if (this.hooks.onGoldenChest) this.hooks.onGoldenChest(this.getUpgradeChoices({ minRarity: 'rare' }));
+          else if (this.hooks.onChest) this.hooks.onChest();
+        } else if (this.hooks.onChest) this.hooks.onChest();
       }
     }
     this.chests.sweep();
@@ -683,7 +729,7 @@ export class Game {
 
   _spawnWave(dt) {
     // Retention: denser early spawns for first 10s
-    const earlyBoost = this.time < 10 ? 1.55 : 1;
+    const earlyBoost = this.time < 20 ? 1.6 : 1;
     const rate = spawnRateAt(this.stage, this.time) * earlyBoost;
     this.spawnAcc += dt * rate;
     const scale = difficultyScale(this.stage, this.time);
@@ -715,8 +761,7 @@ export class Game {
       const surge = Math.floor(this.time / 90);
       if (surge > 0 && !this.announceFired['surge'+surge]) {
         this.announceFired['surge'+surge] = true;
-        this.midBanner = '安保增援！';
-        this.midBannerT = 1.8;
+        this._banner('安保增援！', 'warn', 1.8);
         const scale = difficultyScale(this.stage, this.time);
         for (let i = 0; i < 4; i++) {
           const pos = spawnPointAround(this.player.x, this.player.y, 200, 320, WORLD_W, WORLD_H);
@@ -731,8 +776,7 @@ export class Game {
       if (this.time >= a.at && !this.announceFired[a.at]) {
         this.announceFired[a.at] = true;
         // Canvas midBanner only — avoid duplicate toast
-        this.midBanner = a.text;
-        this.midBannerT = 1.8;
+        this._banner(a.text, 'info', 1.8);
         SFX.announce();
         const scale = difficultyScale(this.stage, this.time);
         for (let i = 0; i < 5; i++) {
@@ -746,9 +790,8 @@ export class Game {
 
   _checkChests() {
     // chest between waves every ~45s (retention mid peak)
-    const slot = Math.floor(this.time / 45);
-    if (slot > 0 && slot > this.chestWave && this.time < this.stage.clearTime - 15) {
-      this.chestWave = slot;
+    if (this.time >= this.events.chestNext && this.time < this.stage.clearTime - 15) {
+      this.events.chestNext = this.time + 40;
       // 70% guaranteed + 30% surprise extra
       this._spawnChest();
       if (Math.random() < 0.3) {
@@ -759,11 +802,98 @@ export class Game {
     }
   }
 
-  _spawnChest() {
+  _banner(text, kind = 'info', dur = 1.8) {
+    // queue instead of overwriting so swarm/elite/boss callouts never swallow each other
+    if (this.midBanner && this.midBannerT > 0.35) {
+      if (this.midBanner !== text && !this.bannerQueue.some((b) => b[0] === text)) {
+        if (kind === 'boss') this.bannerQueue.unshift([text, kind, dur]);
+        else if (this.bannerQueue.length < 2) this.bannerQueue.push([text, kind, dur]);
+      }
+      return;
+    }
+    this.midBanner = text;
+    this.midBannerKind = kind;
+    this.midBannerT = dur;
+    this.midBannerDur = dur;
+  }
+
+  /** Timed run events: swarm rings, timed elites, boss warning, golden chest, 摸鱼丧尸 */
+  _checkEvents() {
+    const ev = this.events;
+    const t = this.time;
+    const p = this.player;
+    const scale = difficultyScale(this.stage, t);
+    const endT = this.stage.clearTime || 9999;
+
+    // 1) zombie swarm ring every ~22s: weak fodder closing in from all sides = AoE payoff
+    if (t >= ev.swarmNext && t < endT - 6) {
+      ev.swarmNext = t + 20 + Math.random() * 5;
+      const n = Math.min(22, 10 + Math.floor(t / 25) * 2);
+      const R = 250;
+      for (let i = 0; i < n; i++) {
+        const a = (Math.PI * 2 * i) / n;
+        const x = Math.max(30, Math.min(WORLD_W - 30, p.x + Math.cos(a) * R));
+        const y = Math.max(30, Math.min(WORLD_H - 30, p.y + Math.sin(a) * R));
+        const en = createEnemy(i % 4 === 0 && t > 40 ? 'bat' : 'slime', x, y, scale * 0.55);
+        en.damage *= (this.stage.dmgScale || 1) * 0.8;
+        this.enemies.push(en);
+      }
+      this._banner('尸潮包围！', 'warn', 1.5);
+      SFX.announce();
+    }
+
+    // 2) timed elite every ~45s (on top of kill-count elites)
+    if (t >= ev.eliteNext && t < endT - 4) {
+      ev.eliteNext = t + 45;
+      const pos = spawnPointAround(p.x, p.y, 240, 300, WORLD_W, WORLD_H);
+      const en = createEnemy(pickEnemyType(this.stage, t), pos.x, pos.y, scale, { elite: true });
+      en.damage *= (this.stage.dmgScale || 1);
+      this.enemies.push(en);
+      this._banner('精英来袭！', 'elite', 1.6);
+    }
+
+    // 3) boss warning 3s ahead (soft pulsing stripe, no strobe)
+    for (const b of this.stage.bosses || []) {
+      if (!ev.bossWarned[b.at] && t >= b.at - 3 && t < b.at) {
+        ev.bossWarned[b.at] = true;
+        this._banner('警告 · 首领接近', 'boss', 3);
+        SFX.announce();
+      }
+    }
+
+    // 4) golden chest — once per run, rare loot (epic picks + coins)
+    if (!ev.goldenDone && t >= ev.goldenAt && t < endT - 8) {
+      ev.goldenDone = true;
+      this._spawnChest(true);
+    }
+
+    // 5) 摸鱼丧尸: runs AWAY carrying a bonus briefcase; catch it in 9s for a payout
+    if (!ev.slackerDone && t >= ev.slackerAt) {
+      ev.slackerDone = true;
+      const pos = spawnPointAround(p.x, p.y, 150, 190, WORLD_W, WORLD_H);
+      const e = createEnemy('slime', pos.x, pos.y, scale * 1.6);
+      e.isSlacker = true;
+      e.fleeT = 9;
+      e.damage = 0;
+      e.baseSpeed = p.speed * 0.62;
+      e.xp = 6;
+      this.enemies.push(e);
+      this._banner('摸鱼丧尸出没！快抓', 'gold', 2);
+      if (this.saveRef) unlockGallery(this.saveRef, 'enemy_slacker');
+    }
+  }
+
+  _spawnChest(golden = false) {
     const pos = spawnPointAround(this.player.x, this.player.y, 80, 140, WORLD_W, WORLD_H);
     const c = this.chests.acquire();
-    c.x = pos.x; c.y = pos.y; c.r = 28; c.bob = 0; c.opened = false;
-    spawnBurst(this.particles, pos.x, pos.y, '#ffe066', 12, 80);
+    c.x = pos.x; c.y = pos.y; c.r = golden ? 32 : 28; c.bob = 0; c.opened = false;
+    c.golden = golden;
+    spawnBurst(this.particles, pos.x, pos.y, '#ffe066', golden ? 22 : 12, golden ? 120 : 80);
+    if (golden) {
+      this._banner('金色物资箱！', 'gold', 2);
+      SFX.announce();
+      return;
+    }
     const now = this.time || 0;
     if (!this._lastChestToast || now - this._lastChestToast > 1.2) {
       this._lastChestToast = now;
@@ -812,8 +942,7 @@ export class Game {
     addShake(this.juice, 16, 0.4);
     SFX.boss();
     // midBanner only — no duplicate onToast
-    this.midBanner = label || `${names[variant]}来袭！`;
-    this.midBannerT = 2.2;
+    this._banner(label || `${names[variant]}来袭！`, 'boss', 2.4);
     if (this.saveRef) unlockGallery(this.saveRef, 'enemy_boss');
   }
 
@@ -855,12 +984,21 @@ export class Game {
   _hurtEnemy(e, dmg, wasCrit) {
     if (!e.alive) return;
     e.hp -= dmg;
-    e.hitFlash = 0.12;
+    e.hitFlash = 0.1;
+    if (!e.isBoss && dmg >= 3) { // small push away from player (weight by size)
+      const kd = Math.hypot(e.x - this.player.x, e.y - this.player.y) || 1;
+      const kb = (e.isElite ? 40 : 90) * (wasCrit ? 1.6 : 1);
+      e.kbx = (e.kbx || 0) * 0.5 + ((e.x - this.player.x) / kd) * kb;
+      e.kby = (e.kby || 0) * 0.5 + ((e.y - this.player.y) / kd) * kb;
+    }
     const crit = !!wasCrit;
     if (crit) {
       triggerCritFlash(this.juice);
       SFX.crit();
     }
+    const showNum = dmg >= 1 && (crit || !(e._numCd > this.time));
+    if (showNum) {
+    e._numCd = this.time + 0.12;
     const dt = this.dmgTexts.acquire();
     dt.x = e.x + (Math.random() - 0.5) * 16;
     dt.y = e.y - e.r;
@@ -870,6 +1008,7 @@ export class Game {
     dt.color = crit ? '#e8c878' : (e.isBoss ? '#e0a0a8' : '#f0e6d0');
     dt.crit = crit;
     dt.scale = crit ? 1.6 : 1;
+    }
 
     if (e.hp <= 0) {
       e.alive = false;
@@ -884,6 +1023,13 @@ export class Game {
       this.coinsEarned += coin;
       if (coin >= 3) this._coinPop(e.x, e.y, `+${coin}`);
 
+      if (e.isSlacker) {
+        const bonus = 25;
+        this.coinsEarned += bonus;
+        this._coinPop(e.x, e.y - 10, `+${bonus}金`);
+        this._banner('抓到摸鱼的了！奖金 +25', 'gold', 1.8);
+        SFX.chest();
+      }
       registerKill(this.juice, e.x, e.y, e.isElite, e.isBoss);
       spawnKillBurst(this.particles, e.x, e.y, e.color, e.isBoss || e.isElite);
       if (this.juice.combo === 5 || this.juice.combo === 10) SFX.combo();
@@ -943,7 +1089,7 @@ export class Game {
         const pos = spawnPointAround(this.player.x, this.player.y, 240, 320, WORLD_W, WORLD_H);
         const type = pickEnemyType(this.stage, this.time);
         this.enemies.push(createEnemy(type, pos.x, pos.y, difficultyScale(this.stage, this.time), { elite: true }));
-        if (this.midBannerT <= 0) { this.midBanner = '精英来袭！'; this.midBannerT = 1.6; }
+        if (this.midBannerT <= 0) this._banner('精英来袭！', 'elite', 1.6);
       }
     }
   }
@@ -962,6 +1108,7 @@ export class Game {
       // soft power ramp so weapon feels stronger within run
       p.damage *= 1.04;
       this.paused = true;
+      this.lvRing = 0.7;
       spawnBurst(this.particles, p.x, p.y, '#e8c878', 22, 160);
       SFX.level();
       if (this.hooks.onLevelUp) this.hooks.onLevelUp(this.getUpgradeChoices());
@@ -1041,16 +1188,17 @@ export class Game {
     ctx.translate(-this.camX + off.x, -this.camY + off.y);
 
     // ground base — warm beige carpet / mint linoleum / warm basement
-    if (theme === 'ward') ctx.fillStyle = 'rgba(186, 210, 198, 0.72)';
-    else if (theme === 'basement') ctx.fillStyle = 'rgba(92, 82, 68, 0.78)';
-    else ctx.fillStyle = 'rgba(214, 192, 152, 0.78)';
+    // opaque, bright warm floors (no muddy gray wash)
+    if (theme === 'ward') ctx.fillStyle = '#c4e2d4';
+    else if (theme === 'basement') ctx.fillStyle = '#b89e7c';
+    else ctx.fillStyle = '#ecd6a6';
     ctx.fillRect(0, 0, WORLD_W, WORLD_H);
 
     // ground patches
     for (const g of (this.groundPatches || [])) {
       if (theme === 'ward') ctx.fillStyle = `rgba(200, 220, 210, ${0.14 + g.shade * 0.14})`;
       else if (theme === 'basement') ctx.fillStyle = `rgba(110, 98, 80, ${0.16 + g.shade * 0.16})`;
-      else ctx.fillStyle = `rgba(190, 168, 128, ${0.14 + g.shade * 0.14})`;
+      else ctx.fillStyle = `rgba(200, 170, 120, ${0.08 + g.shade * 0.1})`;
       ctx.beginPath();
       ctx.ellipse(g.x, g.y, g.r, g.r * 0.65, 0, 0, Math.PI * 2);
       ctx.fill();
@@ -1071,15 +1219,15 @@ export class Game {
       const tile = theme === 'basement' ? 56 : theme === 'ward' ? 48 : 64;
       let gridA, gridB;
       if (theme === 'ward') {
-        gridA = 'rgba(110, 145, 130, 0.14)';
-        gridB = 'rgba(210, 228, 218, 0.10)';
+        gridA = 'rgba(70, 120, 105, 0.22)';
+        gridB = 'rgba(255, 255, 250, 0.16)';
       } else if (theme === 'basement') {
-        gridA = 'rgba(120, 105, 85, 0.16)';
-        gridB = 'rgba(78, 68, 54, 0.12)';
+        gridA = 'rgba(80, 62, 40, 0.26)';
+        gridB = 'rgba(214, 190, 150, 0.14)';
       } else {
         // warm beige office carpet seams
-        gridA = 'rgba(150, 125, 90, 0.16)';
-        gridB = 'rgba(230, 210, 170, 0.10)';
+        gridA = 'rgba(150, 110, 60, 0.22)';
+        gridB = 'rgba(255, 244, 214, 0.22)';
       }
       ctx.strokeStyle = gridA;
       ctx.lineWidth = 1;
@@ -1144,7 +1292,12 @@ export class Game {
       cart: 'propCart', crate: 'propCrate', pipe: 'propPipe', rock: 'propRock',
     };
     const PROP_SIZE = {
-      desk: 26, chair: 18, bed: 30, cart: 22, crate: 20, pipe: 24, rock: 14,
+      desk: 58, chair: 34, bed: 62, cart: 40, crate: 40, pipe: 56, rock: 24,
+    };
+    // source rects: prop PNGs carry stray guide lines / sheet neighbours → draw the body only
+    const PROP_CROP = {
+      desk: [43, 50, 115, 86], chair: [58, 47, 59, 90], bed: [95, 7, 97, 165],
+      cart: [0, 32, 107, 107], crate: [0, 32, 107, 107], pipe: [0, 45, 192, 102], rock: [1, 1, 112, 98],
     };
     for (const pr of (this.props || [])) {
       const s = (pr.s || 1) * 0.85;
@@ -1156,19 +1309,20 @@ export class Game {
       if (spr) {
         const base = PROP_SIZE[pr.kind] || 26;
         const sz = base * s;
-        const iw = spr.naturalWidth || spr.width;
-        const ih = spr.naturalHeight || spr.height;
+        const crop = PROP_CROP[pr.kind] || [0, 0, spr.naturalWidth || spr.width, spr.naturalHeight || spr.height];
+        const iw = crop[2];
+        const ih = crop[3];
         const aspect = iw / Math.max(1, ih);
         let dw = sz, dh = sz;
         if (aspect >= 1) { dh = sz / aspect; } else { dw = sz * aspect; }
         // soft ground shadow only — scenery stays dull vs loot chests
         ctx.save();
-        ctx.globalAlpha = 0.42;
-        ctx.fillStyle = 'rgba(0,0,0,0.14)';
+        ctx.globalAlpha = 0.88; // readable scenery; loot keeps its pulse ring + label
+        ctx.fillStyle = 'rgba(60,40,20,0.18)';
         ctx.beginPath();
         ctx.ellipse(pr.x, pr.y + dh * 0.38, dw * 0.42, dh * 0.14, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.drawImage(spr, pr.x - dw / 2, pr.y - dh / 2, dw, dh);
+        ctx.drawImage(spr, crop[0], crop[1], crop[2], crop[3], pr.x - dw / 2, pr.y - dh / 2, dw, dh);
         ctx.restore();
       }
     }
@@ -1211,17 +1365,20 @@ export class Game {
         ctx.arc(z.x, z.y, z.r * 0.65, 0, Math.PI * 2);
         ctx.fill();
       } else if (z.kind === 'ebolt') {
-        const er = Math.max(10, (z.r || 6) * 2.1);
-        // dark outline halo so it pops on brown floor
+        // compact, fully opaque orange slug with ink outline (was a 58px translucent plate)
+        ctx.globalAlpha = 1;
+        const er = 8;
+        const ang = Math.atan2(z.vy, z.vx);
+        ctx.strokeStyle = 'rgba(240,120,40,0.45)';
+        ctx.lineWidth = 6; ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.arc(z.x, z.y, er + 3, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(20,12,8,0.65)';
-        ctx.fill();
+        ctx.moveTo(z.x - Math.cos(ang) * 20, z.y - Math.sin(ang) * 20); ctx.lineTo(z.x, z.y);
+        ctx.stroke();
         ctx.beginPath();
         ctx.arc(z.x, z.y, er, 0, Math.PI * 2);
-        ctx.fillStyle = '#f0a040';
+        ctx.fillStyle = '#ff8a2a';
         ctx.fill();
-        ctx.strokeStyle = '#1a1208';
+        ctx.strokeStyle = '#3b2a1a';
         ctx.lineWidth = 2.5;
         ctx.stroke();
         ctx.beginPath();
@@ -1274,13 +1431,16 @@ export class Game {
         ctx.stroke();
         ctx.globalAlpha = 1;
       }
+      // battery-cell pickup: bright amber diamond with ink outline (reads on beige floors)
+      const gr = g.r + 1;
       ctx.beginPath();
-      ctx.arc(g.x, g.y, g.r, 0, Math.PI * 2);
-      ctx.fillStyle = g.color;
-      ctx.shadowColor = g.color;
-      ctx.shadowBlur = 10;
+      ctx.moveTo(g.x, g.y - gr * 1.25); ctx.lineTo(g.x + gr, g.y);
+      ctx.lineTo(g.x, g.y + gr * 1.25); ctx.lineTo(g.x - gr, g.y); ctx.closePath();
+      ctx.fillStyle = g.value > 1 ? '#ffd23d' : '#ffa53a';
       ctx.fill();
-      ctx.shadowBlur = 0;
+      ctx.lineWidth = 2; ctx.strokeStyle = '#3b2a1a'; ctx.stroke();
+      ctx.fillStyle = 'rgba(255,250,225,0.85)';
+      ctx.fillRect(g.x - gr * 0.35, g.y - gr * 0.6, gr * 0.3, gr * 0.5);
     }
 
     // chests — loud interactive loot (vs dull scenery props)
@@ -1291,16 +1451,23 @@ export class Game {
       const pulse = 0.55 + 0.45 * Math.sin(c.bob * 5);
       // warm pulse ring
       ctx.save();
-      ctx.globalAlpha = 0.35 + 0.35 * pulse;
-      ctx.strokeStyle = '#e8c050';
-      ctx.lineWidth = 3;
+      if (c.golden) {
+        const g = ctx.createRadialGradient(c.x, by, 6, c.x, by, 58);
+        g.addColorStop(0, `rgba(255,214,110,${0.35 + 0.15 * pulse})`);
+        g.addColorStop(1, 'rgba(255,214,110,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(c.x, by, 58, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 0.45 + 0.4 * pulse;
+      ctx.strokeStyle = c.golden ? '#ffb43a' : '#e8a040';
+      ctx.lineWidth = c.golden ? 4 : 3;
       ctx.beginPath();
-      ctx.arc(c.x, by, 26 + 4 * pulse, 0, Math.PI * 2);
+      ctx.arc(c.x, by, (c.golden ? 32 : 26) + 4 * pulse, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
       if (chestImg) {
         drawClippedSprite(ctx, chestImg, c.x, by, c.r, {
-          glow: 'none', scale: 1.85,
+          glow: 'none', scale: c.golden ? 1.3 : 1.05, tint: c.golden ? '#ffc840' : null,
         });
       } else {
         ctx.fillStyle = '#c48a3a';
@@ -1318,14 +1485,33 @@ export class Game {
       ctx.textAlign = 'center';
       ctx.strokeStyle = 'rgba(20,16,10,0.9)';
       ctx.lineWidth = 3;
-      ctx.strokeText('物资', c.x, by - 34);
-      ctx.fillStyle = '#ffe8a0';
-      ctx.fillText('物资', c.x, by - 34);
+      const lab = c.golden ? '金色物资' : '物资';
+      ctx.strokeText(lab, c.x, by - 38);
+      ctx.fillStyle = c.golden ? '#ffd050' : '#fff0c0';
+      ctx.fillText(lab, c.x, by - 38);
       ctx.restore();
     }
 
     for (const e of this.enemies) {
       if (e.alive) drawEnemy(ctx, e, this.time);
+    }
+    for (const e of this.enemies) {
+      if (!e.alive || !e.isSlacker) continue;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,190,60,0.85)';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([6, 5]);
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 16, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#3b2a1a';
+      const lab = `摸鱼中 ${Math.ceil(e.fleeT)}s`;
+      ctx.strokeText(lab, e.x, e.y - e.r - 26);
+      ctx.fillStyle = '#ffd050';
+      ctx.fillText(lab, e.x, e.y - e.r - 26);
+      ctx.restore();
     }
 
     drawWeaponFx(ctx, this);
@@ -1351,6 +1537,15 @@ export class Game {
 
     // player — use char sprite if available
     this._drawPlayerChar(ctx);
+    if (this.lvRing > 0) {
+      const k = 1 - this.lvRing / 0.7;
+      ctx.save();
+      ctx.globalAlpha = 0.7 * (1 - k);
+      ctx.strokeStyle = '#ffc850';
+      ctx.lineWidth = 5 * (1 - k) + 1;
+      ctx.beginPath(); ctx.arc(this.player.x, this.player.y, 20 + k * 90, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
 
     for (const pt of this.particles.active) {
       if (!pt.alive) continue;
@@ -1397,40 +1592,87 @@ export class Game {
     // vignette — warmer / chapter tinted
     const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.22, W / 2, H / 2, H * 0.8);
     vig.addColorStop(0, 'rgba(0,0,0,0)');
-    if (theme === 'basement') vig.addColorStop(1, 'rgba(12,16,22,0.48)');
-    else if (theme === 'ward') vig.addColorStop(1, 'rgba(20,24,28,0.38)');
-    else vig.addColorStop(1, 'rgba(18,16,12,0.36)');
+    if (theme === 'basement') vig.addColorStop(1, 'rgba(40,24,10,0.34)');
+    else if (theme === 'ward') vig.addColorStop(1, 'rgba(20,50,44,0.22)');
+    else vig.addColorStop(1, 'rgba(70,40,10,0.22)');
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, W, H);
 
     drawJuiceOverlay(ctx, this.juice, W, H);
 
-    // entrance / mid banners on canvas
+    this._drawBanners(ctx);
+  }
+
+  /** Cartoon plaque banners (cream + thick outline). Soft fades only, no strobe. */
+  _drawBanners(ctx) {
+    const plaque = (cx, cy, w, h, fill, stroke) => {
+      const x = cx - w / 2, y = cy - h / 2, r = 16;
+      ctx.beginPath();
+      ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+      ctx.fillStyle = 'rgba(59,42,26,0.35)';
+      ctx.save(); ctx.translate(0, 4); ctx.fill(); ctx.restore();
+      ctx.fillStyle = fill; ctx.fill();
+      ctx.lineWidth = 3; ctx.strokeStyle = stroke; ctx.stroke();
+    };
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     if (this.bannerTimer > 0) {
-      const a = Math.min(1, this.bannerTimer * 2, (2.4 - this.bannerTimer) * 2);
-      ctx.globalAlpha = Math.max(0, Math.min(1, a));
-      ctx.fillStyle = 'rgba(5,10,20,0.45)';
-      ctx.fillRect(0, H * 0.32, W, 90);
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#ffe066';
-      ctx.font = 'bold 28px sans-serif';
-      ctx.fillText(this.bannerTitle, W / 2, H * 0.32 + 40);
-      ctx.fillStyle = '#d8c8a8';
-      ctx.font = '13px sans-serif';
-      ctx.fillText(this.bannerSub, W / 2, H * 0.32 + 68);
+      const a = Math.max(0, Math.min(1, this.bannerTimer * 2, (2.4 - this.bannerTimer) * 3));
+      const cy = 150 - (1 - a) * 14;
+      ctx.globalAlpha = a;
+      plaque(W / 2, cy, 300, 78, '#fff3dc', '#3b2a1a');
+      ctx.fillStyle = '#e8772a';
+      ctx.fillRect(W / 2 - 150 + 3, cy - 39 + 3, 294, 6);
+      ctx.font = '900 26px sans-serif';
+      ctx.fillStyle = '#3b2a1a';
+      ctx.fillText(this.bannerTitle, W / 2, cy - 9);
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillStyle = '#7a5530';
+      ctx.fillText(this.bannerSub, W / 2, cy + 20);
       ctx.globalAlpha = 1;
     }
     if (this.midBanner) {
-      ctx.globalAlpha = Math.min(1, this.midBannerT);
-      ctx.textAlign = 'center';
-      ctx.font = 'bold 26px sans-serif';
-      ctx.strokeStyle = '#1a1020';
-      ctx.lineWidth = 4;
-      ctx.strokeText(this.midBanner, W / 2, H * 0.28);
-      ctx.fillStyle = '#e8c878';
-      ctx.fillText(this.midBanner, W / 2, H * 0.28);
-      ctx.globalAlpha = 1;
+      const dur = this.midBannerDur || 1.8;
+      const life = dur - this.midBannerT;
+      const a = Math.max(0, Math.min(1, this.midBannerT * 2.5, life * 6));
+      const pop = 1 + Math.max(0, 0.18 - life) * 1.2; // tiny pop-in
+      const kind = this.midBannerKind || 'info';
+      const sty = {
+        info: ['#fff3dc', '#3b2a1a', '#3b2a1a'],
+        warn: ['#ffd9a8', '#3b2a1a', '#8a3a10'],
+        elite: ['#ffe7a0', '#3b2a1a', '#7a4a00'],
+        gold: ['#ffd76a', '#3b2a1a', '#5a3400'],
+        boss: ['#f7b089', '#3b2a1a', '#6a1a08'],
+      }[kind] || ['#fff3dc', '#3b2a1a', '#3b2a1a'];
+      const cy = H * 0.24;
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.translate(W / 2, cy); ctx.scale(pop, pop); ctx.translate(-W / 2, -cy);
+      ctx.font = '900 22px sans-serif';
+      const tw = Math.min(W - 30, ctx.measureText(this.midBanner).width + 56);
+      plaque(W / 2, cy, tw, 50, sty[0], sty[1]);
+      if (kind === 'boss' || kind === 'warn') {
+        // hazard stripes on the plaque ends (static, slow breathing alpha)
+        ctx.save();
+        ctx.globalAlpha = a * (0.55 + 0.15 * Math.sin(this.time * 4));
+        ctx.fillStyle = '#3b2a1a';
+        for (const side of [-1, 1]) {
+          const sx = W / 2 + side * (tw / 2 - 20);
+          for (let k = -1; k <= 1; k++) {
+            ctx.beginPath();
+            ctx.moveTo(sx + k * 8 - 3, cy - 14); ctx.lineTo(sx + k * 8 + 3, cy - 14);
+            ctx.lineTo(sx + k * 8 - 1, cy + 14); ctx.lineTo(sx + k * 8 - 7, cy + 14);
+            ctx.closePath(); ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+      ctx.fillStyle = sty[2];
+      ctx.fillText(this.midBanner, W / 2, cy + 1);
+      ctx.restore();
     }
+    ctx.textBaseline = 'alphabetic';
   }
 
   _drawPlayerChar(ctx) {
