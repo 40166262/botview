@@ -73,7 +73,7 @@ export function registerKill(j, worldX, worldY, isElite = false, isBoss = false)
 
   // tiny freeze-frame; normal kills rate-limited so swarms never stutter
   if (isBoss || isElite) triggerHitstop(j, isBoss ? 80 : 45);
-  else if (j.stopCd <= 0) { triggerHitstop(j, 18); j.stopCd = 0.22; }
+  else if (j.stopCd <= 0) { triggerHitstop(j, 12); j.stopCd = 0.28; }
   addShake(j, isBoss ? 7 : isElite ? 4.5 : 2.2 + Math.min(2.5, j.combo * 0.12), isBoss ? 0.28 : 0.12);
 
   // Soft colored edge pulse only — never white / never full-screen opaque
@@ -166,4 +166,3 @@ export function spawnKillBurst(pool, x, y, color, big = false) {
     p.color = KILL_WARM[i % KILL_WARM.length];
   }
 }
-

@@ -128,8 +128,8 @@ function sliceIconSheet(img) {
       cell.width = side; cell.height = side;
       const ctx = cell.getContext('2d');
       ctx.imageSmoothingEnabled = true;
-      if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = false;
-      if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = false;
+      if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = true;
+      if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = true;
       const ox = Math.floor((side - cw) / 2);
       const oy = Math.floor((side - ch) / 2);
       ctx.drawImage(src, col * cw, row * ch, cw, ch, ox, oy, cw, ch);
@@ -420,6 +420,11 @@ export function drawRoundedImage(ctx, img, x, y, w, h, radius = 12) {
   ctx.arcTo(x, y, x + w, y, rr);
   ctx.closePath();
   ctx.clip();
-  ctx.drawImage(img, x, y, w, h);
+  const iw = img.naturalWidth || img.width || 1;
+  const ih = img.naturalHeight || img.height || 1;
+  const sc = Math.min(w / iw, h / ih);
+  const dw = iw * sc;
+  const dh = ih * sc;
+  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
   ctx.restore();
 }

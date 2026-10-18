@@ -21,7 +21,7 @@ export function createPlayer(cx, cy) {
     invuln: 0,
     xp: 0,
     level: 1,
-    xpToNext: 5, // first level-up within ~5s
+    xpToNext: 3, // first level-up inside ~6s (three fodder gems)
     facing: 0,
     pulse: 0,
     // new stats
@@ -64,8 +64,9 @@ export function createPlayer(cx, cy) {
 }
 
 export function xpNeeded(level) {
-  // gentle early curve (Lv2-4 arrive fast), steeper later
-  return Math.floor(5 + (level - 1) * 5 + Math.pow(level, 1.5) * 1.2);
+  // Lv1 threshold is the player's starting xpToNext (3). Later levels ramp gently.
+  if (level <= 2) return 4 + level;
+  return Math.floor(6 + (level - 1) * 5 + Math.pow(level, 1.5) * 1.2);
 }
 
 function drawPlayerVector(ctx, p, t, bob) {
@@ -109,7 +110,7 @@ function drawPlayerVector(ctx, p, t, bob) {
 
 export function drawPlayer(ctx, p, t) {
   ctx.save();
-  const bob = Math.sin(t * 4 + p.pulse) * 2;
+  const bob = Math.sin(t * 4 + p.pulse) * 0.5;
   const sprite = getSprite('player');
 
   if (sprite) {

@@ -19,6 +19,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
   width: 100%; height: 100%; overflow: hidden; background: #2c2820;
+  display: flex; align-items: center; justify-content: center;
   color: var(--text);
   font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent; touch-action: none;
@@ -26,9 +27,12 @@ html, body {
 }
 #app {
   position: relative;
-  width: min(100vw, calc(100vh * 390 / 844));
-  height: min(100vh, calc(100vw * 844 / 390));
-  max-width: 480px; margin: 0 auto; background: var(--bg-deep);
+  /* Letterbox: keep 390×844 even when the window is taller than the design or hits max-width. */
+  aspect-ratio: 390 / 844;
+  width: min(100vw, 480px, calc(100vh * 390 / 844));
+  height: auto;
+  max-height: 100vh;
+  margin: 0 auto; background: var(--bg-deep);
   overflow: hidden; box-shadow: 0 0 60px rgba(0,0,0,0.55);
 }
 .screen {
@@ -279,6 +283,8 @@ html, body {
 #game-wrap { background: #1a2218; justify-content: flex-start; }
 #game {
   display: block; width: 100%; height: 100%; touch-action: none;
+  object-fit: contain;
+  object-position: center center;
   image-rendering: auto;
 }
 .hud {
@@ -745,9 +751,9 @@ html, body {
 }
 .meta-lv {
   width: auto; display: inline-block; align-self: flex-start; margin: 8px 0 0 5%;
-  background: linear-gradient(180deg, #ffe7a8, #f0c14a); color: var(--ink); border: 2.5px solid var(--ink); border-radius: 99px;
+  background: linear-gradient(180deg, #ffb35c, #e2741e); color: #fff; border: 2.5px solid var(--ink); border-radius: 99px;
   padding: 3px 12px; font-weight: 900; box-shadow: 0 3px 0 var(--ink);
-  text-shadow: none;
+  text-shadow: 0 1px 0 rgba(120,50,0,0.45);
 }
 .currency-bar { margin-top: -28px; }
 .cur-chip {
@@ -803,9 +809,10 @@ button.daily-gift {
   position: relative; background: var(--paper); color: var(--ink); font-weight: 900; font-size: 13px;
   border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); padding: 8px 4px 7px; gap: 2px;
 }
-.hub-btn:nth-child(3n+1) { background: linear-gradient(180deg, #fff6e2, #ffe0b0); }
-.hub-btn:nth-child(3n+2) { background: linear-gradient(180deg, #fff6ea, #f3dcc0); }
-.hub-btn:nth-child(3n) { background: linear-gradient(180deg, #fff2e8, #ffd2b0); }
+.hub-btn,
+.hub-btn:nth-child(3n+1),
+.hub-btn:nth-child(3n+2),
+.hub-btn:nth-child(3n) { background: linear-gradient(180deg, #fff6e2, #ffe0b0); }
 .hub-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); background: var(--paper-2); }
 .hub-btn img, .hub-btn .hub-svg {
   width: 50px; height: 50px; object-fit: contain; border-radius: 0;
@@ -863,7 +870,7 @@ button.daily-gift {
   box-shadow: 0 4px 0 var(--ink) !important; padding: 12px 12px 12px 16px;
 }
 .card::before { width: 8px; }
-.card.rarity-rare { background: linear-gradient(90deg, #ffe6c8, #fffaf0 60%); }
+.card.rarity-rare { background: linear-gradient(90deg, #fff1d4, #fffaf0 62%); }
 .card.rarity-epic { background: linear-gradient(90deg, #fff0c4, #fffaf0 60%); }
 .card.rarity-epic .card-icon { box-shadow: 0 0 0 3px var(--gold), 0 0 16px rgba(255,190,60,0.6); }
 .card:active, .card:hover { background: #fff2c8; transform: translateY(2px); }
@@ -872,15 +879,15 @@ button.daily-gift {
 .card-body p { color: var(--ink-soft); font-weight: 600; font-size: 13px; line-height: 1.4; }
 .card-rarity { color: #fff !important; border: 1.5px solid var(--ink); font-weight: 900; }
 .card-rarity.r-common { background: #8aa86e; }
-.card-rarity.r-rare { background: #c47a32; }
+.card-rarity.r-rare { background: #c45c12; }
 .card-rarity.r-epic { background: #e89a1a; }
 .card-tag { font-size: 10px; font-weight: 900; border-radius: 6px; padding: 1px 6px; border: 1.5px solid var(--ink); }
 .card-tag.new { background: var(--red); color: #fff; animation: giftBob 0.9s ease-in-out infinite; }
 .card-tag.lv { background: var(--paper-2); color: var(--ink); }
 .card-pips { display: flex; gap: 4px; margin-top: 6px; }
-.card-pips i { width: 14px; height: 6px; border-radius: 3px; background: #e8d6b4; border: 1.5px solid var(--ink); }
-.card-pips i.on { background: var(--orange); }
-.card-pips i.next { background: var(--gold); animation: pipBlink 1s ease-in-out infinite; }
+.card-pips i { width: 20px; height: 9px; border-radius: 4px; background: #a07848; border: 1.5px solid var(--ink); }
+.card-pips i.on { background: #e45c12; }
+.card-pips i.next { background: #ffc23d; animation: pipBlink 1s ease-in-out infinite; }
 @keyframes pipBlink { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
 #upgrade .panel.golden { background: linear-gradient(180deg, #fff6d0, #ffd978); box-shadow: 0 6px 0 rgba(59,42,26,0.55), 0 0 40px rgba(255,190,60,0.6); }
 
@@ -914,7 +921,7 @@ button.daily-gift {
   display: flex; align-items: center; gap: 12px; text-align: left;
   background: #fffaf0; border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); padding: 10px 12px;
 }
-.gacha-result.r-rare { background: linear-gradient(90deg, #ffe6c4, #fffaf0); }
+.gacha-result.r-rare { background: linear-gradient(90deg, #fff1d4, #fffaf0); }
 .gacha-result.r-epic { background: linear-gradient(90deg, #ffe7a0, #fffaf0); }
 .gacha-result.r-legendary { background: linear-gradient(90deg, #ffc8b8, #fff0c4); }
 .gacha-result.reveal { animation: gachaPop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1); }
@@ -1006,10 +1013,10 @@ button.daily-gift {
 }
 .hp-wrap { border: 2px solid var(--ink) !important; background: rgba(59,42,26,0.55) !important; height: 14px !important; }
 .hp-bar { background: linear-gradient(180deg, #ff8a74, #e0473a) !important; }
-.xp-wrap { border: 2px solid var(--ink) !important; background: rgba(59,42,26,0.45) !important; height: 9px !important; margin-top: 5px; margin-right: 48px; }
+.xp-wrap { border: 2px solid var(--ink) !important; background: rgba(59,42,26,0.45) !important; height: 9px !important; margin-top: 5px; margin-right: 72px; }
 .xp-bar { background: linear-gradient(180deg, #ffe07a, #f0a81c) !important; transition: width 0.15s; }
-.hud-progress { height: 6px; margin-right: 48px; background: rgba(59,42,26,0.35); border: 1.5px solid rgba(59,42,26,0.7); }
-.clear-bar { background: linear-gradient(90deg, #f0c14a, #e07a32); }
+.hud-progress { height: 6px; margin-right: 72px; background: rgba(59,42,26,0.35); border: 1.5px solid rgba(59,42,26,0.7); }
+.clear-bar { background: linear-gradient(90deg, #ffb35c, #e2741e); }
 .hud-combo {
   top: 92px; color: #fff3dc; font-size: 30px;
   text-shadow: 2px 0 0 var(--ink), -2px 0 0 var(--ink), 0 2px 0 var(--ink), 0 -2px 0 var(--ink), 0 4px 0 var(--ink);
@@ -1060,12 +1067,9 @@ button.daily-gift {
   pointer-events: none;
 }
 
-/* Smooth CSS upscale for battle canvas + card icons (thick AA outlines).
-   Other small UI thumbs stay nearest-neighbor until their sheets are redrawn. */
+/* Smooth upscale: battle canvas, upgrade icons, hub tiles, and gear all use AA outlines. */
 #game,
-.card-icon img, .card-icon canvas {
-  image-rendering: auto;
-}
+.card-icon img, .card-icon canvas,
 .equip-slot img, .equip-slot canvas,
 .hub-btn img,
 .char-thumb img, .stage-thumb img,
@@ -1076,9 +1080,206 @@ button.daily-gift {
 .gr-art img,
 .home-loadout img,
 .rchip img,
-.gear-slot img, .gear-slot canvas {
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
+.gear-slot img, .gear-slot canvas,
+.hud-pause img {
+  image-rendering: auto;
+}
+
+/* Hub tiles share one ink plate so the six buttons read as a set. */
+.hub-btn img {
+  width: 52px;
+  height: 52px;
+  padding: 4px;
+  box-sizing: border-box;
+  object-fit: contain;
+  background: #fffaf0;
+  border: 2.5px solid var(--ink);
+  border-radius: 14px;
+  filter: none;
+}
+.hub-btn { min-height: 86px; }
+
+/* Pause uses the smooth ink button art, not the old pixel tile or CSS bars. */
+.hud-pause {
+  width: 52px;
+  height: 52px;
+  top: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  box-shadow: none;
+}
+.hud-pause img {
+  display: block;
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  aspect-ratio: 1 / 1;
+  image-rendering: auto;
+  filter: drop-shadow(0 3px 0 rgba(59, 42, 26, 0.85));
+}
+.hud-top { padding-right: 60px; }
+.hud-pause:active { transform: translateY(2px); }
+.hud-pause:active img { filter: none; }
+
+.move-hint {
+  position: absolute; left: 50%; bottom: 18%; transform: translateX(-50%);
+  z-index: 8; pointer-events: none;
+  background: var(--paper); color: var(--ink); font-weight: 900; font-size: 14px;
+  border: 3px solid var(--ink); border-radius: 99px; padding: 8px 16px;
+  box-shadow: 0 4px 0 var(--ink);
+  animation: giftBob 1.3s ease-in-out infinite;
+}
+.home-loadout { gap: 10px; }
+.home-loadout img,
+.hub-btn img,
+.cur-ico,
+.card-icon img,
+.gs-img, .bag-ico,
+.equip-slot img {
+  object-fit: contain;
+  aspect-ratio: 1 / 1;
+}
+.home-loadout img {
+  width: 72px; height: 72px; padding: 7px; box-sizing: border-box; border-radius: 16px;
+}
+.equip-slot { width: 112px; height: 112px; }
+.equip-slot img { width: 68px; height: 68px; }
+.btn.warm {
+  background: linear-gradient(180deg, #ffe7b8 0%, #f0b24a 60%, #e09020 100%);
+  color: var(--ink);
+  text-shadow: none;
+  border: 3px solid var(--ink);
+  box-shadow: 0 4px 0 var(--ink), inset 0 3px 0 rgba(255,250,230,0.7);
+}
+.hud-top { padding-right: 76px; }
+.hud-pause { right: 8px; }
+
+/* Faint joystick ghost until the first touch of a run. */
+.joystick.ghost {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.4 !important;
+  visibility: visible !important;
+  pointer-events: none !important;
+}
+.joystick.ghost .joy-base,
+.joystick.ghost .joy-knob {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: none !important;
+  position: absolute;
+  border-radius: 50%;
+}
+.joystick.ghost .joy-base {
+  width: 92px; height: 92px;
+  border: 3px dashed rgba(59, 42, 26, 0.55);
+  background: rgba(255, 243, 220, 0.22);
+}
+.joystick.ghost .joy-knob {
+  width: 34px; height: 34px;
+  border: 3px solid rgba(59, 42, 26, 0.6);
+  background: rgba(255, 246, 220, 0.72);
+}
+
+.home-hero { margin-top: -18px; }
+.home-hero-art { margin-top: -4px; }
+.home-loadout img { width: 80px; height: 80px; }
+.hint {
+  color: #fffaf0;
+  font-weight: 900;
+  background: rgba(59, 42, 26, 0.72);
+  border-radius: 99px;
+  padding: 4px 12px;
+  text-shadow: none;
+}
+
+.gacha-result {
+  padding: 12px 14px;
+  border-width: 3px;
+}
+.gacha-result .gr-art { width: 80px; height: 80px; }
+.gacha-result .big { font-size: 22px; letter-spacing: 0.01em; }
+.gacha-result .sub { font-size: 13px; line-height: 1.4; color: #6b3a14; }
+.gr-rar { font-size: 12px; color: #8a3a20; }
+
+.gallery-grid { gap: 8px; }
+.gal-art {
+  width: 58px; height: 58px;
+  background: #fff6e4;
+  border-radius: 12px;
+  border: 2px solid var(--ink);
+}
+.gal-art img { image-rendering: auto; }
+.gal-item.locked .gal-art img {
+  filter: sepia(0.25) saturate(0.7) brightness(0.72);
+}
+.panel h2.with-ico {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel h2.with-ico img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
+  image-rendering: auto;
+}
+#upgrade .panel { padding: 12px 12px 10px; }
+#upgrade .cards { gap: 8px; }
+#upgrade .card {
+  padding: 8px 10px;
+  gap: 8px;
+}
+#upgrade .card-icon {
+  width: 56px;
+  height: 56px;
+  background: #fff6e4;
+}
+#upgrade .card-body h3 { font-size: 15px; margin-bottom: 2px; line-height: 1.25; }
+#upgrade .card-body p { font-size: 12px; line-height: 1.35; }
+#upgrade .card-tag.new {
+  font-size: 12px;
+  padding: 1px 8px;
+  background: #e04532;
+  color: #fff;
+}
+#upgrade .card-tag.lv {
+  font-size: 11px;
+  background: #ffe08a;
+  color: #3b2a1a;
+}
+#upgrade .card-pips { margin-top: 4px; }
+.gear-slot.empty .gs-img { opacity: 0.42; }
+.gear-slot .gs-img { background: #fff6e4; border-radius: 10px; }
+
+#settings .btn { margin-top: 8px; }
+.settings-note {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  line-height: 1.45;
+  margin: 0 0 4px;
+}
+#confirm-reset { z-index: 32; }
+#confirm-reset .btn { margin-top: 10px; }
+.confirm-copy {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin: 0 0 6px;
+}
+.btn.danger {
+  background: linear-gradient(180deg, #ff8a74 0%, #e0473a 58%, #c43228 100%);
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(90, 20, 10, 0.45);
+  border: 3px solid var(--ink);
+  box-shadow: 0 4px 0 var(--ink), inset 0 3px 0 rgba(255, 220, 200, 0.5);
 }
 
 /* stage / character cards: room to read, no cramped one-liners */

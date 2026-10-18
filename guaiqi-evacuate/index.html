@@ -51,12 +51,12 @@
         </div>
         <button id="btn-play" class="btn primary glow btn-play"><span class="play-ico" aria-hidden="true"></span><span id="btn-play-label">开始撤离</span><span class="btn-shine" aria-hidden="true"></span></button>
         <div class="hub-grid">
-          <button id="btn-stages" class="hub-btn"><img src="assets/enemy_office_zombie.png" alt=""/><span>章节</span></button>
-          <button id="btn-chars" class="hub-btn"><img src="assets/char_medic.png" alt=""/><span>角色</span></button>
-          <button id="btn-gacha" class="hub-btn hub-gift"><img src="assets/chest_gold.png" alt=""/><span>抽奖</span><i id="hub-gacha-dot" class="hub-dot hidden">免费</i></button>
-          <button id="btn-gallery" class="hub-btn"><img src="assets/enemy_monitor_bot.png" alt=""/><span>图鉴</span></button>
-          <button id="btn-bag" class="hub-btn"><img src="assets/equip_hat.png" alt=""/><span>装备</span></button>
-          <button id="btn-settings" class="hub-btn"><svg class="hub-svg" viewBox="0 0 48 48" aria-hidden="true"><path d="M20 4h8l1.2 5.4a15 15 0 0 1 4.3 2.5l5.2-1.8 4 6.9-4.1 3.7a15 15 0 0 1 0 5l4.1 3.7-4 6.9-5.2-1.8a15 15 0 0 1-4.3 2.5L28 44h-8l-1.2-5.4a15 15 0 0 1-4.3-2.5l-5.2 1.8-4-6.9 4.1-3.7a15 15 0 0 1 0-5L5.3 18.6l4-6.9 5.2 1.8a15 15 0 0 1 4.3-2.5z" fill="#e08a32" stroke="#3b2a1a" stroke-width="3" stroke-linejoin="round"/><circle cx="24" cy="24" r="6.5" fill="#fff3dc" stroke="#3b2a1a" stroke-width="3"/></svg><span>设置</span></button>
+          <button id="btn-stages" class="hub-btn"><img src="assets/hub_stages.png" alt=""/><span>章节</span></button>
+          <button id="btn-chars" class="hub-btn"><img src="assets/hub_chars.png" alt=""/><span>角色</span></button>
+          <button id="btn-gacha" class="hub-btn hub-gift"><img src="assets/hub_gacha.png" alt=""/><span>抽奖</span><i id="hub-gacha-dot" class="hub-dot hidden">免费</i></button>
+          <button id="btn-gallery" class="hub-btn"><img src="assets/hub_gallery.png" alt=""/><span>图鉴</span></button>
+          <button id="btn-bag" class="hub-btn"><img src="assets/hub_bag.png" alt=""/><span>装备</span></button>
+          <button id="btn-settings" class="hub-btn"><img src="assets/hub_settings.png" alt=""/><span>设置</span></button>
         </div>
         <p class="hint">点开始即进当前关卡 · 单指移动 · 自动射击</p>
       </div>
@@ -65,7 +65,7 @@
     <!-- Stage select -->
     <div id="stages" class="overlay hidden">
       <div class="panel wide">
-        <h2>选择关卡</h2>
+        <h2 class="with-ico"><img src="assets/hub_stages.png" alt=""/>选择关卡</h2>
         <div id="stage-cards" class="stage-cards"></div>
         <button id="btn-stages-close" class="btn ghost">返回</button>
       </div>
@@ -74,7 +74,7 @@
     <!-- Characters -->
     <div id="chars" class="overlay hidden">
       <div class="panel wide">
-        <h2>选择角色</h2>
+        <h2 class="with-ico"><img src="assets/hub_chars.png" alt=""/>选择角色</h2>
         <div id="char-cards" class="char-cards"></div>
         <button id="btn-chars-close" class="btn ghost">返回</button>
       </div>
@@ -83,7 +83,7 @@
     <!-- Gacha -->
     <div id="gacha" class="overlay hidden">
       <div class="panel">
-        <h2>设施补给抽奖</h2>
+        <h2 class="with-ico"><img src="assets/hub_gacha.png" alt=""/>设施补给抽奖</h2>
         <p class="gacha-pity">保底进度 <strong id="pity-num">0</strong>/10（必出史诗+）</p>
         <p class="gacha-note">已拥有的装备/挂件出率提升，重复抽到 = 免费强化</p>
         <p id="gacha-free-status" class="gacha-free-status">今日免费还没领，点下面的金色按钮</p>
@@ -99,7 +99,7 @@
     <!-- Gallery -->
     <div id="gallery" class="overlay hidden">
       <div class="panel wide">
-        <h2>设施图鉴 <small id="gallery-count"></small></h2>
+        <h2 class="with-ico"><img src="assets/hub_gallery.png" alt=""/>设施图鉴 <small id="gallery-count"></small></h2>
         <div id="gallery-grid" class="gallery-grid"></div>
         <div id="gallery-detail" class="gallery-detail hidden"></div>
         <button id="btn-gallery-close" class="btn ghost">返回</button>
@@ -109,7 +109,7 @@
     <!-- Gear + charm bag -->
     <div id="bag" class="overlay hidden">
       <div class="panel wide premium-panel">
-        <h2>装备栏</h2>
+        <h2 class="with-ico"><img src="assets/hub_bag.png" alt=""/>装备栏</h2>
         <p id="mat-line" class="mat-line">材料 —</p>
         <div id="gear-slots" class="gear-slots"></div>
         <h3 class="subhead">被动挂件（最多2）</h3>
@@ -124,7 +124,7 @@
       <canvas id="game" width="390" height="844"></canvas>
       <div id="hud" class="hud">
         <button type="button" id="btn-pause" class="hud-pause" aria-label="暂停" title="暂停">
-          <span class="pause-bars" aria-hidden="true"></span>
+          <img src="assets/ui_btn_pause.png" alt=""/>
         </button>
         <div class="hud-stage"><span id="hud-stage">办公区</span> · <span id="hud-wave">波次 1</span></div>
         <div class="hud-top">
@@ -140,6 +140,7 @@
         <div id="hud-combo" class="hud-combo hidden">×0</div>
         <div id="hud-shield" class="hud-shield hidden">盾×0</div>
       </div>
+      <div id="move-hint" class="move-hint hidden">按住屏幕拖动移动</div>
       <div id="joystick" class="joystick">
         <div id="joy-base" class="joy-base"></div>
         <div id="joy-knob" class="joy-knob"></div>
@@ -197,8 +198,10 @@
 
     <div id="settings" class="overlay hidden">
       <div class="panel">
-        <h2>设置</h2>
+        <h2 class="with-ico"><img src="assets/hub_settings.png" alt=""/>设置</h2>
         <label class="toggle-row"><span>音效</span><input type="checkbox" id="chk-sound" checked /></label>
+        <p class="settings-note">存档保存在本机。重置会清空金币、装备、关卡和抽奖进度。</p>
+        <button id="btn-reset-save" class="btn ghost" type="button">重置存档</button>
         <button id="btn-settings-close" class="btn primary">关闭</button>
       </div>
     </div>
@@ -207,7 +210,7 @@
       <div class="panel premium-panel">
         <h2>暂停</h2>
         <button id="btn-pause-resume" class="btn primary">继续</button>
-        <button id="btn-pause-retry" class="btn secondary">重新开始</button>
+        <button id="btn-pause-retry" class="btn warm">重新开始</button>
         <button id="btn-pause-home" class="btn ghost">返回首页</button>
       </div>
     </div>
@@ -216,6 +219,14 @@
       <div class="achieve-kicker">成就</div>
       <div class="achieve-name"></div>
       <div class="achieve-desc"></div>
+    </div>
+    <div id="confirm-reset" class="overlay hidden">
+      <div class="panel confirm-panel">
+        <h2>重置存档？</h2>
+        <p class="confirm-copy">将清除本机全部进度，包括金币、钻石、装备、关卡与抽奖记录。此操作无法撤销。</p>
+        <button id="btn-reset-yes" class="btn danger" type="button">确认重置</button>
+        <button id="btn-reset-no" class="btn ghost" type="button">取消</button>
+      </div>
     </div>
     <div id="toast" class="toast hidden"></div>
   </div>

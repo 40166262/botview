@@ -34,15 +34,15 @@ const FLOOR_THEMES = {
     seam: 'rgba(140,96,48,0.38)', hi: 'rgba(255,248,226,0.28)', lo: 'rgba(150,104,52,0.14)',
     edge: '#d9b77e', accent: null,
   },
-  ward: { // warm clinic paper tiles (no mint/teal)
-    tile: 48, base: '#f0dcc8', tones: ['#f0dcc8', '#ead4be', '#f4e2d0', '#e8d0b8'],
-    seam: 'rgba(140,90,50,0.32)', hi: 'rgba(255,248,236,0.32)', lo: 'rgba(150,100,60,0.14)',
-    edge: '#d7b48e', accent: '#f7e6d2',
+  ward: { // warm sand tiles (mint teal read as a style break on the cardboard floor)
+    tile: 48, base: '#e6d3a8', tones: ['#e6d3a8', '#e2cfa2', '#ead8b0', '#e4d1a6'],
+    seam: 'rgba(140,96,48,0.36)', hi: 'rgba(255,248,226,0.30)', lo: 'rgba(150,104,52,0.14)',
+    edge: '#d7b888', accent: '#f3e2c0',
   },
   basement: { // peach-sand plates, warm grout
     tile: 56, accentP: 0.06, base: '#f2d4a8', tones: ['#f2d4a8', '#efcfa1', '#f5d9b0', '#f0d2a5'],
     seam: 'rgba(140,90,40,0.42)', hi: 'rgba(255,246,226,0.32)', lo: 'rgba(196,120,60,0.20)',
-    edge: '#c4a078', accent: '#f6e2c4',
+    edge: '#e0b888', accent: '#f6e2c4',
   },
 };
 
@@ -57,8 +57,8 @@ export class Game {
     canvas.height = H * dpr;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.ctx.imageSmoothingEnabled = true;
-    if ('webkitImageSmoothingEnabled' in this.ctx) this.ctx.webkitImageSmoothingEnabled = false;
-    if ('mozImageSmoothingEnabled' in this.ctx) this.ctx.mozImageSmoothingEnabled = false;
+    if ('webkitImageSmoothingEnabled' in this.ctx) this.ctx.webkitImageSmoothingEnabled = true;
+    if ('mozImageSmoothingEnabled' in this.ctx) this.ctx.mozImageSmoothingEnabled = true;
     this.hooks = hooks;
     this.running = false;
     this.paused = false;
@@ -128,7 +128,7 @@ export class Game {
       swarmNext: 14,          // first zombie swarm ring
       eliteNext: 38,          // timed elite every ~45s
       goldenAt: 24 + Math.random() * 12, // one golden chest per run (mid-run surprise)
-      chestNext: 18, // first supply chest early, then every ~40s
+      chestNext: 5, // first chest inside the opening 10s
       goldenDone: false,
       slackerAt: 30 + Math.random() * 8, // funny 摸鱼丧尸 easter egg
       slackerDone: false,
@@ -831,7 +831,7 @@ export class Game {
   _spawnChest(tier = 'normal') {
     if (tier === true) tier = 'gold';
     const golden = tier === 'gold';
-    const pos = spawnPointAround(this.player.x, this.player.y, 80, 140, WORLD_W, WORLD_H);
+    const pos = spawnPointAround(this.player.x, this.player.y, 100, 160, WORLD_W, WORLD_H);
     const c = this.chests.acquire();
     c.x = pos.x; c.y = pos.y; c.r = golden ? 32 : tier === 'rare' ? 30 : 28; c.bob = 0; c.opened = false;
     c.golden = golden;
@@ -953,7 +953,7 @@ export class Game {
     dt.text = String(Math.round(dmg));
     dt.age = 0;
     dt.life = crit ? 0.75 : 0.55;
-    dt.color = crit ? '#ffc23a' : (e.isBoss ? '#ffd0b8' : '#fff1d0');
+    dt.color = crit ? '#ffe7a0' : '#fff6dc';
     dt.crit = crit;
     dt.scale = crit ? 1.25 : 1;
     }
@@ -1288,27 +1288,32 @@ export class Game {
       const tier = c.tier || (c.golden ? 'gold' : 'normal');
       const chestImg = getChestImage(tier);
       const rare = tier === 'rare';
-      const by = c.y + Math.sin(c.bob * 3) * 5;
-      const pulse = 0.55 + 0.45 * Math.sin(c.bob * 5);
-      // warm pulse ring
+      const by = c.y + Math.sin(c.bob * 4.2) * 7;
+      const pulse = 0.45 + 0.55 * Math.sin(c.bob * 6.5);
+      // warm pulse ring — two beats so the chest reads from across the room
       ctx.save();
       if (c.golden) {
-        const g = ctx.createRadialGradient(c.x, by, 6, c.x, by, 58);
-        g.addColorStop(0, `rgba(255,214,110,${0.35 + 0.15 * pulse})`);
+        const g = ctx.createRadialGradient(c.x, by, 6, c.x, by, 64);
+        g.addColorStop(0, `rgba(255,214,110,${0.4 + 0.2 * pulse})`);
         g.addColorStop(1, 'rgba(255,214,110,0)');
         ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(c.x, by, 58, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(c.x, by, 64, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.globalAlpha = 0.45 + 0.4 * pulse;
-      ctx.strokeStyle = c.golden ? '#ffb43a' : rare ? '#e0a040' : '#e8a040';
-      ctx.lineWidth = c.golden ? 4 : 3;
+      ctx.globalAlpha = 0.85;
+      ctx.strokeStyle = c.golden ? '#ffb43a' : rare ? '#e09030' : '#e8a040';
+      ctx.lineWidth = c.golden ? 5 : 4;
       ctx.beginPath();
-      ctx.arc(c.x, by + 4, (c.golden ? 38 : 32) + 3 * pulse, 0, Math.PI * 2);
+      ctx.arc(c.x, by + 4, (c.golden ? 50 : 44) + 8 * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 0.45 + 0.35 * pulse;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(c.x, by + 4, (c.golden ? 62 : 56) + 10 * pulse, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
       if (chestImg) {
         // chest art already carries its tier colour (gold has its own glow outline) — no tint
-        const cw = c.r * (c.golden ? 2.05 : rare ? 1.85 : 1.75);
+        const cw = c.r * (c.golden ? 2.45 : rare ? 2.25 : 2.15);
         const ch = cw * (chestImg.naturalHeight || chestImg.height) / Math.max(1, chestImg.naturalWidth || chestImg.width);
         drawStandingSprite(ctx, chestImg, c.x, by + ch * 0.5, cw, { maxW: cw, shadow: 'rgba(70,45,20,0.28)' });
       } else {
@@ -1329,9 +1334,18 @@ export class Game {
       ctx.strokeStyle = '#3b2a1a';
       ctx.lineWidth = 4;
       const lab = c.golden ? '金色物资' : rare ? '稀有物资' : '物资';
-      ctx.strokeText(lab, c.x, by - 38);
-      ctx.fillStyle = c.golden ? '#ffd050' : rare ? '#ffe08a' : '#fff0c0';
-      ctx.fillText(lab, c.x, by - 38);
+      const tw = ctx.measureText(lab).width + 16;
+      ctx.fillStyle = 'rgba(255,243,220,0.94)';
+      ctx.beginPath();
+      ctx.roundRect(c.x - tw / 2, by - 52, tw, 18, 8);
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#3b2a1a';
+      ctx.stroke();
+      ctx.lineWidth = 4;
+      ctx.strokeText(lab, c.x, by - 39);
+      ctx.fillStyle = c.golden ? '#c45c12' : '#6b4c2c';
+      ctx.fillText(lab, c.x, by - 39);
       ctx.restore();
     }
 
@@ -1431,12 +1445,16 @@ export class Game {
       ctx.translate(d.x, d.y);
       ctx.scale(d.scale || 1, d.scale || 1);
       // every number gets an ink outline so it reads on bright floors (was cream-on-beige)
-      ctx.font = d.crit ? '900 17px sans-serif' : 'bold 12px sans-serif';
+      ctx.font = d.crit ? '900 20px sans-serif' : '900 16px sans-serif';
       ctx.textAlign = 'center';
       ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#3b2a1a';
-      ctx.lineWidth = d.crit ? 4 : 3;
+      ctx.shadowColor = 'rgba(90, 42, 12, 0.55)';
+      ctx.shadowBlur = 5;
+      ctx.shadowOffsetY = 1;
+      ctx.strokeStyle = '#6b3a14';
+      ctx.lineWidth = d.crit ? 4 : 3.5;
       ctx.strokeText(d.text, 0, 0);
+      ctx.shadowBlur = 0;
       ctx.fillStyle = d.color;
       ctx.fillText(d.text, 0, 0);
       ctx.restore();
@@ -1467,7 +1485,8 @@ export class Game {
       const vctx = c.getContext('2d');
       const vig = vctx.createRadialGradient(W / 2, H / 2, H * 0.22, W / 2, H / 2, H * 0.8);
       vig.addColorStop(0, 'rgba(0,0,0,0)');
-      vig.addColorStop(1, theme === 'basement' ? 'rgba(90,50,15,0.20)' : 'rgba(70,40,10,0.20)');
+      const edge = theme === 'basement' ? 'rgba(90,50,15,0.20)' : theme === 'ward' ? 'rgba(90,55,20,0.20)' : 'rgba(70,40,10,0.22)';
+      vig.addColorStop(1, edge);
       vctx.fillStyle = vig;
       vctx.fillRect(0, 0, W, H);
       this._vig = c;

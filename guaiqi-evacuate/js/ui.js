@@ -158,7 +158,7 @@ export function showUpgradeCards(choices, onPick, owned = {}, opts = {}) {
       pips += `<i class="${cls}"></i>`;
     }
     const tag = lv === 0
-      ? '<span class="card-tag new">NEW</span>'
+      ? '<span class="card-tag new">新</span>'
       : `<span class="card-tag lv">Lv.${lv}→${lv + 1}${lv + 1 >= u.max ? ' 满' : ''}</span>`;
     btn.innerHTML = `
       ${iconHtml}
@@ -491,9 +491,7 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
       btn.type = 'button';
       btn.className = `gear-slot${g ? '' : ' empty'}`;
       const src = (g && g.icon) || SLOT_ICON[slot.id];
-      const ico = src
-        ? `<img class="gs-img${g ? '' : ' dim'}" src="${src}" alt=""/>`
-        : `<div class="gs-ico">${slot.name[0]}</div>`;
+      const ico = `<img class="gs-img${g ? '' : ' dim'}" src="${src}" alt=""/>`;
       btn.innerHTML = `${ico}
         <div class="gs-copy"><span class="gs-label">${slot.name}</span>
         <div class="gs-name">${g ? g.name : '未装备'}</div>
@@ -538,7 +536,7 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
     if (gear) {
       const lv = (save.gearLevels || {})[id] || 1;
       const eq = (save.gear || {})[gear.slot] === id;
-      const gico = gear.icon ? `<img class="bag-ico" src="${gear.icon}" alt=""/>` : `<img class="bag-ico dim" src="${SLOT_ICON[gear.slot] || 'assets/equip_weapon.png'}" alt=""/>`;
+      const gico = `<img class="bag-ico" src="${gear.icon || SLOT_ICON[gear.slot]}" alt=""/>`;
       btn.innerHTML = `${gico}<span class="bag-txt"><b>${gear.name}</b><small class="r-${gear.rarity}">${RARITY_LABEL[gear.rarity]} · Lv.${lv}</small></span>${eq ? '<span class="bag-eq">已装</span>' : ''}`;
       if (eq) btn.classList.add('equipped');
       btn.addEventListener('click', () => onEquipGear && onEquipGear(id));
@@ -582,6 +580,12 @@ export function bindJoystick(game, joyRoot, knob) {
     knob.style.transform = `translate(${kx}px, ${ky}px)`;
     game.setJoystick(kx, ky, len > 4);
   }
+  function dismissMoveHint() {
+    const hint = $('move-hint');
+    if (hint) hint.classList.add('hidden');
+    const joy = $('joystick');
+    if (joy) joy.classList.remove('ghost');
+  }
   function reset() {
     tracking = false; pid = null;
     knob.style.transform = 'translate(0,0)';
@@ -594,6 +598,7 @@ export function bindJoystick(game, joyRoot, knob) {
     const t = e.changedTouches[0];
     tracking = true; pid = t.identifier;
     wrap._sx = t.clientX; wrap._sy = t.clientY;
+    dismissMoveHint();
     setKnob(0, 0);
   }, { passive: false });
   wrap.addEventListener('touchmove', (e) => {
@@ -612,7 +617,7 @@ export function bindJoystick(game, joyRoot, knob) {
 
   wrap.addEventListener('mousedown', (e) => {
     if (e.target.closest && e.target.closest('#btn-pause, #pause-menu, .overlay, button, a')) return;
-    tracking = true; wrap._sx = e.clientX; wrap._sy = e.clientY; setKnob(0, 0);
+    tracking = true; wrap._sx = e.clientX; wrap._sy = e.clientY; dismissMoveHint(); setKnob(0, 0);
   });
   window.addEventListener('mousemove', (e) => {
     if (!tracking) return;
@@ -621,7 +626,7 @@ export function bindJoystick(game, joyRoot, knob) {
   window.addEventListener('mouseup', () => { if (tracking) reset(); });
 
   const keys = {};
-  window.addEventListener('keydown', (e) => { keys[e.code] = true; updateKeys(); });
+  window.addEventListener('keydown', (e) => { keys[e.code] = true; dismissMoveHint(); updateKeys(); });
   window.addEventListener('keyup', (e) => { keys[e.code] = false; updateKeys(); });
   function updateKeys() {
     if (tracking) return;
