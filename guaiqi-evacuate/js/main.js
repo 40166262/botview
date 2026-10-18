@@ -183,6 +183,8 @@ function startRun(stageId) {
   hidePause();
   hide('chest-pick');
   show('game-wrap');
+  const moveHint = $('move-hint');
+  if (moveHint) moveHint.classList.remove('hidden');
   game.configure({
     stageId: sid,
     charId: save.selectedChar || 'grin',

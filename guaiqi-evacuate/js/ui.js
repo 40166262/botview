@@ -531,6 +531,10 @@ export function bindJoystick(game, joyRoot, knob) {
     knob.style.transform = `translate(${kx}px, ${ky}px)`;
     game.setJoystick(kx, ky, len > 4);
   }
+  function dismissMoveHint() {
+    const hint = $('move-hint');
+    if (hint) hint.classList.add('hidden');
+  }
   function reset() {
     tracking = false; pid = null;
     knob.style.transform = 'translate(0,0)';
@@ -543,6 +547,7 @@ export function bindJoystick(game, joyRoot, knob) {
     const t = e.changedTouches[0];
     tracking = true; pid = t.identifier;
     wrap._sx = t.clientX; wrap._sy = t.clientY;
+    dismissMoveHint();
     setKnob(0, 0);
   }, { passive: false });
   wrap.addEventListener('touchmove', (e) => {
@@ -561,7 +566,7 @@ export function bindJoystick(game, joyRoot, knob) {
 
   wrap.addEventListener('mousedown', (e) => {
     if (e.target.closest && e.target.closest('#btn-pause, #pause-menu, .overlay, button, a')) return;
-    tracking = true; wrap._sx = e.clientX; wrap._sy = e.clientY; setKnob(0, 0);
+    tracking = true; wrap._sx = e.clientX; wrap._sy = e.clientY; dismissMoveHint(); setKnob(0, 0);
   });
   window.addEventListener('mousemove', (e) => {
     if (!tracking) return;
@@ -570,7 +575,7 @@ export function bindJoystick(game, joyRoot, knob) {
   window.addEventListener('mouseup', () => { if (tracking) reset(); });
 
   const keys = {};
-  window.addEventListener('keydown', (e) => { keys[e.code] = true; updateKeys(); });
+  window.addEventListener('keydown', (e) => { keys[e.code] = true; dismissMoveHint(); updateKeys(); });
   window.addEventListener('keyup', (e) => { keys[e.code] = false; updateKeys(); });
   function updateKeys() {
     if (tracking) return;

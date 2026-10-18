@@ -34,15 +34,15 @@ const FLOOR_THEMES = {
     seam: 'rgba(140,96,48,0.38)', hi: 'rgba(255,248,226,0.28)', lo: 'rgba(150,104,52,0.14)',
     edge: '#d9b77e', accent: null,
   },
-  ward: { // mint linoleum with a cream accent tile now and then
-    tile: 48, base: '#c8e6d4', tones: ['#c8e6d4', '#c3e2cf', '#cdeadb', '#c6e4d2'],
-    seam: 'rgba(48,118,100,0.36)', hi: 'rgba(250,255,246,0.30)', lo: 'rgba(52,128,108,0.14)',
-    edge: '#9fd0bc', accent: '#daeedd',
+  ward: { // warm sand tiles (mint teal read as a style break on the cardboard floor)
+    tile: 48, base: '#e6d3a8', tones: ['#e6d3a8', '#e2cfa2', '#ead8b0', '#e4d1a6'],
+    seam: 'rgba(140,96,48,0.36)', hi: 'rgba(255,248,226,0.30)', lo: 'rgba(150,104,52,0.14)',
+    edge: '#d7b888', accent: '#f3e2c0',
   },
-  basement: { // peach-sand tech plates, teal seams
+  basement: { // peach-sand plates, warm grout
     tile: 56, accentP: 0.06, base: '#f2d4a8', tones: ['#f2d4a8', '#efcfa1', '#f5d9b0', '#f0d2a5'],
-    seam: 'rgba(36,140,132,0.50)', hi: 'rgba(255,246,226,0.32)', lo: 'rgba(196,120,60,0.20)',
-    edge: '#5fb8ae', accent: '#dfe9cf', // occasional pale-teal service plate
+    seam: 'rgba(140,90,40,0.42)', hi: 'rgba(255,246,226,0.32)', lo: 'rgba(196,120,60,0.20)',
+    edge: '#e0b888', accent: '#f6e2c4',
   },
 };
 
@@ -128,7 +128,7 @@ export class Game {
       swarmNext: 14,          // first zombie swarm ring
       eliteNext: 38,          // timed elite every ~45s
       goldenAt: 24 + Math.random() * 12, // one golden chest per run (mid-run surprise)
-      chestNext: 18, // first supply chest early, then every ~40s
+      chestNext: 8, // first supply chest within the opening seconds
       goldenDone: false,
       slackerAt: 30 + Math.random() * 8, // funny 摸鱼丧尸 easter egg
       slackerDone: false,
@@ -830,7 +830,7 @@ export class Game {
   _spawnChest(tier = 'normal') {
     if (tier === true) tier = 'gold';
     const golden = tier === 'gold';
-    const pos = spawnPointAround(this.player.x, this.player.y, 80, 140, WORLD_W, WORLD_H);
+    const pos = spawnPointAround(this.player.x, this.player.y, 100, 160, WORLD_W, WORLD_H);
     const c = this.chests.acquire();
     c.x = pos.x; c.y = pos.y; c.r = golden ? 32 : tier === 'rare' ? 30 : 28; c.bob = 0; c.opened = false;
     c.golden = golden;
@@ -952,7 +952,7 @@ export class Game {
     dt.text = String(Math.round(dmg));
     dt.age = 0;
     dt.life = crit ? 0.75 : 0.55;
-    dt.color = crit ? '#ffc23a' : (e.isBoss ? '#ffb0a0' : '#ffffff');
+    dt.color = crit ? '#ffc23a' : (e.isBoss ? '#ffb090' : '#ffe3b0');
     dt.crit = crit;
     dt.scale = crit ? 1.25 : 1;
     }
@@ -1175,6 +1175,14 @@ export class Game {
 
     this._drawFloor(ctx, FLOOR);
 
+    // Keep sprites out of the HTML HUD band so enemies don't draw through the bars.
+    ctx.save();
+    const hudCut = 104;
+    const hudWorldY = (hudCut - H / 2) / VIEW_ZOOM + H / 2 + this.camY - off.y;
+    ctx.beginPath();
+    ctx.rect(-4000, hudWorldY, 20000, 20000);
+    ctx.clip();
+
     // hazard zones visual
     for (const z of (this.hazardZones || [])) {
       const a = 1 - z.age / z.life;
@@ -1302,16 +1310,16 @@ export class Game {
         ctx.fillStyle = g;
         ctx.beginPath(); ctx.arc(c.x, by, 58, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.globalAlpha = 0.45 + 0.4 * pulse;
-      ctx.strokeStyle = c.golden ? '#ffb43a' : rare ? '#2fb5b0' : '#e8a040';
-      ctx.lineWidth = c.golden ? 4 : 3;
+      ctx.globalAlpha = 0.7 + 0.3 * pulse;
+      ctx.strokeStyle = c.golden ? '#ffb43a' : rare ? '#e09030' : '#e8a040';
+      ctx.lineWidth = c.golden ? 5 : 4;
       ctx.beginPath();
-      ctx.arc(c.x, by + 4, (c.golden ? 38 : 32) + 3 * pulse, 0, Math.PI * 2);
+      ctx.arc(c.x, by + 4, (c.golden ? 46 : 40) + 4 * pulse, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
       if (chestImg) {
         // chest art already carries its tier colour (gold has its own glow outline) — no tint
-        const cw = c.r * (c.golden ? 2.05 : rare ? 1.85 : 1.75);
+        const cw = c.r * (c.golden ? 2.45 : rare ? 2.25 : 2.15);
         const ch = cw * (chestImg.naturalHeight || chestImg.height) / Math.max(1, chestImg.naturalWidth || chestImg.width);
         drawStandingSprite(ctx, chestImg, c.x, by + ch * 0.5, cw, { maxW: cw, shadow: 'rgba(70,45,20,0.28)' });
       } else {
@@ -1332,9 +1340,18 @@ export class Game {
       ctx.strokeStyle = '#3b2a1a';
       ctx.lineWidth = 4;
       const lab = c.golden ? '金色物资' : rare ? '稀有物资' : '物资';
-      ctx.strokeText(lab, c.x, by - 38);
-      ctx.fillStyle = c.golden ? '#ffd050' : rare ? '#8ff0e8' : '#fff0c0';
-      ctx.fillText(lab, c.x, by - 38);
+      const tw = ctx.measureText(lab).width + 16;
+      ctx.fillStyle = 'rgba(255,243,220,0.94)';
+      ctx.beginPath();
+      ctx.roundRect(c.x - tw / 2, by - 52, tw, 18, 8);
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#3b2a1a';
+      ctx.stroke();
+      ctx.lineWidth = 4;
+      ctx.strokeText(lab, c.x, by - 39);
+      ctx.fillStyle = c.golden ? '#c45c12' : '#6b4c2c';
+      ctx.fillText(lab, c.x, by - 39);
       ctx.restore();
     }
 
@@ -1433,6 +1450,7 @@ export class Game {
     }
     ctx.globalAlpha = 1;
 
+    ctx.restore(); // HUD clip
     // world-space combo popups removed (duplicated the HUD ×N counter and cluttered the fight)
 
     ctx.restore();
@@ -1445,7 +1463,7 @@ export class Game {
     const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.22, W / 2, H / 2, H * 0.8);
     vig.addColorStop(0, 'rgba(0,0,0,0)');
     if (theme === 'basement') vig.addColorStop(1, 'rgba(90,50,15,0.20)');
-    else if (theme === 'ward') vig.addColorStop(1, 'rgba(20,50,44,0.22)');
+    else if (theme === 'ward') vig.addColorStop(1, 'rgba(90,55,20,0.20)');
     else vig.addColorStop(1, 'rgba(70,40,10,0.22)');
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, W, H);

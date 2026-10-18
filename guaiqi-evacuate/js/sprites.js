@@ -422,6 +422,11 @@ export function drawRoundedImage(ctx, img, x, y, w, h, radius = 12) {
   ctx.arcTo(x, y, x + w, y, rr);
   ctx.closePath();
   ctx.clip();
-  ctx.drawImage(img, x, y, w, h);
+  const iw = img.naturalWidth || img.width || 1;
+  const ih = img.naturalHeight || img.height || 1;
+  const sc = Math.min(w / iw, h / ih);
+  const dw = iw * sc;
+  const dh = ih * sc;
+  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
   ctx.restore();
 }
