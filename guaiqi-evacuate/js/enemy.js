@@ -481,7 +481,7 @@ export function drawEnemy(ctx, e, t) {
   const walkAmt = e._walkAmt || 0;
   const walk = walkPose(t * (e.isBoss ? 7 : 9) + (e.wobble || 0) * 3, walkAmt * (e.isBoss ? 0.8 : 1));
   // idle breathing bob only while standing still (walk pose takes over when moving)
-  const bob = Math.sin(t * 3 + e.wobble) * (e.isBoss ? 3 : 2) * (1 - walkAmt);
+  const bob = Math.sin(t * 3 + e.wobble) * 0.5 * (1 - walkAmt);
   const typeMeta = ENEMY_TYPES[e.type] || ENEMY_TYPES.slime;
   const stand = e.isSlacker ? STANDING.slacker : STANDING[e.type];
   const sprite = stand ? (getSprite(stand.key) || getSprite(e.type)) : getSprite(e.type === 'boss' ? 'boss' : e.type);

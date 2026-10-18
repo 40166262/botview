@@ -57,17 +57,13 @@ export function triggerHitstop(j, ms) {
 }
 
 export function addShake(j, amount, duration = 0.14) {
-  j.shakeMag = Math.max(j.shakeMag * 0.4, amount);
-  j.shake = Math.max(j.shake, duration);
+  // Screen shake disabled (user: battle shakes too much / 晃眼)
+  void j; void amount; void duration;
 }
 
 export function shakeOffset(j) {
-  if (j.shake <= 0) return { x: 0, y: 0 };
-  const m = j.shakeMag * (j.shake / 0.2);
-  return {
-    x: (Math.random() - 0.5) * m * 2,
-    y: (Math.random() - 0.5) * m * 2,
-  };
+  void j;
+  return { x: 0, y: 0 };
 }
 
 export function registerKill(j, worldX, worldY, isElite = false, isBoss = false) {
