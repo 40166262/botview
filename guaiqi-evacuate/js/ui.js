@@ -2,7 +2,7 @@ import { formatTime } from './save.js';
 import { STAGES, ENDLESS, isStageUnlocked, stageLockReason, allStagesIncludingEndless, STAGE_COUNT } from './stages.js';
 import {
   CHARACTERS, GALLERY, PASSIVE_ITEMS, RARITY_LABEL, RARITY_COLOR,
-  isCharUnlocked, galleryCount, ensureDailyQuest, canFreeGacha,
+  isCharUnlocked, galleryCount, ensureDailyQuests, canFreeGacha,
   GEAR_SLOTS, GEAR_ITEMS, getGear, ensureGearSave, equipGear,
   CHARM_ICON_CELL,
 } from './meta.js';
@@ -46,20 +46,24 @@ export function refreshHomeStats(save) {
     playLabel.textContent = `开始撤离 · 第${n}关`;
   }
 
-  const q = ensureDailyQuest(save);
+  const board = ensureDailyQuests(save);
   const chip = $('daily-quest-chip');
-  if (q) {
-    const done = (q.progress || 0) >= q.target;
-    const rewardBits = [];
-    if (q.reward && q.reward.coins) rewardBits.push(`金币 +${q.reward.coins}`);
-    if (q.reward && q.reward.diamonds) rewardBits.push(`钻石 +${q.reward.diamonds}`);
-    const rewardTxt = rewardBits.join(' · ') || '奖励';
-    chip.textContent = done && !q.claimed
-      ? `日常完成 · 点此领取 ${rewardTxt}`
-      : q.claimed
-        ? `今日日常已领 · ${q.name}`
-        : `${q.name} ${q.progress || 0}/${q.target} · 完成得 ${rewardTxt}`;
-    chip.classList.toggle('ready', done && !q.claimed);
+  if (chip && board && board.length) {
+    const finished = board.filter((q) => (q.progress || 0) >= q.target).length;
+    const claimable = board.some((q) => !q.claimed && (q.progress || 0) >= q.target);
+    const allClaimed = board.every((q) => q.claimed);
+    chip.classList.toggle('ready', claimable);
+    const rows = board.map((q) => {
+      const met = (q.progress || 0) >= q.target;
+      const cls = q.claimed ? 'claimed' : met ? 'met' : '';
+      const label = `${q.short || q.name} ${Math.min(q.progress || 0, q.target)}/${q.target}`;
+      return `<em class="${cls}">${label}</em>`;
+    }).join('');
+    const claim = claimable ? '<span class="dq-claim">点此领取</span>' : '';
+    const foot = allClaimed
+      ? '<span class="dq-done">今天领完啦，明天再来</span>'
+      : `<span class="dq-lines">${rows}</span>`;
+    chip.innerHTML = `<span class="dq-top"><span>日常</span><b>${finished}/${board.length}</b>${claim}</span>${foot}`;
   }
 
   const goalEl = $('next-goal');
@@ -137,7 +141,13 @@ export function updateHud(data) {
 
   const combo = $('hud-combo');
   if (data.combo >= 2) {
-    combo.textContent = `×${data.combo}`;
+    const next = `×${data.combo}`;
+    if (combo.textContent !== next) {
+      combo.textContent = next;
+      combo.classList.remove('pop');
+      void combo.offsetWidth;
+      combo.classList.add('pop');
+    }
     show(combo);
   } else hide(combo);
 

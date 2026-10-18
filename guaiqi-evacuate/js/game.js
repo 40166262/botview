@@ -12,11 +12,11 @@ import {
 import { SFX, softVibrate } from './audio.js';
 import {
   getStage, pickEnemyType, spawnRateAt, difficultyScale,
-  isStageCleared, clearProgress, waveLabel,
+  isStageCleared, clearProgress, waveLabel, stageGoalLine,
 } from './stages.js';
 import {
   createJuice, tickJuice, inHitstop, registerKill, triggerCritFlash,
-  drawJuiceOverlay, spawnKillBurst, addShake, shakeOffset,
+  drawJuiceOverlay, spawnKillBurst, spawnHitSpark, addShake, shakeOffset,
 } from './juice.js';
 import { applyCharacterToPlayer, applyPassivesToPlayer, applyGearToPlayer, applyCharLevelToPlayer, unlockGallery } from './meta.js';
 import { getIconCell, getChestImage, getCharSprite, getSprite, drawStandingSprite, walkPose } from './sprites.js';
@@ -116,6 +116,10 @@ export class Game {
     this.juice = createJuice();
     this.noDamageTimer = 0;
     this.secretSpawned = false;
+    this.runId = (this._runSerial = (this._runSerial || 0) + 1);
+    this.cratesOpened = 0;
+    this._chestEver = false;
+    this._waveShown = 1;
     this.bannerTimer = 1.6;
     this.bannerTitle = this.stage.introBanner.title;
     this.bannerSub = this.stage.introBanner.sub;
@@ -270,6 +274,7 @@ export class Game {
         if (nx) this._banner(nx[0], nx[1], nx[2]);
       }
     }
+    this._noteWave();
 
     // move
     const moveMul = (p._sporeSlow > 0) ? 0.55 : 1;
@@ -611,6 +616,7 @@ export class Game {
       if (Math.hypot(c.x - p.x, c.y - p.y) < c.r + p.r + 22) {
         c.opened = true;
         c.alive = false;
+        this.cratesOpened = (this.cratesOpened || 0) + 1;
         this.paused = true;
         this._noteGallery('item_chest');
         SFX.chest();
@@ -753,6 +759,16 @@ export class Game {
     }
   }
 
+  /** Wave changes get one short line, and only when nothing else is on screen. */
+  _noteWave() {
+    const wave = Math.floor(this.time / 20) + 1;
+    if (wave === this._waveShown) return;
+    this._waveShown = wave;
+    if (this.midBanner || (this.bannerQueue && this.bannerQueue.length)) return;
+    const goal = stageGoalLine(this.stage);
+    this._banner(`波次 ${wave} · 目标 ${goal}`, 'info', 1.2);
+  }
+
   _banner(text, kind = 'info', dur = 1.8) {
     // queue instead of overwriting so swarm/elite/boss callouts never swallow each other
     if (this.midBanner && this.midBannerT > 0.35) {
@@ -843,7 +859,10 @@ export class Game {
     c.x = pos.x; c.y = pos.y; c.r = golden ? 32 : tier === 'rare' ? 30 : 28; c.bob = 0; c.opened = false;
     c.golden = golden;
     c.tier = tier;
-    spawnBurst(this.particles, pos.x, pos.y, '#ffe066', golden ? 22 : 12, golden ? 120 : 80);
+    c.loud = !golden && !this._chestEver;
+    this._chestEver = true;
+    const sparkN = golden ? 8 : c.loud ? 6 : 4;
+    spawnBurst(this.particles, pos.x, pos.y, '#f0d7a4', sparkN, golden ? 90 : 60);
     if (golden) {
       this._banner('金色物资箱！', 'gold', 2);
       SFX.announce();
@@ -939,7 +958,11 @@ export class Game {
   _hurtEnemy(e, dmg, wasCrit) {
     if (!e.alive) return;
     e.hp -= dmg;
-    e.hitFlash = 0.1;
+    e.hitFlash = 0.08;
+    if (e.hp > 0 && !(e._sparkCd > this.time)) {
+      e._sparkCd = this.time + 0.09;
+      spawnHitSpark(this.particles, e.x, e.y - e.r * 0.25);
+    }
     if (!e.isBoss && dmg >= 3) { // small push away from player (weight by size)
       const kd = Math.hypot(e.x - this.player.x, e.y - this.player.y) || 1;
       const kb = (e.isElite ? 40 : 90) * (wasCrit ? 1.6 : 1);
@@ -1085,6 +1108,9 @@ export class Game {
         kills: this.kills,
         coins: this.coinsEarned,
         maxCombo: this.juice.maxCombo,
+        crates: this.cratesOpened || 0,
+        runId: this.runId,
+        cleared: true,
         rewardCoins: bonus,
         rewardDiamonds: 5 + this.stage.index * 5,
       });
@@ -1104,6 +1130,9 @@ export class Game {
         kills: this.kills,
         coins: this.coinsEarned,
         maxCombo: this.juice.maxCombo,
+        crates: this.cratesOpened || 0,
+        runId: this.runId,
+        cleared: false,
         revivedOnce: this.revivedOnce,
       });
     }
@@ -1294,28 +1323,38 @@ export class Game {
       const tier = c.tier || (c.golden ? 'gold' : 'normal');
       const chestImg = getChestImage(tier);
       const rare = tier === 'rare';
-      const by = c.y + Math.sin(c.bob * 4.2) * 7;
-      const pulse = 0.45 + 0.55 * Math.sin(c.bob * 6.5);
-      // warm pulse ring — two beats so the chest reads from across the room
+      const loud = !!c.loud;
+      const by = c.y + Math.sin(c.bob * (loud ? 4.2 : 2.2)) * (loud ? 6 : 2.5);
+      const pulse = 0.45 + 0.55 * Math.sin(c.bob * (loud ? 6.5 : 2.4));
+      // First crate keeps the double warm pulse. Later crates are a slow rim, not a flash.
       ctx.save();
       if (c.golden) {
-        const g = ctx.createRadialGradient(c.x, by, 6, c.x, by, 64);
-        g.addColorStop(0, `rgba(255,214,110,${0.4 + 0.2 * pulse})`);
-        g.addColorStop(1, 'rgba(255,214,110,0)');
+        const g = ctx.createRadialGradient(c.x, by, 8, c.x, by, 48);
+        g.addColorStop(0, 'rgba(224, 160, 80, 0.22)');
+        g.addColorStop(1, 'rgba(224, 160, 80, 0)');
         ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(c.x, by, 64, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(c.x, by, 48, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.globalAlpha = 0.85;
-      ctx.strokeStyle = c.golden ? '#ffb43a' : rare ? '#e09030' : '#e8a040';
-      ctx.lineWidth = c.golden ? 5 : 4;
-      ctx.beginPath();
-      ctx.arc(c.x, by + 4, (c.golden ? 50 : 44) + 8 * pulse, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.globalAlpha = 0.45 + 0.35 * pulse;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(c.x, by + 4, (c.golden ? 62 : 56) + 10 * pulse, 0, Math.PI * 2);
-      ctx.stroke();
+      if (loud) {
+        ctx.globalAlpha = 0.75;
+        ctx.strokeStyle = '#e8a040';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(c.x, by + 4, 44 + 8 * pulse, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 0.32 + 0.22 * pulse;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(c.x, by + 4, 56 + 8 * pulse, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        ctx.globalAlpha = 0.32 + 0.1 * Math.sin(c.bob * 2.1);
+        ctx.strokeStyle = c.golden ? '#e0a050' : rare ? '#d4924a' : '#e2b06a';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(c.x, by + 6, c.golden ? 40 : 34, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.restore();
       if (chestImg) {
         // chest art already carries its tier colour (gold has its own glow outline) — no tint
@@ -1468,11 +1507,16 @@ export class Game {
     ctx.globalAlpha = 1;
 
     for (const cp of this.coinPops) {
+      const py = cp.y - cp.age * 28;
       ctx.globalAlpha = 1 - cp.age / cp.life;
-      ctx.font = 'bold 13px sans-serif';
+      ctx.font = '900 14px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillStyle = '#ffe066';
-      ctx.fillText(cp.text, cp.x, cp.y - cp.age * 30);
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#6b3a14';
+      ctx.strokeText(cp.text, cp.x, py);
+      ctx.fillStyle = '#fff6e4';
+      ctx.fillText(cp.text, cp.x, py);
     }
     ctx.globalAlpha = 1;
 
@@ -1520,19 +1564,21 @@ export class Game {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     if (this.bannerTimer > 0) {
-      // intro plaque sits under the HUD stack (combo ends ~122px) and clears in 1.6s
+      // Intro plaque sits under the HUD (pause ends ~82px, combo ~128px) and clears in 1.6s.
       const a = Math.max(0, Math.min(1, this.bannerTimer * 2.5, (1.6 - this.bannerTimer) * 4));
-      const cy = 176;
+      const cy = 178;
+      const pw = 280;
+      const ph = 58;
       ctx.globalAlpha = a;
-      plaque(W / 2, cy, 236, 54, '#fff3dc', '#3b2a1a');
+      plaque(W / 2, cy, pw, ph, '#fff3dc', '#3b2a1a');
       ctx.fillStyle = '#e8772a';
-      ctx.fillRect(W / 2 - 118 + 8, cy - 27 + 3, 220, 4);
-      ctx.font = '900 19px sans-serif';
+      ctx.fillRect(W / 2 - pw / 2 + 10, cy - ph / 2 + 6, pw - 20, 4);
+      ctx.font = '900 18px sans-serif';
       ctx.fillStyle = '#3b2a1a';
-      ctx.fillText(this.bannerTitle, W / 2, cy - 6);
-      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(this.bannerTitle, W / 2, cy - 4);
+      ctx.font = 'bold 12px sans-serif';
       ctx.fillStyle = '#7a5530';
-      ctx.fillText(this.bannerSub, W / 2, cy + 14);
+      ctx.fillText(this.bannerSub, W / 2, cy + 16);
       ctx.globalAlpha = 1;
     }
     if (this.midBanner) {
@@ -1548,8 +1594,11 @@ export class Game {
         gold: ['#ffd76a', '#3b2a1a', '#5a3400'],
         boss: ['#f7b089', '#3b2a1a', '#6a1a08'],
       }[kind] || ['#fff3dc', '#3b2a1a', '#3b2a1a'];
-      // below HUD, and below the intro plaque while that is still up
-      const cy = this.bannerTimer > 0 ? 268 : 204;
+      // Boss / wave / elite plaques stack under the HUD, and under the intro while it is up.
+      // Pause button occupies the top-right (~y 30–82); never place a plaque there.
+      const hudClear = 168;
+      let cy = this.bannerTimer > 0 ? 268 : 204;
+      if (cy - 25 < hudClear) cy = hudClear + 25;
       ctx.save();
       ctx.globalAlpha = a;
       ctx.translate(W / 2, cy); ctx.scale(pop, pop); ctx.translate(-W / 2, -cy);

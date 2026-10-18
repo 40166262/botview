@@ -25,6 +25,7 @@ const defaults = () => ({
   galleryMilestone10: false,
   dailyQuestDay: '',
   dailyQuest: null,
+  dailyQuests: null,
   // progression
   playerLevel: 1,
   playerXp: 0,

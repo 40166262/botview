@@ -469,10 +469,12 @@ $('daily-quest-chip').addEventListener('click', () => {
     const bits = [];
     if (reward.coins) bits.push(`金币 +${reward.coins}`);
     if (reward.diamonds) bits.push(`钻石 +${reward.diamonds}`);
-    pushAchievement({ name: '日常奖励已领', desc: bits.join(' · ') || '奖励已放入账户' });
+    pushAchievement({ kicker: '日常', name: reward.name || '日常奖励已领', desc: bits.join(' · ') || '奖励已放入账户' });
   } else {
-    const q = save.dailyQuest;
-    if (q && !q.claimed) toast(`还差 ${Math.max(0, q.target - (q.progress || 0))}，打完一局再来领`);
+    const board = save.dailyQuests || [];
+    const next = board.find((q) => !q.claimed);
+    if (!next) toast('今天的日常都领完啦');
+    else toast(`${next.name}还差 ${Math.max(0, next.target - (next.progress || 0))}`);
   }
 });
 $('daily-gift').addEventListener('click', () => {
@@ -490,11 +492,25 @@ $('btn-reset-yes').addEventListener('click', () => {
   resetSave();
   location.reload();
 });
-$('chk-sound').addEventListener('change', (e) => {
-  save.sound = e.target.checked;
+function syncPauseSound() {
+  const on = !!save.sound;
+  const btn = $('btn-pause-sound');
+  if (btn) {
+    btn.textContent = on ? '音效 · 开' : '音效 · 关';
+    btn.classList.toggle('is-on', on);
+    btn.classList.toggle('is-off', !on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  const chk = $('chk-sound');
+  if (chk) chk.checked = on;
+}
+function setSound(on) {
+  save.sound = !!on;
   setSoundEnabled(save.sound);
   writeSave(save);
-});
+  syncPauseSound();
+}
+$('chk-sound').addEventListener('change', (e) => setSound(e.target.checked));
 
 $('btn-retry').addEventListener('click', () => {
   hideResult();
@@ -552,9 +568,15 @@ function openPause() {
   if (!$('chest-pick').classList.contains('hidden')) return;
   if (!$('result').classList.contains('hidden')) return;
   game.setPaused(true);
+  syncPauseSound();
   showPause();
   SFX.click();
 }
+$('btn-pause-sound')?.addEventListener('click', () => {
+  const next = !save.sound;
+  setSound(next);
+  if (next) SFX.click();
+});
 $('btn-pause')?.addEventListener('click', (e) => {
   e.stopPropagation();
   openPause();
@@ -586,4 +608,5 @@ window.addEventListener('keydown', (e) => {
 });
 
 setSoundEnabled(save.sound);
+syncPauseSound();
 bootLoad();
