@@ -198,10 +198,17 @@ export function addMaterials(save, stageNum, cleared) {
   if (m.moon != null) { m.tape = (m.tape || 0) + (m.moon || 0); delete m.moon; }
   if (m.dark != null) { m.chip = (m.chip || 0) + (m.dark || 0); delete m.dark; }
   const n = stageNum || 1;
-  m.scrap = (m.scrap || 0) + (cleared ? 1 + Math.floor(Math.random() * 3) : (Math.random() < 0.35 ? 1 : 0));
-  if (n > 20 && cleared) m.battery = (m.battery || 0) + (Math.random() < 0.55 ? 1 : 0);
-  if (n > 40 && cleared) m.tape = (m.tape || 0) + (Math.random() < 0.35 ? 1 : 0);
-  if (n > 70 && cleared) m.chip = (m.chip || 0) + (Math.random() < 0.3 ? 1 : 0);
+  const gained = {};
+  const give = (key, amt) => {
+    if (!amt) return;
+    m[key] = (m[key] || 0) + amt;
+    gained[key] = (gained[key] || 0) + amt;
+  };
+  give('scrap', cleared ? 1 + Math.floor(Math.random() * 3) : (Math.random() < 0.35 ? 1 : 0));
+  if (n > 20 && cleared) give('battery', Math.random() < 0.55 ? 1 : 0);
+  if (n > 40 && cleared) give('tape', Math.random() < 0.35 ? 1 : 0);
+  if (n > 70 && cleared) give('chip', Math.random() < 0.3 ? 1 : 0);
+  return gained;
 }
 
 /** Gear upgrade cost table */

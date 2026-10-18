@@ -16,6 +16,16 @@ export function setSoundEnabled(on) {
   enabled = !!on;
 }
 
+/** Short optional buzz. Off when sound is off, reduced-motion is on, or the device has no vibrator. */
+export function softVibrate(ms) {
+  if (!enabled) return;
+  try {
+    if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
+    if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    navigator.vibrate(Math.max(10, Math.min(40, ms | 0)));
+  } catch (_) { /* optional */ }
+}
+
 export function resumeAudio() {
   const c = ac();
   if (c && c.state === 'suspended') c.resume();

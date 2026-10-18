@@ -62,6 +62,31 @@ export function refreshHomeStats(save) {
     chip.classList.toggle('ready', done && !q.claimed);
   }
 
+  const goalEl = $('next-goal');
+  if (goalEl) {
+    let frontier = STAGES[0];
+    for (const st of STAGES) if (isStageUnlocked(save, st.id)) frontier = st;
+    const cleared = !!(save.stagesCleared && save.stagesCleared[frontier.id]);
+    let text;
+    if (!cleared) {
+      const goal = frontier.clearMode === 'boss'
+        ? '击败首领'
+        : `生存 ${formatTime(frontier.clearTime)} 或 ${frontier.clearKills} 杀`;
+      text = `下一关目标 · 第${frontier.stageNum}关 · ${goal}`;
+    } else {
+      const next = STAGES.find((s) => s.stageNum === frontier.stageNum + 1);
+      if (next) {
+        const reason = stageLockReason(save, next.id);
+        text = reason ? `下一关 · ${reason}` : `下一关目标 · 第${next.stageNum}关`;
+      } else if (isStageUnlocked(save, 'endless')) {
+        text = '章节已清空 · 无尽设施等你';
+      } else {
+        text = '本章已通关';
+      }
+    }
+    goalEl.textContent = text;
+  }
+
   // 首页英雄全身立绘 + 穿戴装备图
   const hero = $('home-hero-art');
   if (hero) {
@@ -146,8 +171,8 @@ export function showUpgradeCards(choices, onPick, owned = {}, opts = {}) {
       stapler_storm: 'assets/icon_stapler.png',
       orbit: 'assets/icon_fan_blade.png',
     };
-    const propSrc = PROP_ICON[u.id];
-    const iconCell = (!propSrc && u.sheet != null) ? getIconCell(u.sheet) : null;
+    const iconCell = (u.sheet != null) ? getIconCell(u.sheet) : null;
+    const propSrc = iconCell ? null : PROP_ICON[u.id];
     let iconHtml = `<div class="card-icon"><span style="font-size:18px;color:#c8b8a0">${(u.name||'?')[0]}</span></div>`;
     if (propSrc || iconCell) iconHtml = `<div class="card-icon"></div>`;
     const lv = owned[u.id] || 0;
@@ -157,13 +182,17 @@ export function showUpgradeCards(choices, onPick, owned = {}, opts = {}) {
       const cls = k < lv ? 'on' : k === lv ? 'next' : '';
       pips += `<i class="${cls}"></i>`;
     }
+    const capping = lv > 0 && lv + 1 >= (u.max || 1);
     const tag = lv === 0
       ? '<span class="card-tag new">新</span>'
-      : `<span class="card-tag lv">Lv.${lv}→${lv + 1}${lv + 1 >= u.max ? ' 满' : ''}</span>`;
+      : `<span class="card-tag lv${capping ? ' max' : ''}">Lv.${lv}${capping ? ' 满' : ''}</span>`;
     btn.innerHTML = `
       ${iconHtml}
       <div class="card-body">
-        <h3>${u.name}<span class="card-rarity r-${u.rarity || 'common'}">${r.name}</span>${tag}</h3>
+        <div class="card-top">
+          <h3>${u.name}<span class="card-rarity r-${u.rarity || 'common'}">${r.name}</span></h3>
+          ${tag}
+        </div>
         <p>${u.desc}</p>
         <div class="card-pips">${pips}</div>
       </div>`;
@@ -196,16 +225,30 @@ export function showChestPick(onPick) {
   });
 }
 
+function setBtnRole(el, role) {
+  if (!el) return;
+  el.classList.remove('primary', 'glow', 'secondary', 'ghost');
+  if (role === 'primary') el.classList.add('primary', 'glow');
+  else if (role === 'secondary') el.classList.add('secondary');
+  else el.classList.add('ghost');
+}
+
 export function showResult(opts) {
-  $('res-title').textContent = opts.cleared ? '撤离成功！' : '撤离失败';
+  $('res-title').textContent = opts.cleared ? '撤离成功！' : '没能撤离';
   $('result').querySelector('.panel').classList.toggle('win', !!opts.cleared);
   const chips = $('res-chips');
   if (chips) {
     const c = [];
     c.push(`<div class="rchip"><img src="assets/icon_coin.png" alt=""/><b id="res-chip-coins">${opts.coins || 0}</b><span>金币</span></div>`);
     if (opts.diamonds) c.push(`<div class="rchip"><img src="assets/icon_diamond.png" alt=""/><b>${opts.diamonds}</b><span>钻石</span></div>`);
-    if (opts.xp) c.push(`<div class="rchip xp"><i>EXP</i><b>${opts.xp}</b><span>经验</span></div>`);
+    c.push(`<div class="rchip xp"><b>${opts.xp || 0}</b><span>经验</span></div>`);
     chips.innerHTML = c.join('');
+  }
+  const lines = $('res-lines');
+  if (lines) {
+    const bits = [opts.bonusLine, opts.levelLine, opts.charLine, opts.matLine].filter(Boolean);
+    lines.innerHTML = bits.map((t) => `<p>${t}</p>`).join('');
+    lines.classList.toggle('hidden', !bits.length);
   }
   $('res-flavor').textContent = opts.flavor || '';
   $('res-stage').textContent = opts.stageName || '—';
@@ -217,26 +260,23 @@ export function showResult(opts) {
     show('res-dia-row');
     $('res-diamonds').textContent = String(opts.diamonds);
   } else hide('res-dia-row');
-  const rw = $('res-reward-line');
-  if (rw && opts.cleared && (opts.rewardCoins || opts.diamonds)) {
-    show(rw);
-    const rc = $('res-reward-coins');
-    const rd = $('res-reward-dias');
-    if (rc) rc.textContent = String(opts.rewardCoins || 0);
-    if (rd) rd.textContent = String(opts.diamonds || 0);
-  } else if (rw) hide(rw);
   $('btn-revive').style.display = opts.canRevive ? '' : 'none';
   $('btn-double').style.display = opts.canDouble ? '' : 'none';
   $('btn-double').disabled = false;
   $('btn-double').innerHTML = '<span class="ad-tag">AD</span>看广告 · 金币翻倍';
-  const nextShown = opts.cleared && opts.hasNext;
+  const nextShown = !!(opts.cleared && opts.hasNext);
+  const homePrimary = !!(opts.cleared && !opts.hasNext);
   if (nextShown) show('btn-next-stage');
   else hide('btn-next-stage');
-  // one hero CTA only: when "next stage" leads, retry drops to secondary
-  $('btn-retry').classList.toggle('primary', !nextShown);
-  $('btn-retry').classList.toggle('glow', !nextShown);
-  $('btn-retry').classList.toggle('secondary', nextShown);
-  // underpowered fail → CTA
+  setBtnRole($('btn-next-stage'), 'primary');
+  setBtnRole($('btn-home'), homePrimary ? 'primary' : 'ghost');
+  setBtnRole($('btn-retry'), opts.cleared ? 'secondary' : 'primary');
+  $('btn-retry').textContent = opts.cleared ? '再试一次' : '再来一局';
+  $('btn-next-stage').style.order = '1';
+  $('btn-home').style.order = homePrimary ? '1' : '3';
+  $('btn-retry').style.order = opts.cleared ? '2' : '1';
+  if ($('btn-revive')) $('btn-revive').style.order = '4';
+  if ($('btn-double')) $('btn-double').style.order = '5';
   const hint = $('res-power-hint');
   const cta = $('res-cta-row');
   if (!opts.cleared && opts.suggestPower) {
@@ -244,10 +284,11 @@ export function showResult(opts) {
       hint.textContent = opts.suggestPower;
       show(hint);
     }
-    if (cta) show(cta);
-  } else {
-    if (hint) hide(hint);
-    if (cta) hide(cta);
+  } else if (hint) hide(hint);
+  if (cta) {
+    if (!opts.cleared && opts.showGearCta) show(cta);
+    else hide(cta);
+    cta.style.order = '6';
   }
   show('result');
 }
@@ -281,6 +322,8 @@ function pumpAchieve() {
   if (!a || !el) return;
   const name = el.querySelector('.achieve-name');
   const desc = el.querySelector('.achieve-desc');
+  const kicker = el.querySelector('.achieve-kicker');
+  if (kicker) kicker.textContent = a.kicker || '成就';
   if (name) name.textContent = a.name;
   if (desc) desc.textContent = a.desc || '';
   show(el);
@@ -419,11 +462,39 @@ export function renderGallery(save, onTap) {
     const unlocked = !!(save.gallery && save.gallery[g.id]);
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = `gal-item${unlocked ? '' : ' locked'}`;
+    btn.className = `gal-item${unlocked ? ' on' : ' locked'}`;
     const src = galleryArt(g.id);
-    btn.innerHTML = `<div class="gal-art kind-${g.kind}${GALLERY_GOLD.has(g.id) ? ' gold' : ''}">${src ? `<img src="${src}" alt=""/>` : ''}${unlocked ? '' : '<span class="gal-q">?</span>'}</div><span class="gal-name">${unlocked ? g.name : '???'}</span>`;
+    const portrait = g.kind === 'char' || g.kind === 'enemy';
+    const gold = GALLERY_GOLD.has(g.id) ? ' gold' : '';
+    btn.innerHTML = `<div class="gal-art ${portrait ? 'portrait' : 'icon'} kind-${g.kind}${gold}">${src ? `<img src="${src}" alt=""/>` : ''}${unlocked ? '' : '<span class="char-lock-badge">锁</span>'}</div><span class="gal-copy"><span class="gal-name">${unlocked ? g.name : '未发现'}</span><span class="gal-flavor">${unlocked ? g.flavor : '尚未收录'}</span></span>`;
     btn.addEventListener('click', () => onTap(g, unlocked));
     wrap.appendChild(btn);
+  });
+}
+
+/** One cardboard plaque for new gallery finds. Several ids collapse into a single card. */
+export function celebrateFinds(ids, charName) {
+  const entries = [];
+  const seen = new Set();
+  for (const id of ids || []) {
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const g = GALLERY.find((x) => x.id === id);
+    if (g) entries.push(g);
+  }
+  if (charName && !entries.some((e) => e.name === charName)) {
+    entries.unshift({ name: charName, flavor: '可在角色页出战' });
+  }
+  if (!entries.length) return;
+  if (entries.length === 1) {
+    pushAchievement({ kicker: '新收录', name: entries[0].name, desc: entries[0].flavor });
+    return;
+  }
+  const shown = entries.slice(0, 2).map((e) => e.name).join('、');
+  pushAchievement({
+    kicker: '新收录',
+    name: `图鉴 +${entries.length}`,
+    desc: entries.length > 2 ? `${shown} 等` : shown,
   });
 }
 
