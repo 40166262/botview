@@ -44,6 +44,7 @@
           <span class="dg-sub">不花金币，不花钻石</span>
         </button>
         <div id="daily-quest-chip" class="quest-chip"></div>
+        <div id="next-goal" class="quest-chip goal-chip">下一关目标</div>
         <div class="stats-row">
           <div class="stat-chip"><span>最长存活</span><strong id="best-time">0:00</strong></div>
           <div class="stat-chip"><span>最多击杀</span><strong id="best-kills">0</strong></div>
@@ -167,14 +168,14 @@
 
     <div id="result" class="overlay hidden">
       <div class="panel result-panel premium-panel">
-        <h2 id="res-title">撤离失败</h2>
+        <h2 id="res-title">没能撤离</h2>
         <p id="res-flavor" class="res-flavor"></p>
-        <div id="res-chips" class="res-chips"></div>
-        <div id="res-reward-line" class="res-reward-line hidden">
-          <span>通关奖励</span>
-          <span class="rw"><img src="assets/icon_coin.png" alt=""/>+<strong id="res-reward-coins">0</strong></span>
-          <span class="rw"><img src="assets/icon_diamond.png" alt=""/>+<strong id="res-reward-dias">0</strong></span>
+        <div class="res-plaque">
+          <div class="res-plaque-h">本局收获</div>
+          <div id="res-chips" class="res-chips"></div>
+          <div id="res-lines" class="res-lines"></div>
         </div>
+        <div id="res-power-hint" class="res-power-hint hidden"></div>
         <div class="result-stats">
           <p><span>章节</span><strong id="res-stage">—</strong></p>
           <p><span>存活</span><strong id="res-time">0:00</strong></p>
@@ -183,16 +184,17 @@
           <p class="hidden"><span>金币</span><strong id="res-coins">0</strong></p>
           <p id="res-dia-row" class="hidden"><span>钻石</span><strong id="res-diamonds">0</strong></p>
         </div>
-        <button id="btn-double" class="btn ad-btn"><span class="ad-tag">AD</span>看广告 · 奖励翻倍</button>
-        <button id="btn-revive" class="btn secondary"><span class="ad-tag">AD</span>看广告复活（满血一半）</button>
-        <div id="res-power-hint" class="res-power-hint hidden"></div>
-        <div id="res-cta-row" class="res-cta-row hidden">
-          <button id="btn-goto-upgrade" class="btn secondary">去强化</button>
-          <button id="btn-goto-gacha" class="btn secondary">去抽奖</button>
+        <div class="res-actions">
+          <button id="btn-next-stage" class="btn primary glow hidden">下一关</button>
+          <button id="btn-retry" class="btn primary glow">再来一局</button>
+          <button id="btn-home" class="btn ghost">返回首页</button>
+          <button id="btn-revive" class="btn secondary"><span class="ad-tag">AD</span>看广告 · 半血复活</button>
+          <button id="btn-double" class="btn ad-btn"><span class="ad-tag">AD</span>看广告 · 金币翻倍</button>
+          <div id="res-cta-row" class="res-cta-row hidden">
+            <button id="btn-goto-upgrade" class="btn ghost">去强化</button>
+            <button id="btn-goto-gacha" class="btn ghost">去抽奖</button>
+          </div>
         </div>
-        <button id="btn-next-stage" class="btn primary glow hidden">下一关</button>
-        <button id="btn-retry" class="btn primary glow">再来一局</button>
-        <button id="btn-home" class="btn ghost">返回首页</button>
       </div>
     </div>
 

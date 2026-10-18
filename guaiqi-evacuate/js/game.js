@@ -9,7 +9,7 @@ import {
   tryFireSporeMelon, tryFireThornDurian, tryVineLash, tryCrystalNova,
   updateDrones, updatePuddles, tickSpecialBullet, drawWeaponFx, drawBullet,
 } from './weapons.js';
-import { SFX } from './audio.js';
+import { SFX, softVibrate } from './audio.js';
 import {
   getStage, pickEnemyType, spawnRateAt, difficultyScale,
   isStageCleared, clearProgress, waveLabel,
@@ -139,6 +139,7 @@ export class Game {
     // Floor is flat painted tiles only — see _drawFloor().
     this.parallaxSpark = [];
     this._floorSeed = (Math.random() * 1e9) | 0;
+    this.freshGallery = [];
     this.hazardZones = []; // temporary spore / shock rings for draw+tick
     resetWeaponTimers(this.player);
   }
@@ -184,14 +185,19 @@ export class Game {
     if (upgrade.id === 'leaf_drone') syncDrones(this.player);
     SFX.level();
     spawnBurst(this.particles, this.player.x, this.player.y, '#ffe066', 10, 110);
-    if (upgrade.id === 'crit' || upgrade.id === 'critdmg') {
-      if (this.saveRef) unlockGallery(this.saveRef, 'item_crit');
+    if (upgrade.id === 'crit' || upgrade.id === 'critdmg') this._noteGallery('item_crit');
+    if (upgrade.id === 'frost') this._noteGallery('item_frost');
+    if (upgrade.id === 'shield') this._noteGallery('item_shield');
+    if (upgrade.id === 'bounce' || upgrade.id === 'split' || upgrade.id === 'dashGhost') {
+      this._noteGallery('item_crit');
     }
-    if (upgrade.id === 'frost' && this.saveRef) unlockGallery(this.saveRef, 'item_frost');
-    if (upgrade.id === 'shield' && this.saveRef) unlockGallery(this.saveRef, 'item_shield');
-    if ((upgrade.id === 'bounce' || upgrade.id === 'split' || upgrade.id === 'dashGhost') && this.saveRef) {
-      unlockGallery(this.saveRef, 'item_crit');
-    }
+  }
+
+  _noteGallery(id) {
+    if (!this.saveRef || !id) return;
+    if (!unlockGallery(this.saveRef, id)) return;
+    if (!this.freshGallery) this.freshGallery = [];
+    if (!this.freshGallery.includes(id)) this.freshGallery.push(id);
   }
 
   getUpgradeChoices(opts = {}) {
@@ -606,8 +612,9 @@ export class Game {
         c.opened = true;
         c.alive = false;
         this.paused = true;
-        if (this.saveRef) unlockGallery(this.saveRef, 'item_chest');
+        this._noteGallery('item_chest');
         SFX.chest();
+        softVibrate(15);
         spawnBurst(this.particles, c.x, c.y, '#f0b850', c.golden ? 26 : 14, 140);
         if (c.golden) {
           this.coinsEarned += 30;
@@ -823,7 +830,7 @@ export class Game {
       e.xp = 6;
       this.enemies.push(e);
       this._banner('摸鱼丧尸出没！快抓', 'gold', 2);
-      if (this.saveRef) unlockGallery(this.saveRef, 'enemy_slacker');
+      this._noteGallery('enemy_slacker');
     }
   }
 
@@ -859,7 +866,7 @@ export class Game {
       e.color = '#c8b090';
       e.xp = 8;
       this.enemies.push(e);
-      if (this.saveRef) unlockGallery(this.saveRef, 'enemy_secret');
+      this._noteGallery('enemy_secret');
       if (this.hooks.onToast) this.hooks.onToast('无伤达成！故障投影出现');
       SFX.announce();
     }
@@ -891,7 +898,7 @@ export class Game {
     SFX.boss();
     // midBanner only — no duplicate onToast
     this._banner(label || `${names[variant]}来袭！`, 'boss', 2.4);
-    if (this.saveRef) unlockGallery(this.saveRef, 'enemy_boss');
+    this._noteGallery('enemy_boss');
   }
 
   _clearExtras() {
@@ -982,10 +989,8 @@ export class Game {
       spawnKillBurst(this.particles, e.x, e.y, e.color, e.isBoss || e.isElite);
       if (this.juice.combo === 5 || this.juice.combo === 10) SFX.combo();
 
-      if (this.saveRef) {
-        unlockGallery(this.saveRef, `enemy_${e.type === 'boss' ? 'boss' : e.type}`);
-        if (e.isElite) unlockGallery(this.saveRef, 'enemy_elite');
-      }
+      this._noteGallery(`enemy_${e.type === 'boss' ? 'boss' : e.type}`);
+      if (e.isElite) this._noteGallery('enemy_elite');
 
       const gemCount = e.isBoss ? 8 : Math.max(1, e.xp);
       for (let i = 0; i < gemCount; i++) {
@@ -1068,6 +1073,7 @@ export class Game {
     this.alive = true;
     this.running = false;
     SFX.stageClear();
+    softVibrate(20);
     spawnBurst(this.particles, this.player.x, this.player.y, '#ffe066', 14, 140);
     const bonus = this.stage.rewardCoins || 20;
     this.coinsEarned += bonus;

@@ -8,7 +8,7 @@ import { setSoundEnabled, resumeAudio, SFX } from './audio.js';
 import {
   $, show, hide, setLoadingProgress, refreshHomeStats,
   updateHud, showUpgradeCards, hideUpgrade, showResult, hideResult,
-  toast, pushAchievement, bindJoystick, renderStageCards, renderCharCards, renderGallery,
+  toast, pushAchievement, celebrateFinds, bindJoystick, renderStageCards, renderCharCards, renderGallery,
   renderBag, showChestPick, showGachaResult, showPause, hidePause,
 } from './ui.js';
 import { preloadSprites } from './sprites.js';
@@ -56,13 +56,32 @@ function applyRunProgress(result, cleared) {
   const xp = runXpGain(stage, result.time, result.kills, cleared);
   const pr = addPlayerXp(save, xp);
   const charId = save.selectedChar || 'grin';
-  addCharXp(save, charId, Math.floor(xp * 0.7));
-  addMaterials(save, stage.stageNum || 1, cleared);
+  const charPr = addCharXp(save, charId, Math.floor(xp * 0.7));
+  const materials = addMaterials(save, stage.stageNum || 1, cleared) || {};
   if (!save.failStreak) save.failStreak = {};
   if (cleared) save.failStreak[result.stageId] = 0;
   else save.failStreak[result.stageId] = (save.failStreak[result.stageId] || 0) + 1;
   const msg = pr.leveled ? `撤离员升至 Lv.${pr.newLevel}！` : '';
-  return { msg, xp };
+  const matNames = { scrap: '废料', battery: '电池', tape: '胶带', chip: '芯片' };
+  const matBits = Object.entries(materials).filter(([, n]) => n > 0).map(([k, n]) => `${matNames[k] || k}×${n}`);
+  let levelLine = '';
+  if (pr.leveled && pr.rewards && pr.rewards.length) {
+    const bits = pr.rewards.map((r) => (r.type === 'diamonds' ? `钻石 +${r.n}` : `金币 +${r.n}`));
+    levelLine = `升级奖励 · ${bits.join(' · ')}`;
+  }
+  return {
+    msg,
+    xp,
+    matLine: matBits.length ? `材料 ${matBits.join(' · ')}` : '',
+    levelLine,
+    charLine: charPr.leveled ? `角色升至 Lv.${charPr.level}` : '',
+  };
+}
+
+function takeFinds() {
+  const ids = (game.freshGallery || []).slice();
+  game.freshGallery = [];
+  return ids;
 }
 
 const game = new Game(canvas, {
@@ -100,29 +119,34 @@ const game = new Game(canvas, {
     addCoins(save, result.coins);
     updateDailyQuest(save, result);
     const prog = applyRunProgress(result, false);
+    const finds = takeFinds();
     writeSave(save);
     refreshHomeStats(save);
     flushAchievements();
     const failN = (save.failStreak || {})[result.stageId] || 0;
-    let suggest = null;
-    if (failN >= 2 || (result.time || 0) < 45) {
-      const needDmg = 8 + failN * 2;
-      suggest = `再高约 ${needDmg}% 伤害或生命即可更稳过关 — 先强化装备或抽一件新装。`;
-    }
+    let suggest = '差一点点，再来一局就稳了。';
+    if ((result.time || 0) < 25) suggest = '先拉开距离，捡经验再输出。';
+    else if (failN >= 2) suggest = '去装备栏升一级，会好过很多。';
+    else if ((result.kills || 0) < 8) suggest = '贴着物资箱走，箱子能翻盘。';
     showResult({
       cleared: false,
       flavor: [randomDeathLine(), prog.msg].filter(Boolean).join(' · '),
       xp: prog.xp,
+      matLine: prog.matLine,
+      levelLine: prog.levelLine,
+      charLine: prog.charLine,
       stageName: result.stageName,
       time: result.time,
       kills: result.kills,
       maxCombo: result.maxCombo,
       coins: result.coins,
       canRevive: !result.revivedOnce && !endless,
-      canDouble: true,
+      canDouble: (result.coins || 0) > 0,
       hasNext: false,
       suggestPower: suggest,
+      showGearCta: failN >= 2,
     });
+    celebrateFinds(finds);
     const egg = maybeEggToast();
     if (egg) setTimeout(() => toast(egg), 900);
   },
@@ -130,22 +154,29 @@ const game = new Game(canvas, {
     lastResult = { ...result, cleared: true };
     doubled = false;
     markStageCleared(save, result.stageId);
+    const medicNew = result.stageId === 's1' && !isCharUnlocked(save, 'medic');
     if (result.stageId === 's1') unlockChar(save, 'medic');
     updateBest(save, result.time, result.kills, result.maxCombo, false);
     addCoins(save, result.coins);
     addDiamonds(save, result.rewardDiamonds || 0);
     updateDailyQuest(save, result);
     const prog = applyRunProgress(result, true);
+    const finds = takeFinds();
     noteGalleryMilestone();
     writeSave(save);
     refreshHomeStats(save);
     flushAchievements();
     const idx = STAGES.findIndex((s) => s.id === result.stageId);
     const hasNext = idx >= 0 && idx < STAGES.length - 1;
+    const bonusLine = result.rewardCoins ? `含通关奖金 +${result.rewardCoins}` : '';
     showResult({
       cleared: true,
       flavor: prog.msg || '设施又干净了一层，继续向下撤离！',
       xp: prog.xp,
+      matLine: prog.matLine,
+      levelLine: prog.levelLine,
+      charLine: prog.charLine,
+      bonusLine,
       stageName: result.stageName,
       time: result.time,
       kills: result.kills,
@@ -154,9 +185,10 @@ const game = new Game(canvas, {
       diamonds: result.rewardDiamonds,
       rewardCoins: result.rewardCoins,
       canRevive: false,
-      canDouble: true,
+      canDouble: (result.coins || 0) > 0,
       hasNext,
     });
+    celebrateFinds(finds, medicNew ? '急救狂魔' : '');
   },
   onToast: toast,
   onBanner() {},
@@ -164,7 +196,10 @@ const game = new Game(canvas, {
 
 bindJoystick(game, $('joystick'), $('joy-knob'));
 // QA hook: expose the game only when ?debug is in the URL
-if (new URLSearchParams(location.search).has('debug')) window.__game = game;
+if (new URLSearchParams(location.search).has('debug')) {
+  window.__game = game;
+  window.__shot = { showResult, showUpgradeCards, renderGallery, refreshHomeStats, save: () => save };
+}
 
 function goHome() {
   game.stop();
@@ -290,7 +325,7 @@ $('btn-gallery').addEventListener('click', () => {
   renderGallery(save, (g, unlocked) => {
     const detail = $('gallery-detail');
     if (!unlocked) {
-      detail.textContent = '尚未发现……去撤离或抽奖吧！';
+      detail.textContent = '还没见过。多撤离几次就会收录。';
     } else {
       detail.innerHTML = `<strong>${g.name}</strong><br>${g.flavor}`;
     }
