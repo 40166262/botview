@@ -1,4 +1,4 @@
-import { getSprite, drawClippedSprite, drawStandingSprite, walkPose } from './sprites.js';
+import { getSprite, drawStandingSprite, walkPose } from './sprites.js';
 
 /** Enemy types + bosses — DESIGN §6 */
 export const ENEMY_TYPES = {
@@ -461,9 +461,11 @@ const STANDING = {
   slime: { key: 'slime', h: 4.0, foot: 0.85 },          // 上班族丧尸
   bat: { key: 'bat', h: 3.2, maxW: 3.9, foot: 0.8 },                   // 爬行患者
   beetle: { key: 'armored', h: 3.4, foot: 0.85 },     // 铠甲尸
-  golem: { key: 'armored', h: 3.2, foot: 0.85, tint: '#7a8fa8' }, // 重装保安 (steel tint)
+  golem: { key: 'golem', h: 3.4, foot: 0.85 },        // 重装保安 (securibot)
   wisp: { key: 'monitor', h: 3.8, foot: 0.85 },                       // 故障监视器
-  slacker: { key: 'slacker', h: 3.0, maxW: 3.4, foot: 0.85 },         // 摸鱼丧尸
+  slacker: { key: 'slacker', h: 3.6, maxW: 2.4, foot: 0.85 },         // 摸鱼丧尸 (tall Style E)
+  boss: { key: 'boss', h: 4.2, foot: 0.9 },           // 设施霸主
+  shadow: { key: 'shadow', h: 3.6, foot: 0.85 },      // 阴影潜伏者
 };
 
 export function drawEnemy(ctx, e, t) {
@@ -559,19 +561,19 @@ export function drawEnemy(ctx, e, t) {
     });
     ctx.globalAlpha = 1;
   } else if (sprite) {
+    // Fallback: any pixel sprite without STANDING entry still stands true-aspect
     if (e.isBoss || e.isElite) {
       drawEliteBossAura(ctx, e, bob, t);
     }
     ctx.globalAlpha = e.phaseHidden ? 0.35 : 1;
-    const baseScale = e.type === 'bat' || e.type === 'shadow' ? 1.55
-      : e.type === 'golem' || e.type === 'beetle' ? 1.35
-      : e.isBoss ? 1.35 : 1.45;
-    const scaleBump = e.isBoss ? 1.0 : e.isElite ? 1.08 : 1;
-    drawClippedSprite(ctx, sprite, e.x, e.y + bob, e.r, {
-      glow: 'none',
-      scale: baseScale * scaleBump,
-      flash,
+    const bump = e.isElite ? 1.1 : 1;
+    const hMul = e.isBoss ? 4.2 : (e.type === 'bat' || e.type === 'shadow' ? 3.4 : 3.6);
+    drawStandingSprite(ctx, sprite, e.x, e.y + e.r * 0.85 + bob * 0.5, e.r * hMul * bump, {
+      maxW: e.r * (e.type === 'bat' ? 3.9 : 2.6) * bump,
       walk,
+      tint: e.isElite ? '#ffb640' : null,
+      tintAlpha: e.isElite ? 0.16 : 0.2,
+      flash,
     });
     ctx.globalAlpha = 1;
   } else {
