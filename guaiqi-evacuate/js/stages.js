@@ -48,11 +48,16 @@ export const STAGE_LEVEL_GATES = {
   100: 40,
 };
 
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
 function buildStage(n) {
   const th = themeFor(n);
   const tier = n;
-  // Base curve (stage 8 ~2:00). Stages 1–2 are eased below so a first clear
-  // lands inside one short sitting; 40+ tightens a little.
+  // Base curve (stage 8 ~2:00). Stages 1–2 are eased so a first clear
+  // lands inside one short sitting. Stages 3–5 walk back up to this curve
+  // so the old stage-3 cliff is a ramp. 40+ tightens a little.
   let clearTime = Math.min(300, 105 + Math.floor(tier * 1.35));
   let clearKills = Math.min(360, 95 + Math.floor(tier * 2.4));
   let eliteEvery = Math.max(7, 28 - Math.floor(tier / 5));
@@ -78,6 +83,23 @@ function buildStage(n) {
     hpScale = 1.02;
     dmgScale = 0.76;
     eliteEvery = 34;
+  } else if (n >= 3 && n <= 5) {
+    // t=0 sits on the eased stage 2; t=1 is the mid curve captured above.
+    // Stage 5 keeps its boss clock (clear time / kill soft goals).
+    const t = n === 3 ? 0.42 : n === 4 ? 0.70 : 0.88;
+    const eased = {
+      clearTime: 92, clearKills: 62, eliteEvery: 34,
+      spawnBase: 0.66, spawnRamp: 0.013, hpScale: 1.02, dmgScale: 0.76,
+    };
+    if (n < 5) {
+      clearTime = Math.round(lerp(eased.clearTime, clearTime, t));
+      clearKills = Math.round(lerp(eased.clearKills, clearKills, t));
+    }
+    eliteEvery = Math.round(lerp(eased.eliteEvery, eliteEvery, t));
+    spawnBase = Math.round(lerp(eased.spawnBase, spawnBase, t) * 1000) / 1000;
+    spawnRamp = Math.round(lerp(eased.spawnRamp, spawnRamp, t) * 1000) / 1000;
+    hpScale = Math.round(lerp(eased.hpScale, hpScale, t) * 1000) / 1000;
+    dmgScale = Math.round(lerp(eased.dmgScale, dmgScale, t) * 1000) / 1000;
   } else if (n >= 70) {
     spawnBase *= 1.12;
     hpScale *= 1.05;
@@ -103,7 +125,11 @@ function buildStage(n) {
     { type: 'bat', from: Math.max(5, 30 - tier), weight: 0.28 + Math.min(0.3, tier * 0.004) },
   ];
   if (n >= 3) {
-    enemies.push({ type: 'beetle', from: Math.max(12, 40 - tier), weight: 0.14 + Math.min(0.2, tier * 0.002) });
+    // Stage 3–4 armor waits a little so the opening is still slime and crawlers.
+    let from = Math.max(12, 40 - tier);
+    if (n === 3) from = 50; // was 37
+    else if (n === 4) from = 44; // was 36
+    enemies.push({ type: 'beetle', from, weight: 0.14 + Math.min(0.2, tier * 0.002) });
   }
   if (n >= 6) {
     enemies.push({ type: 'golem', from: Math.max(20, 50 - tier), weight: 0.1 + Math.min(0.2, tier * 0.0025) });
