@@ -43,7 +43,7 @@
           <span class="dg-main">点此领取抽奖 ×1</span>
           <span class="dg-sub">不花金币，不花钻石</span>
         </button>
-        <div id="daily-quest-chip" class="quest-chip"></div>
+        <div id="daily-quest-chip" class="quest-chip dq-board" role="button" tabindex="0"></div>
         <div id="next-goal" class="quest-chip goal-chip">下一关目标</div>
         <div class="stats-row">
           <div class="stat-chip"><span>最长存活</span><strong id="best-time">0:00</strong></div>
@@ -213,7 +213,8 @@
         <h2>暂停</h2>
         <button id="btn-pause-resume" class="btn primary">继续</button>
         <button id="btn-pause-retry" class="btn warm">重新开始</button>
-        <button id="btn-pause-home" class="btn ghost">返回首页</button>
+        <button id="btn-pause-sound" class="btn secondary is-on" type="button" aria-pressed="true">音效 · 开</button>
+        <button id="btn-pause-home" class="btn ghost">回首页</button>
       </div>
     </div>
 

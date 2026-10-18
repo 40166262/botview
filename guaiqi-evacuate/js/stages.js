@@ -89,10 +89,6 @@ function buildStage(n) {
   ];
   if (dualBoss) midAnnounces.push({ at: Math.floor(clearTime * 0.85), text: '终焉之战！' });
 
-  const goalSub = clearMode === 'boss'
-    ? `击杀首领通关 · 目标 ${fmt(clearTime)} / ${clearKills}杀`
-    : `生存 ${fmt(clearTime)} 或击杀 ${clearKills}`;
-
   return {
     id: `s${n}`,
     index: n - 1,
@@ -111,8 +107,8 @@ function buildStage(n) {
     golemFrom: n >= 3 ? Math.max(15, 45 - tier) : 9999,
     bosses,
     introBanner: {
-      title: `第${n}关`,
-      sub: `${goalSub} · ${difficultyTag(n)}`,
+      title: `第${n}关 · 波次 1`,
+      sub: `目标 · ${clearMode === 'boss' ? '击败首领' : `生存 ${fmt(clearTime)} 或 ${clearKills}杀`}`,
     },
     midAnnounces,
     rewardCoins: 15 + tier * 3,
@@ -159,7 +155,7 @@ export const ENDLESS = {
   eliteEvery: 10,
   golemFrom: 20,
   bosses: [],
-  introBanner: { title: '无尽设施', sub: '活得越久，敌人越强 · 刷新你的纪录' },
+  introBanner: { title: '无尽设施 · 波次 1', sub: '目标 · 撑得越久越好' },
   midAnnounces: [
     { at: 60, text: '潮汐加剧' },
     { at: 120, text: '警报升级…' },
@@ -294,9 +290,16 @@ export function isStageCleared(stage, timeSec, kills, extras = {}) {
   return timeSec >= stage.clearTime || kills >= stage.clearKills;
 }
 
+/** One short goal phrase for banners and the HUD chip. */
+export function stageGoalLine(stage) {
+  if (!stage || stage.endless) return '撑住';
+  if (stage.clearMode === 'boss' || (stage.bosses && stage.bosses.length)) return '击败首领';
+  return '生存或清场';
+}
+
 export function waveLabel(stage, timeSec) {
   const wave = Math.floor(timeSec / 20) + 1;
-  return `波次 ${wave}`;
+  return `波次 ${wave} · 目标 ${stageGoalLine(stage)}`;
 }
 
 /** XP from a run toward playerLevel */

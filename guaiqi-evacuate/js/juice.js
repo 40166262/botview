@@ -147,6 +147,25 @@ function hexAlpha(hex, a) {
 }
 
 const KILL_WARM = ['#e7c48a', '#f0d7a4', '#d7a15a', '#c4845a', '#f6e2c0'];
+const HIT_WARM = ['#f0d7a4', '#e7c48a', '#d7a15a'];
+
+/** Tiny warm sparks on a hit. Few, short, never white. */
+export function spawnHitSpark(pool, x, y) {
+  const n = 3;
+  for (let i = 0; i < n; i++) {
+    const p = pool.acquire();
+    const a = Math.random() * Math.PI * 2;
+    const s = 26 + Math.random() * 34;
+    p.x = x + (Math.random() - 0.5) * 6;
+    p.y = y + (Math.random() - 0.5) * 6;
+    p.vx = Math.cos(a) * s;
+    p.vy = Math.sin(a) * s - 8;
+    p.life = 0.1 + Math.random() * 0.08;
+    p.age = 0;
+    p.r = 1.2 + Math.random() * 0.8;
+    p.color = HIT_WARM[i % HIT_WARM.length];
+  }
+}
 
 /** Soft warm paper sparks — short, few, never enemy-neon or white. */
 export function spawnKillBurst(pool, x, y, color, big = false) {

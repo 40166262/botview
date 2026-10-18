@@ -1569,3 +1569,95 @@ body:has(#achieve:not(.hidden)) .overlay {
   overflow: hidden;
 }
 #gallery .gal-item.locked .gal-flavor { color: #8d7352; }
+
+/* Daily board: one cardboard chip, progress like 1/3, three short rows. */
+#daily-quest-chip.dq-board {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  line-height: 1.3;
+  padding: 5px 8px 6px;
+}
+#daily-quest-chip .dq-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 900;
+}
+#daily-quest-chip .dq-top b {
+  color: var(--orange-d);
+  font-size: 16px;
+  margin-right: auto;
+  letter-spacing: 0.02em;
+}
+#daily-quest-chip .dq-claim { font-size: 11px; font-weight: 900; color: var(--orange-d); }
+#daily-quest-chip .dq-lines { display: flex; gap: 4px; }
+#daily-quest-chip .dq-lines em {
+  flex: 1;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  background: rgba(255, 248, 230, 0.72);
+  border: 1.5px solid rgba(59, 42, 26, 0.28);
+  border-radius: 8px;
+  padding: 1px 2px;
+}
+#daily-quest-chip .dq-lines em.met { background: #ffe4a8; }
+#daily-quest-chip .dq-lines em.claimed { opacity: 0.5; }
+#daily-quest-chip .dq-done {
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  color: var(--ink-soft);
+}
+#daily-quest-chip.ready .dq-top b,
+#daily-quest-chip.ready .dq-claim { color: var(--ink); }
+
+/* Combo: warm cream with a soft brown halo, not a hard pixel cross. */
+.hud-combo {
+  top: 90px;
+  right: 12px;
+  color: #fff6e4;
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  animation: none;
+  text-shadow:
+    0 0 8px rgba(255, 214, 150, 0.95),
+    0 1px 0 #5a3414,
+    0 -1px 0 #5a3414,
+    1px 0 0 #5a3414,
+    -1px 0 0 #5a3414,
+    0 2px 7px rgba(90, 42, 12, 0.4);
+}
+.hud-combo.pop { animation: comboPop 0.22s ease; }
+@keyframes comboPop {
+  0% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+/* Stage / wave chip stays left of the pause button. */
+.hud-stage {
+  max-width: calc(100% - 72px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: top;
+  box-sizing: border-box;
+}
+
+/* Pause sound state: gold when on, muted paper when off. */
+#btn-pause-sound.is-on {
+  background: linear-gradient(180deg, #ffe7b8 0%, #f0b24a 58%, #e09020 100%);
+  color: var(--ink);
+}
+#btn-pause-sound.is-off {
+  background: #efe2cc;
+  color: #8a7458;
+  box-shadow: 0 3px 0 #b9a488;
+}

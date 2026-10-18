@@ -463,39 +463,116 @@ export function maybeEggToast() {
   return null;
 }
 
-/** Daily quest definitions */
-export const DAILY_QUESTS = [
-  { id: 'kill30', name: '清剿日常', desc: '击杀 30 只敌人', target: 30, stat: 'kills', reward: { coins: 40 } },
-  { id: 'survive60', name: '坚持一分钟', desc: '单局存活 60 秒', target: 60, stat: 'time', reward: { diamonds: 8 } },
-  { id: 'combo8', name: '连击达人', desc: '单局连击达到 8', target: 8, stat: 'combo', reward: { coins: 25, diamonds: 3 } },
+/**
+ * Three short dailies, refreshed each calendar day.
+ * `short` is the home-chip label. Rewards stay small.
+ */
+export const DAILY_POOL = [
+  { id: 'clear1', name: '通关一关', short: '通关', desc: '通关 1 个章节', target: 1, stat: 'clears', reward: { coins: 30, diamonds: 2 } },
+  { id: 'crates3', name: '开箱补给', short: '开箱', desc: '打开 3 个物资箱', target: 3, stat: 'crates', reward: { coins: 28 } },
+  { id: 'kill18', name: '清剿日常', short: '击杀', desc: '击杀 18 只敌人', target: 18, stat: 'kills', reward: { coins: 24, diamonds: 1 } },
 ];
 
-export function ensureDailyQuest(save) {
+/** @deprecated alias — callers should use the board from ensureDailyQuests */
+export const DAILY_QUESTS = DAILY_POOL;
+
+function freshBoard() {
+  return DAILY_POOL.map((src) => ({ ...src, progress: 0, claimed: false }));
+}
+
+function focusQuest(board) {
+  return board.find((q) => !q.claimed) || board[0];
+}
+
+/**
+ * Today's three dailies. Migrates an in-progress single `dailyQuest`
+ * from older saves so a half-done task is not thrown away.
+ */
+export function ensureDailyQuests(save) {
   const day = todayKey();
-  if (save.dailyQuestDay === day && save.dailyQuest) return save.dailyQuest;
-  const q = DAILY_QUESTS[Math.floor(Math.random() * DAILY_QUESTS.length)];
+  if (save.dailyQuestDay === day && Array.isArray(save.dailyQuests) && save.dailyQuests.length === 3) {
+    save.dailyQuest = focusQuest(save.dailyQuests);
+    return save.dailyQuests;
+  }
+  const carried = (save.dailyQuestDay === day && save.dailyQuest && save.dailyQuest.id)
+    ? save.dailyQuest
+    : null;
+  const board = freshBoard();
+  if (carried) {
+    const hit = board.find((q) => q.id === carried.id);
+    const progress = Math.min(carried.target || 0, carried.progress || 0);
+    if (hit) {
+      hit.progress = Math.min(hit.target, progress);
+      hit.claimed = !!carried.claimed;
+    } else {
+      const src = DAILY_POOL.find((q) => q.id === carried.id);
+      board[2] = {
+        ...(src || carried),
+        id: carried.id,
+        name: (src && src.name) || carried.name,
+        short: (src && src.short) || carried.short || carried.name,
+        desc: (src && src.desc) || carried.desc,
+        target: (src && src.target) || carried.target,
+        stat: (src && src.stat) || carried.stat,
+        reward: (src && src.reward) || carried.reward || {},
+        progress: Math.min((src && src.target) || carried.target || 0, progress),
+        claimed: !!carried.claimed,
+      };
+    }
+  }
   save.dailyQuestDay = day;
-  save.dailyQuest = { ...q, progress: 0, claimed: false };
-  return save.dailyQuest;
+  save.dailyQuests = board;
+  save.dailyQuest = focusQuest(board);
+  save._dailyRun = null;
+  return board;
+}
+
+export function ensureDailyQuest(save) {
+  return focusQuest(ensureDailyQuests(save));
 }
 
 export function updateDailyQuest(save, runStats) {
-  const q = ensureDailyQuest(save);
-  if (q.claimed) return;
-  let v = 0;
-  if (q.stat === 'kills') v = runStats.kills || 0;
-  if (q.stat === 'time') v = Math.floor(runStats.time || 0);
-  if (q.stat === 'combo') v = runStats.maxCombo || 0;
-  q.progress = Math.max(q.progress || 0, Math.min(q.target, v));
+  const board = ensureDailyQuests(save);
+  const stats = runStats || {};
+  const runId = stats.runId != null ? String(stats.runId) : '';
+  if (!save._dailyRun || save._dailyRun.id !== runId) {
+    save._dailyRun = { id: runId, kills: 0, crates: 0, clears: 0 };
+  }
+  const prev = save._dailyRun;
+  const kills = stats.kills || 0;
+  const crates = stats.crates || 0;
+  const clears = stats.cleared ? 1 : 0;
+  const dKills = Math.max(0, kills - (prev.kills || 0));
+  const dCrates = Math.max(0, crates - (prev.crates || 0));
+  const dClears = Math.max(0, clears - (prev.clears || 0));
+  prev.kills = Math.max(prev.kills || 0, kills);
+  prev.crates = Math.max(prev.crates || 0, crates);
+  prev.clears = Math.max(prev.clears || 0, clears);
+  const time = Math.floor(stats.time || 0);
+  const combo = stats.maxCombo || 0;
+
+  for (const q of board) {
+    if (q.claimed) continue;
+    if (q.stat === 'kills') q.progress = Math.min(q.target, (q.progress || 0) + dKills);
+    else if (q.stat === 'crates') q.progress = Math.min(q.target, (q.progress || 0) + dCrates);
+    else if (q.stat === 'clears') q.progress = Math.min(q.target, (q.progress || 0) + dClears);
+    else if (q.stat === 'time') q.progress = Math.max(q.progress || 0, Math.min(q.target, time));
+    else if (q.stat === 'combo') q.progress = Math.max(q.progress || 0, Math.min(q.target, combo));
+  }
+  save.dailyQuest = focusQuest(board);
 }
 
+/** Claims the first finished daily. Returns the reward plus the quest name, or null. */
 export function claimDailyQuest(save) {
-  const q = ensureDailyQuest(save);
-  if (q.claimed || (q.progress || 0) < q.target) return null;
+  const board = ensureDailyQuests(save);
+  const q = board.find((item) => !item.claimed && (item.progress || 0) >= item.target);
+  if (!q) return null;
   q.claimed = true;
-  if (q.reward.coins) save.coins = (save.coins || 0) + q.reward.coins;
-  if (q.reward.diamonds) save.diamonds = (save.diamonds || 0) + q.reward.diamonds;
-  return q.reward;
+  const reward = q.reward || {};
+  if (reward.coins) save.coins = (save.coins || 0) + reward.coins;
+  if (reward.diamonds) save.diamonds = (save.diamonds || 0) + reward.diamonds;
+  save.dailyQuest = focusQuest(board);
+  return { ...reward, name: q.name };
 }
 
 function earnedAchievements(save) {
