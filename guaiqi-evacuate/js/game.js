@@ -174,12 +174,12 @@ export class Game {
   _genProps(n) {
     // Facility props only — never reed/lantern/pillar/stone/stump
     const theme = (this.stage && this.stage.theme) || 'office';
-    // weighted: new clean v4 props (desk/bed/cart/crate) dominate, legacy bits are filler
+    // weighted mix of standalone v4 (desk/bed/cart/crate) + v5 (chair/pipe/rock) props
     const kinds = theme === 'ward'
-      ? ['bed', 'bed', 'cart', 'cart', 'crate', 'rock']
+      ? ['bed', 'bed', 'cart', 'cart', 'crate', 'chair', 'rock']
       : theme === 'basement'
-        ? ['crate', 'crate', 'crate', 'cart', 'pipe', 'rock']
-        : ['desk', 'desk', 'desk', 'crate', 'chair', 'rock'];
+        ? ['crate', 'crate', 'pipe', 'pipe', 'cart', 'rock', 'rock']
+        : ['desk', 'desk', 'desk', 'chair', 'chair', 'crate', 'rock'];
     const a = [];
     for (let i = 0; i < n; i++) {
       a.push({
@@ -198,7 +198,7 @@ export class Game {
     for (let i = 0; i < n; i++) {
       let color = 'rgba(150,140,120,0.12)';
       if (theme === 'ward') color = 'rgba(140,150,160,0.12)';
-      if (theme === 'basement') color = 'rgba(60,70,80,0.14)';
+      if (theme === 'basement') color = 'rgba(240,170,110,0.14)';
       a.push({
         x: Math.random() * WORLD_W,
         y: Math.random() * WORLD_H,
@@ -1181,7 +1181,7 @@ export class Game {
     if (theme === 'ward') {
       c0 = [78, 88, 82]; c1 = [68, 78, 74]; c2 = [56, 66, 62];
     } else if (theme === 'basement') {
-      c0 = [52, 48, 42]; c1 = [42, 38, 34]; c2 = [32, 28, 24];
+      c0 = [96, 78, 58]; c1 = [84, 68, 50]; c2 = [70, 56, 42];
     } else {
       c0 = [86, 74, 56]; c1 = [72, 62, 46]; c2 = [58, 50, 38];
     }
@@ -1202,14 +1202,14 @@ export class Game {
     // ground base — warm beige carpet / mint linoleum / warm basement
     // opaque, bright warm floors (no muddy gray wash)
     if (theme === 'ward') ctx.fillStyle = '#c4e2d4';
-    else if (theme === 'basement') ctx.fillStyle = '#b89e7c';
+    else if (theme === 'basement') ctx.fillStyle = '#f2d4a8'; // bright warm peach-sand tech floor
     else ctx.fillStyle = '#ecd6a6';
     ctx.fillRect(0, 0, WORLD_W, WORLD_H);
 
     // ground patches
     for (const g of (this.groundPatches || [])) {
       if (theme === 'ward') ctx.fillStyle = `rgba(200, 220, 210, ${0.14 + g.shade * 0.14})`;
-      else if (theme === 'basement') ctx.fillStyle = `rgba(110, 98, 80, ${0.16 + g.shade * 0.16})`;
+      else if (theme === 'basement') ctx.fillStyle = `rgba(250, 180, 110, ${0.10 + g.shade * 0.12})`;
       else ctx.fillStyle = `rgba(200, 170, 120, ${0.08 + g.shade * 0.1})`;
       ctx.beginPath();
       ctx.ellipse(g.x, g.y, g.r, g.r * 0.65, 0, 0, Math.PI * 2);
@@ -1234,8 +1234,9 @@ export class Game {
         gridA = 'rgba(70, 120, 105, 0.22)';
         gridB = 'rgba(255, 255, 250, 0.16)';
       } else if (theme === 'basement') {
-        gridA = 'rgba(80, 62, 40, 0.26)';
-        gridB = 'rgba(214, 190, 150, 0.14)';
+        // warm orange plate seams + teal-tinted alternate tech plates (never gray)
+        gridA = 'rgba(200, 120, 60, 0.30)';
+        gridB = 'rgba(255, 246, 226, 0.34)';
       } else {
         // warm beige office carpet seams
         gridA = 'rgba(150, 110, 60, 0.22)';
@@ -1260,6 +1261,17 @@ export class Game {
           if (((x / tile) + (y / tile)) % 2 === 0) ctx.fillRect(x + 1, y + 1, tile - 2, tile - 2);
         }
       }
+      if (theme === 'basement') {
+        // bright teal tech-plate inlays on the off tiles (accent, not a gray wash)
+        ctx.strokeStyle = 'rgba(30, 175, 170, 0.30)';
+        ctx.lineWidth = 2;
+        for (let y = y0; y < y1; y += tile) {
+          for (let x = x0; x < x1; x += tile) {
+            if (((x / tile) + (y / tile)) % 2 !== 0) ctx.strokeRect(x + 7, y + 7, tile - 14, tile - 14);
+          }
+        }
+        ctx.lineWidth = 1;
+      }
     }
 
     // Flat floor stains / scuffs (was wall silhouettes — decorative only, removed)
@@ -1269,7 +1281,7 @@ export class Game {
       ctx.rotate(tr.rot || 0);
       if (tr.style === 1) {
         ctx.strokeStyle = theme === 'basement'
-          ? `rgba(50,58,68,${Math.min(0.06, tr.shade + 0.02)})`
+          ? `rgba(170,105,55,${Math.min(0.06, tr.shade + 0.02)})`
           : theme === 'ward'
             ? `rgba(130,138,145,${Math.min(0.06, tr.shade + 0.02)})`
             : `rgba(110,98,78,${Math.min(0.06, tr.shade + 0.02)})`;
@@ -1280,14 +1292,14 @@ export class Game {
         ctx.stroke();
       } else if (tr.style === 2) {
         ctx.fillStyle = theme === 'basement'
-          ? `rgba(55,62,72,${tr.shade})`
+          ? `rgba(200,130,70,${tr.shade * 0.8})`
           : theme === 'ward'
             ? `rgba(155,160,168,${tr.shade})`
             : `rgba(145,132,108,${tr.shade})`;
         ctx.fillRect(-tr.r * 0.4, -tr.r * 0.25, tr.r * 0.8, tr.r * 0.5);
       } else {
         ctx.fillStyle = theme === 'basement'
-          ? `rgba(35,40,48,${tr.shade})`
+          ? `rgba(70,170,160,${tr.shade * 0.7})`
           : theme === 'ward'
             ? `rgba(140,148,155,${tr.shade})`
             : `rgba(130,118,95,${tr.shade})`;
@@ -1298,44 +1310,28 @@ export class Game {
       ctx.restore();
     }
 
-    // chapter props — real sprites (no fillRect/ellipse geometry)
+    // chapter props — standalone v4/v5 images, all drawn upright via drawStandingSprite
     const PROP_SPRITE = {
       desk: 'propDesk', chair: 'propChair', bed: 'propBed',
       cart: 'propCart', crate: 'propCrate', pipe: 'propPipe', rock: 'propRock',
     };
+    // [target height, max width] in world px (before per-prop random scale)
     const PROP_SIZE = {
-      desk: 66, chair: 34, bed: 68, cart: 52, crate: 44, pipe: 56, rock: 24,
-    };
-    // desk/bed/cart/crate are clean v4 single images; only the legacy chair/pipe/rock sheets need a body rect
-    const LEGACY_CROP = {
-      chair: [58, 47, 59, 90], pipe: [0, 45, 192, 102], rock: [1, 1, 112, 98],
+      desk: [54, 70], chair: [50, 40], bed: [58, 72], cart: [50, 56],
+      crate: [42, 48], pipe: [36, 56], rock: [36, 42],
     };
     for (const pr of (this.props || [])) {
       const s = (pr.s || 1) * 0.85;
       const key = PROP_SPRITE[pr.kind];
-      let spr = key ? getSprite(key) : null;
-      let crop = LEGACY_CROP[pr.kind] || null;
-      // rock fallback: small crate if prop_rock missing
-      if (!spr && pr.kind === 'rock') { spr = getSprite('propCrate'); crop = null; }
-      if (spr) {
-        const base = PROP_SIZE[pr.kind] || 26;
-        const sz = base * s;
-        if (!crop) crop = [0, 0, spr.naturalWidth || spr.width, spr.naturalHeight || spr.height];
-        const iw = crop[2];
-        const ih = crop[3];
-        const aspect = iw / Math.max(1, ih);
-        let dw = sz, dh = sz;
-        if (aspect >= 1) { dh = sz / aspect; } else { dw = sz * aspect; }
-        // soft ground shadow only — scenery stays dull vs loot chests
-        ctx.save();
-        ctx.globalAlpha = 0.92; // readable scenery; loot keeps its pulse ring + label
-        ctx.fillStyle = 'rgba(70,45,20,0.20)';
-        ctx.beginPath();
-        ctx.ellipse(pr.x, pr.y + dh * 0.4, dw * 0.46, dh * 0.15, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.drawImage(spr, crop[0], crop[1], crop[2], crop[3], pr.x - dw / 2, pr.y - dh / 2, dw, dh);
-        ctx.restore();
-      }
+      const spr = key ? getSprite(key) : null;
+      if (!spr) continue;
+      const [h, mw] = PROP_SIZE[pr.kind] || [30, 40];
+      ctx.save();
+      ctx.globalAlpha = 0.95; // readable scenery; loot keeps its pulse ring + label
+      drawStandingSprite(ctx, spr, pr.x, pr.y + h * s * 0.45, h * s, {
+        maxW: mw * s, shadow: 'rgba(70,45,20,0.24)',
+      });
+      ctx.restore();
     }
 
     // hazard zones visual
@@ -1607,7 +1603,7 @@ export class Game {
     // vignette — warmer / chapter tinted
     const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.22, W / 2, H / 2, H * 0.8);
     vig.addColorStop(0, 'rgba(0,0,0,0)');
-    if (theme === 'basement') vig.addColorStop(1, 'rgba(40,24,10,0.34)');
+    if (theme === 'basement') vig.addColorStop(1, 'rgba(90,50,15,0.20)');
     else if (theme === 'ward') vig.addColorStop(1, 'rgba(20,50,44,0.22)');
     else vig.addColorStop(1, 'rgba(70,40,10,0.22)');
     ctx.fillStyle = vig;
