@@ -861,7 +861,7 @@ html, body {
   box-shadow: 0 4px 0 var(--ink) !important; padding: 12px 12px 12px 16px;
 }
 .card::before { width: 8px; }
-.card.rarity-rare { background: linear-gradient(90deg, #e6faf6, #fffaf0 60%); }
+.card.rarity-rare { background: linear-gradient(90deg, #fff1d4, #fffaf0 62%); }
 .card.rarity-epic { background: linear-gradient(90deg, #fff0c4, #fffaf0 60%); }
 .card.rarity-epic .card-icon { box-shadow: 0 0 0 3px var(--gold), 0 0 16px rgba(255,190,60,0.6); }
 .card:active, .card:hover { background: #fff2c8; transform: translateY(2px); }
@@ -894,14 +894,14 @@ html, body {
 .gacha-pity { color: var(--ink-soft); font-weight: 700; margin-bottom: 4px; }
 .gacha-pity strong { color: var(--orange-d); }
 .gacha-note {
-  text-align: center; font-size: 11.5px; font-weight: 800; color: var(--teal-d);
-  background: #e2f7f2; border: 2px solid var(--teal); border-radius: 10px; padding: 4px 8px; margin-bottom: 10px;
+  text-align: center; font-size: 11.5px; font-weight: 800; color: var(--ink);
+  background: #fff2c8; border: 2px solid var(--ink); border-radius: 10px; padding: 4px 8px; margin-bottom: 10px;
 }
 .gacha-result {
   display: flex; align-items: center; gap: 12px; text-align: left;
   background: #fffaf0; border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); padding: 10px 12px;
 }
-.gacha-result.r-rare { background: linear-gradient(90deg, #d8f6ef, #fffaf0); }
+.gacha-result.r-rare { background: linear-gradient(90deg, #fff1d4, #fffaf0); }
 .gacha-result.r-epic { background: linear-gradient(90deg, #ffe7a0, #fffaf0); }
 .gacha-result.r-legendary { background: linear-gradient(90deg, #ffc8b8, #fff0c4); }
 .gacha-result.reveal { animation: gachaPop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1); }
@@ -1081,21 +1081,25 @@ html, body {
 
 /* Pause uses the smooth ink button art, not the old pixel tile or CSS bars. */
 .hud-pause {
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
+  top: 30px;
   padding: 0;
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
   background: transparent;
   box-shadow: none;
 }
 .hud-pause img {
   display: block;
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
   object-fit: contain;
+  aspect-ratio: 1 / 1;
+  image-rendering: auto;
   filter: drop-shadow(0 3px 0 rgba(59, 42, 26, 0.85));
 }
+.hud-top { padding-right: 60px; }
 .hud-pause:active { transform: translateY(2px); }
 .hud-pause:active img { filter: none; }
 
@@ -1120,6 +1124,44 @@ html, body {
 .home-loadout img {
   width: 58px; height: 58px; padding: 6px; box-sizing: border-box;
 }
+.panel h2.with-ico {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel h2.with-ico img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
+  image-rendering: auto;
+}
+#upgrade .panel { padding: 12px 12px 10px; }
+#upgrade .cards { gap: 8px; }
+#upgrade .card {
+  padding: 8px 10px;
+  gap: 8px;
+}
+#upgrade .card-icon {
+  width: 56px;
+  height: 56px;
+  background: #fff6e4;
+}
+#upgrade .card-body h3 { font-size: 15px; margin-bottom: 2px; line-height: 1.25; }
+#upgrade .card-body p { font-size: 12px; line-height: 1.35; }
+#upgrade .card-tag.new {
+  font-size: 12px;
+  padding: 1px 8px;
+  background: #e04532;
+  color: #fff;
+}
+#upgrade .card-tag.lv {
+  font-size: 11px;
+  background: #ffe08a;
+  color: #3b2a1a;
+}
+#upgrade .card-pips { margin-top: 4px; }
 .gear-slot.empty .gs-img { opacity: 0.42; }
 .gear-slot .gs-img { background: #fff6e4; border-radius: 10px; }
 

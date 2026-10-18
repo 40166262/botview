@@ -61,7 +61,7 @@
     <!-- Stage select -->
     <div id="stages" class="overlay hidden">
       <div class="panel wide">
-        <h2>选择关卡</h2>
+        <h2 class="with-ico"><img src="assets/hub_stages.png" alt=""/>选择关卡</h2>
         <div id="stage-cards" class="stage-cards"></div>
         <button id="btn-stages-close" class="btn ghost">返回</button>
       </div>
@@ -70,7 +70,7 @@
     <!-- Characters -->
     <div id="chars" class="overlay hidden">
       <div class="panel wide">
-        <h2>选择角色</h2>
+        <h2 class="with-ico"><img src="assets/hub_chars.png" alt=""/>选择角色</h2>
         <div id="char-cards" class="char-cards"></div>
         <button id="btn-chars-close" class="btn ghost">返回</button>
       </div>
@@ -79,7 +79,7 @@
     <!-- Gacha -->
     <div id="gacha" class="overlay hidden">
       <div class="panel">
-        <h2>设施补给抽奖</h2>
+        <h2 class="with-ico"><img src="assets/hub_gacha.png" alt=""/>设施补给抽奖</h2>
         <p class="gacha-pity">保底进度 <strong id="pity-num">0</strong>/10（必出史诗+）</p>
         <p class="gacha-note">已拥有的装备/挂件出率提升，重复抽到 = 免费强化</p>
         <div id="gacha-result" class="gacha-result hidden"></div>
@@ -94,7 +94,7 @@
     <!-- Gallery -->
     <div id="gallery" class="overlay hidden">
       <div class="panel wide">
-        <h2>设施图鉴 <small id="gallery-count"></small></h2>
+        <h2 class="with-ico"><img src="assets/hub_gallery.png" alt=""/>设施图鉴 <small id="gallery-count"></small></h2>
         <div id="gallery-grid" class="gallery-grid"></div>
         <div id="gallery-detail" class="gallery-detail hidden"></div>
         <button id="btn-gallery-close" class="btn ghost">返回</button>
@@ -104,7 +104,7 @@
     <!-- Gear + charm bag -->
     <div id="bag" class="overlay hidden">
       <div class="panel wide premium-panel">
-        <h2>装备栏</h2>
+        <h2 class="with-ico"><img src="assets/hub_bag.png" alt=""/>装备栏</h2>
         <p id="mat-line" class="mat-line">材料 —</p>
         <div id="gear-slots" class="gear-slots"></div>
         <h3 class="subhead">被动挂件（最多2）</h3>
@@ -193,7 +193,7 @@
 
     <div id="settings" class="overlay hidden">
       <div class="panel">
-        <h2>设置</h2>
+        <h2 class="with-ico"><img src="assets/hub_settings.png" alt=""/>设置</h2>
         <label class="toggle-row"><span>音效</span><input type="checkbox" id="chk-sound" checked /></label>
         <p class="settings-note">存档保存在本机。重置会清空金币、装备、关卡和抽奖进度。</p>
         <button id="btn-reset-save" class="btn ghost" type="button">重置存档</button>

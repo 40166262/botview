@@ -73,7 +73,7 @@ export function registerKill(j, worldX, worldY, isElite = false, isBoss = false)
 
   // tiny freeze-frame; normal kills rate-limited so swarms never stutter
   if (isBoss || isElite) triggerHitstop(j, isBoss ? 80 : 45);
-  else if (j.stopCd <= 0) { triggerHitstop(j, 18); j.stopCd = 0.22; }
+  else if (j.stopCd <= 0) { triggerHitstop(j, 12); j.stopCd = 0.28; }
   addShake(j, isBoss ? 7 : isElite ? 4.5 : 2.2 + Math.min(2.5, j.combo * 0.12), isBoss ? 0.28 : 0.12);
 
   // Soft colored edge pulse only — never white / never full-screen opaque
@@ -148,7 +148,7 @@ function hexAlpha(hex, a) {
 
 /** Soft colored kill spark — no white ring sparks */
 export function spawnKillBurst(pool, x, y, color, big = false) {
-  const n = big ? 16 : 8;
+  const n = big ? 10 : 6;
   const speed = big ? 140 : 85;
   for (let i = 0; i < n; i++) {
     const p = pool.acquire();
@@ -159,8 +159,8 @@ export function spawnKillBurst(pool, x, y, color, big = false) {
     p.vy = Math.sin(a) * s;
     p.life = 0.2 + Math.random() * 0.28;
     p.age = 0;
-    p.r = 1.5 + Math.random() * (big ? 3.5 : 2.2);
-    p.color = color || '#c4a574';
+    p.r = 1.2 + Math.random() * (big ? 2.4 : 1.6);
+    p.color = warmKillColor(color);
   }
   // Soft matching-color outer sparks (never pure white)
   const soft = softenColor(color);
@@ -176,6 +176,26 @@ export function spawnKillBurst(pool, x, y, color, big = false) {
     p.r = 1.5;
     p.color = soft;
   }
+}
+
+/** Pull cold cyan/violet kill sparks toward warm paper so bursts don't flash. */
+function warmKillColor(c) {
+  if (!c || typeof c !== 'string' || !c.startsWith('#') || c.length < 7) return '#e8c878';
+  let r = parseInt(c.slice(1, 3), 16);
+  let g = parseInt(c.slice(3, 5), 16);
+  let b = parseInt(c.slice(5, 7), 16);
+  if (Number.isNaN(r)) return '#e8c878';
+  if (b > r + 15 && b > 80) {
+    r = Math.min(230, r + 70);
+    g = Math.min(210, Math.floor(g * 0.75 + 50));
+    b = Math.floor(b * 0.35);
+  }
+  const max = Math.max(r, g, b, 1);
+  if (max > 200) {
+    const k = 200 / max;
+    r = Math.floor(r * k); g = Math.floor(g * k); b = Math.floor(b * k);
+  }
+  return `rgb(${r},${g},${b})`;
 }
 
 function softenColor(c) {

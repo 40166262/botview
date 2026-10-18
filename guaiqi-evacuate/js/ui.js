@@ -153,7 +153,7 @@ export function showUpgradeCards(choices, onPick, owned = {}, opts = {}) {
       pips += `<i class="${cls}"></i>`;
     }
     const tag = lv === 0
-      ? '<span class="card-tag new">NEW</span>'
+      ? '<span class="card-tag new">新</span>'
       : `<span class="card-tag lv">Lv.${lv}→${lv + 1}${lv + 1 >= u.max ? ' 满' : ''}</span>`;
     btn.innerHTML = `
       ${iconHtml}
