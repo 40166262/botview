@@ -130,8 +130,8 @@ function sliceIconSheet(img) {
       cell.width = side; cell.height = side;
       const ctx = cell.getContext('2d');
       ctx.imageSmoothingEnabled = true;
-      if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = false;
-      if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = false;
+      if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = true;
+      if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = true;
       const ox = Math.floor((side - cw) / 2);
       const oy = Math.floor((side - ch) / 2);
       ctx.drawImage(src, col * cw, row * ch, cw, ch, ox, oy, cw, ch);

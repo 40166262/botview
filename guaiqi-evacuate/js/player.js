@@ -109,7 +109,7 @@ function drawPlayerVector(ctx, p, t, bob) {
 
 export function drawPlayer(ctx, p, t) {
   ctx.save();
-  const bob = Math.sin(t * 4 + p.pulse) * 2;
+  const bob = Math.sin(t * 4 + p.pulse) * 0.5;
   const sprite = getSprite('player');
 
   if (sprite) {

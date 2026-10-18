@@ -57,8 +57,8 @@ export class Game {
     canvas.height = H * dpr;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.ctx.imageSmoothingEnabled = true;
-    if ('webkitImageSmoothingEnabled' in this.ctx) this.ctx.webkitImageSmoothingEnabled = false;
-    if ('mozImageSmoothingEnabled' in this.ctx) this.ctx.mozImageSmoothingEnabled = false;
+    if ('webkitImageSmoothingEnabled' in this.ctx) this.ctx.webkitImageSmoothingEnabled = true;
+    if ('mozImageSmoothingEnabled' in this.ctx) this.ctx.mozImageSmoothingEnabled = true;
     this.hooks = hooks;
     this.running = false;
     this.paused = false;

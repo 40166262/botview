@@ -1,5 +1,6 @@
 /** localStorage persistence — meta + stages + inventory + gallery + progression */
 const KEY = 'glow-survivor-v4';
+const LEGACY_KEYS = ['glow-survivor-v3', 'glow-survivor-v2', 'glow-survivor-v1'];
 
 const defaults = () => ({
   bestTime: 0,
@@ -79,6 +80,16 @@ export function loadSave() {
     return migrateFacility({ ...defaults(), ...JSON.parse(raw) });
   } catch {
     return defaults();
+  }
+}
+
+/** Wipe the live save and older migrated keys. Caller should reload. */
+export function resetSave() {
+  try {
+    localStorage.removeItem(KEY);
+    for (const k of LEGACY_KEYS) localStorage.removeItem(k);
+  } catch (e) {
+    console.warn('[save] reset failed', e);
   }
 }
 

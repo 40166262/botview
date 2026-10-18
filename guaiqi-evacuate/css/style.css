@@ -1047,12 +1047,9 @@ html, body {
   pointer-events: none;
 }
 
-/* Smooth CSS upscale for battle canvas + card icons (thick AA outlines).
-   Other small UI thumbs stay nearest-neighbor until their sheets are redrawn. */
+/* Smooth upscale: battle canvas, upgrade icons, hub tiles, and gear all use AA outlines. */
 #game,
-.card-icon img, .card-icon canvas {
-  image-rendering: auto;
-}
+.card-icon img, .card-icon canvas,
 .equip-slot img, .equip-slot canvas,
 .hub-btn img,
 .char-thumb img, .stage-thumb img,
@@ -1063,7 +1060,69 @@ html, body {
 .gr-art img,
 .home-loadout img,
 .rchip img,
-.gear-slot img, .gear-slot canvas {
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
+.gear-slot img, .gear-slot canvas,
+.hud-pause img {
+  image-rendering: auto;
+}
+
+/* Hub tiles share one ink plate so the six buttons read as a set. */
+.hub-btn img {
+  width: 52px;
+  height: 52px;
+  padding: 4px;
+  box-sizing: border-box;
+  object-fit: contain;
+  background: #fffaf0;
+  border: 2.5px solid var(--ink);
+  border-radius: 14px;
+  filter: none;
+}
+.hub-btn { min-height: 86px; }
+
+/* Pause uses the smooth ink button art, not the old pixel tile or CSS bars. */
+.hud-pause {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+}
+.hud-pause img {
+  display: block;
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 0 rgba(59, 42, 26, 0.85));
+}
+.hud-pause:active { transform: translateY(2px); }
+.hud-pause:active img { filter: none; }
+
+.gear-slot.empty .gs-img { opacity: 0.42; }
+.gear-slot .gs-img { background: #fff6e4; border-radius: 10px; }
+
+#settings .btn { margin-top: 8px; }
+.settings-note {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  line-height: 1.45;
+  margin: 0 0 4px;
+}
+#confirm-reset { z-index: 32; }
+#confirm-reset .btn { margin-top: 10px; }
+.confirm-copy {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin: 0 0 6px;
+}
+.btn.danger {
+  background: linear-gradient(180deg, #ff8a74 0%, #e0473a 58%, #c43228 100%);
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(90, 20, 10, 0.45);
+  border: 3px solid var(--ink);
+  box-shadow: 0 4px 0 var(--ink), inset 0 3px 0 rgba(255, 220, 200, 0.5);
 }

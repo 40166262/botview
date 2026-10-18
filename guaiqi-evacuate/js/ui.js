@@ -419,6 +419,12 @@ function galleryArt(id) {
 }
 
 const MAT_NAMES = { scrap: '废料', battery: '电池', tape: '胶带', chip: '芯片' };
+const SLOT_ICON = {
+  weapon: 'assets/equip_weapon.png',
+  hat: 'assets/equip_hat.png',
+  clothes: 'assets/equip_coat.png',
+  shoes: 'assets/equip_shoes.png',
+};
 
 export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
   ensureGearSave(save);
@@ -437,9 +443,7 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `gear-slot${g ? '' : ' empty'}`;
-      const ico = g && g.icon
-        ? `<img class="gs-img" src="${g.icon}" alt=""/>`
-        : `<div class="gs-ico">${g ? slot.name[0] : '+'}</div>`;
+      const ico = `<img class="gs-img" src="${(g && g.icon) || SLOT_ICON[slot.id]}" alt=""/>`;
       btn.innerHTML = `${ico}
         <div><span class="gs-label">${slot.name}</span>
         <div class="gs-name">${g ? `${g.name} Lv.${lv}` : '空'}</div></div>`;
@@ -483,7 +487,7 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
     if (gear) {
       const lv = (save.gearLevels || {})[id] || 1;
       const eq = (save.gear || {})[gear.slot] === id;
-      const gico = gear.icon ? `<img class="bag-ico" src="${gear.icon}" alt=""/>` : `<div class="ico">${gear.slot[0]}</div>`;
+      const gico = `<img class="bag-ico" src="${gear.icon || SLOT_ICON[gear.slot]}" alt=""/>`;
       btn.innerHTML = `${gico}${gear.name}<br><small class="r-${gear.rarity}">${RARITY_LABEL[gear.rarity]} Lv.${lv}${eq ? ' ·已装' : ''}</small>`;
       if (eq) btn.classList.add('equipped');
       btn.addEventListener('click', () => onEquipGear && onEquipGear(id));

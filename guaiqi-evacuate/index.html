@@ -47,12 +47,12 @@
         </div>
         <button id="btn-play" class="btn primary glow btn-play"><span class="play-ico" aria-hidden="true"></span><span id="btn-play-label">开始撤离</span><span class="btn-shine" aria-hidden="true"></span></button>
         <div class="hub-grid">
-          <button id="btn-stages" class="hub-btn"><img src="assets/enemy_office_zombie.png" alt=""/><span>章节</span></button>
-          <button id="btn-chars" class="hub-btn"><img src="assets/char_medic.png" alt=""/><span>角色</span></button>
-          <button id="btn-gacha" class="hub-btn hub-gift"><img src="assets/chest_gold.png" alt=""/><span>抽奖</span><i id="hub-gacha-dot" class="hub-dot hidden">免费</i></button>
-          <button id="btn-gallery" class="hub-btn"><img src="assets/enemy_monitor_bot.png" alt=""/><span>图鉴</span></button>
-          <button id="btn-bag" class="hub-btn"><img src="assets/equip_hat.png" alt=""/><span>装备</span></button>
-          <button id="btn-settings" class="hub-btn"><svg class="hub-svg" viewBox="0 0 48 48" aria-hidden="true"><path d="M20 4h8l1.2 5.4a15 15 0 0 1 4.3 2.5l5.2-1.8 4 6.9-4.1 3.7a15 15 0 0 1 0 5l4.1 3.7-4 6.9-5.2-1.8a15 15 0 0 1-4.3 2.5L28 44h-8l-1.2-5.4a15 15 0 0 1-4.3-2.5l-5.2 1.8-4-6.9 4.1-3.7a15 15 0 0 1 0-5L5.3 18.6l4-6.9 5.2 1.8a15 15 0 0 1 4.3-2.5z" fill="#3fb5a5" stroke="#3b2a1a" stroke-width="3" stroke-linejoin="round"/><circle cx="24" cy="24" r="6.5" fill="#fff3dc" stroke="#3b2a1a" stroke-width="3"/></svg><span>设置</span></button>
+          <button id="btn-stages" class="hub-btn"><img src="assets/hub_stages.png" alt=""/><span>章节</span></button>
+          <button id="btn-chars" class="hub-btn"><img src="assets/hub_chars.png" alt=""/><span>角色</span></button>
+          <button id="btn-gacha" class="hub-btn hub-gift"><img src="assets/hub_gacha.png" alt=""/><span>抽奖</span><i id="hub-gacha-dot" class="hub-dot hidden">免费</i></button>
+          <button id="btn-gallery" class="hub-btn"><img src="assets/hub_gallery.png" alt=""/><span>图鉴</span></button>
+          <button id="btn-bag" class="hub-btn"><img src="assets/hub_bag.png" alt=""/><span>装备</span></button>
+          <button id="btn-settings" class="hub-btn"><img src="assets/hub_settings.png" alt=""/><span>设置</span></button>
         </div>
         <p class="hint">点开始即进当前关卡 · 单指移动 · 自动射击</p>
       </div>
@@ -119,7 +119,7 @@
       <canvas id="game" width="390" height="844"></canvas>
       <div id="hud" class="hud">
         <button type="button" id="btn-pause" class="hud-pause" aria-label="暂停" title="暂停">
-          <span class="pause-bars" aria-hidden="true"></span>
+          <img src="assets/ui_btn_pause.png" alt=""/>
         </button>
         <div class="hud-stage"><span id="hud-stage">办公区</span> · <span id="hud-wave">波次 1</span></div>
         <div class="hud-top">
@@ -194,6 +194,8 @@
       <div class="panel">
         <h2>设置</h2>
         <label class="toggle-row"><span>音效</span><input type="checkbox" id="chk-sound" checked /></label>
+        <p class="settings-note">存档保存在本机。重置会清空金币、装备、关卡和抽奖进度。</p>
+        <button id="btn-reset-save" class="btn ghost" type="button">重置存档</button>
         <button id="btn-settings-close" class="btn primary">关闭</button>
       </div>
     </div>
@@ -204,6 +206,15 @@
         <button id="btn-pause-resume" class="btn primary">继续</button>
         <button id="btn-pause-retry" class="btn secondary">重新开始</button>
         <button id="btn-pause-home" class="btn ghost">返回首页</button>
+      </div>
+    </div>
+
+    <div id="confirm-reset" class="overlay hidden">
+      <div class="panel confirm-panel">
+        <h2>重置存档？</h2>
+        <p class="confirm-copy">将清除本机全部进度，包括金币、钻石、装备、关卡与抽奖记录。此操作无法撤销。</p>
+        <button id="btn-reset-yes" class="btn danger" type="button">确认重置</button>
+        <button id="btn-reset-no" class="btn ghost" type="button">取消</button>
       </div>
     </div>
 

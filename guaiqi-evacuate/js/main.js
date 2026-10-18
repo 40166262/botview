@@ -1,7 +1,7 @@
 import { Game } from './game.js';
 import { Ads } from './ads.js';
 import {
-  loadSave, writeSave, updateBest, addCoins, addDiamonds, formatTime,
+  loadSave, writeSave, resetSave, updateBest, addCoins, addDiamonds, formatTime,
   addPlayerXp, addCharXp, addMaterials, tryUpgradeGear, gearUpgradeCost,
 } from './save.js';
 import { setSoundEnabled, resumeAudio, SFX } from './audio.js';
@@ -411,6 +411,13 @@ $('daily-gift').addEventListener('click', () => {
 
 $('btn-settings').addEventListener('click', () => { SFX.click(); show('settings'); });
 $('btn-settings-close').addEventListener('click', () => hide('settings'));
+$('btn-reset-save').addEventListener('click', () => { SFX.click(); show('confirm-reset'); });
+$('btn-reset-no').addEventListener('click', () => { SFX.click(); hide('confirm-reset'); });
+$('btn-reset-yes').addEventListener('click', () => {
+  SFX.click();
+  resetSave();
+  location.reload();
+});
 $('chk-sound').addEventListener('change', (e) => {
   save.sound = e.target.checked;
   setSoundEnabled(save.sound);
