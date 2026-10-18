@@ -1661,3 +1661,152 @@ body:has(#achieve:not(.hidden)) .overlay {
   color: #8a7458;
   box-shadow: 0 3px 0 #b9a488;
 }
+
+/* Gacha: warm pity bar, staged cardboard reveal, obvious next step. */
+#gacha .panel { padding: 12px 12px 10px; }
+#gacha h2.with-ico { margin-bottom: 8px; padding-bottom: 6px; }
+#gacha .btn { margin-top: 6px; padding: 8px 10px; font-size: 14px; }
+.pity-box {
+  background: #fff6e4;
+  border: 2.5px solid var(--ink);
+  border-radius: 14px;
+  padding: 7px 10px 6px;
+  margin-bottom: 8px;
+}
+.pity-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--ink);
+}
+.pity-row b { color: var(--orange-d); font-size: 16px; letter-spacing: 0.02em; }
+.pity-track {
+  margin-top: 6px;
+  height: 14px;
+  border-radius: 99px;
+  background: #f0d7a8;
+  border: 2px solid var(--ink);
+  overflow: hidden;
+}
+.pity-bar {
+  height: 100%;
+  width: 0;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #ffc23d, #e2741e);
+  transition: width 0.35s ease;
+}
+.pity-cap {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.gacha-next {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+.gacha-next .btn { margin-top: 0; }
+.gacha-result.reveal { animation: plaqueIn 0.38s cubic-bezier(0.2, 1.15, 0.3, 1) both; }
+.gacha-result.reveal .gr-pill { animation: fadeUp 0.28s ease 0.16s both; }
+.gacha-result.reveal .gr-art { animation: iconPop 0.36s cubic-bezier(0.2, 1.35, 0.32, 1) 0.28s both; }
+.gacha-result.reveal .big { animation: fadeUp 0.28s ease 0.46s both; }
+.gacha-result.reveal .sub,
+.gacha-result.reveal .gr-dup { animation: fadeUp 0.28s ease 0.6s both; }
+@keyframes plaqueIn {
+  0% { opacity: 0; transform: translateY(8px) scale(0.96); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes fadeUp {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes iconPop {
+  0% { opacity: 0; transform: scale(0.72); }
+  100% { opacity: 1; transform: none; }
+}
+.gr-pill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 16px;
+  color: #fff6e4;
+  border: 1.5px solid var(--ink);
+  border-radius: 99px;
+  padding: 0 8px;
+}
+.r-common .gr-pill { background: #7d9a62; }
+.r-rare .gr-pill { background: #c45c12; }
+.r-epic .gr-pill { background: #c98410; }
+.r-legendary .gr-pill { background: #c45032; }
+.gr-dup.owned { background: #fff6e4; }
+.gr-art.portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 10%;
+  padding: 0;
+}
+
+/* Same face crop on character cards and gallery portraits. */
+.char-thumb img,
+#gallery .gal-art.portrait img {
+  object-fit: cover;
+  object-position: center 10%;
+  padding: 0;
+}
+.char-pick {
+  display: inline-block;
+  margin-top: 4px;
+  background: #fff6e4;
+  color: var(--orange-d);
+  border: 2px solid var(--ink);
+  border-radius: 99px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+/* Gear upgrade cost sits on its own line; max level is a quiet chip. */
+.gs-costs { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.gs-cost {
+  display: inline-block;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 16px;
+  color: var(--ink);
+  background: #fff6e4;
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+  padding: 0 5px;
+}
+.gs-lv.max {
+  background: #e7d3ae;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.gear-slot.maxed { background: #f3e6d0; }
+
+.settings-version {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink-soft);
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gacha-result.reveal,
+  .gacha-result.reveal .gr-pill,
+  .gacha-result.reveal .gr-dup,
+  .gacha-result.reveal .gr-art,
+  .gacha-result.reveal .big,
+  .gacha-result.reveal .sub {
+    animation: none;
+  }
+}

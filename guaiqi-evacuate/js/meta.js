@@ -283,6 +283,23 @@ export function isCharUnlocked(save, charId) {
   return false;
 }
 
+export function shardNeed(charId) {
+  return charId === 'intern' ? 10 : 5;
+}
+
+/** One warm line for a locked character card. Empty when they can already deploy. */
+export function charLockLine(save, charId) {
+  const c = CHARACTERS.find((x) => x.id === charId);
+  if (!c || isCharUnlocked(save, c.id)) return '';
+  if (c.unlock.type === 'stage') return '通关第 1 关解锁';
+  const have = (save.shards && save.shards[c.id]) || 0;
+  const need = shardNeed(c.id);
+  if (c.id === 'janitor') return `${c.coinCost || 120} 金币或碎片 ${have}/${need}`;
+  if (c.id === 'intern') return `传说抽奖 · 碎片 ${have}/${need}`;
+  if (c.coinCost) return `${c.coinCost} 金币解锁`;
+  return '抽奖解锁';
+}
+
 export function unlockChar(save, charId) {
   if (!save.unlockedChars) save.unlockedChars = ['grin'];
   if (!save.unlockedChars.includes(charId)) save.unlockedChars.push(charId);
@@ -369,33 +386,35 @@ export function rollGacha(save) {
     type: entry.type,
     rarity: entry.rarity,
     label: entry.label,
+    name: entry.label,
+    line: '',
     detail: '',
   };
-
-  if (entry.type === 'coins') result.icon = 'assets/icon_coin.png';
-  if (entry.type === 'diamonds') result.icon = 'assets/icon_diamond.png';
-  if (entry.type === 'char' || entry.type === 'shards') result.icon = `assets/char_${entry.charId}.png`;
+  const who = (id) => CHARACTERS.find((c) => c.id === id);
 
   if (entry.type === 'coins') {
+    result.icon = 'assets/icon_coin.png';
+    result.name = `金币 ×${entry.amount}`;
     save.coins = (save.coins || 0) + entry.amount;
-    result.detail = `+${entry.amount} 金币`;
+    result.line = '放进钱包啦';
   } else if (entry.type === 'diamonds') {
+    result.icon = 'assets/icon_diamond.png';
+    result.name = `钻石 ×${entry.amount}`;
     save.diamonds = (save.diamonds || 0) + entry.amount;
-    result.detail = `+${entry.amount} 钻石`;
+    result.line = '亮晶晶的补给';
   } else if (entry.type === 'item') {
     const had = save.inventory[entry.itemId] || 0;
     save.inventory[entry.itemId] = had + 1;
     const item = PASSIVE_ITEMS.find((i) => i.id === entry.itemId);
     const stars = Math.min(CHARM_MAX_STARS, had + 1);
-    result.icon = 'assets/chest_rare.png';
+    result.name = item ? item.name : entry.label;
+    result.sheet = CHARM_ICON_CELL[entry.itemId];
     if (had > 0) {
       result.dup = true;
-      result.detail = stars >= CHARM_MAX_STARS && had >= CHARM_MAX_STARS
-        ? `${item ? item.name : entry.label} 已满星，折合金币 +40`
-        : `重复！${item ? item.name : entry.label} 升至 ★${stars}`;
+      result.line = had >= CHARM_MAX_STARS ? '已满星，折合金币 +40' : `升至 ★${stars}`;
       if (had >= CHARM_MAX_STARS) save.coins = (save.coins || 0) + 40;
     } else {
-      result.detail = item ? `获得挂件：${item.name}（装备栏佩戴）` : entry.label;
+      result.line = item ? item.desc : entry.label;
     }
     unlockGallery(save, entry.itemId === 'charm_crit' ? 'item_crit' : entry.itemId === 'charm_frost' ? 'item_frost' : entry.itemId === 'charm_shield' ? 'item_shield' : 'item_chest');
   } else if (entry.type === 'gear') {
@@ -403,6 +422,7 @@ export function rollGacha(save) {
     save.inventory[entry.itemId] = had + 1;
     const g = GEAR_ITEMS.find((i) => i.id === entry.itemId);
     result.icon = g && g.icon;
+    result.name = g ? g.name : entry.label;
     if (!save.gearLevels) save.gearLevels = {};
     if (had > 0) {
       // duplicate gear = free enhance (+1 level, max 10)
@@ -410,33 +430,42 @@ export function rollGacha(save) {
       result.dup = true;
       if (lv < 10) {
         save.gearLevels[entry.itemId] = lv + 1;
-        result.detail = `重复！${g ? g.name : entry.label} 免费强化 → Lv.${lv + 1}`;
+        result.line = `免费强化到 Lv.${lv + 1}`;
       } else {
         save.coins = (save.coins || 0) + 60;
-        result.detail = `${g ? g.name : entry.label} 已满级，折合金币 +60`;
+        result.line = '已满级，折合金币 +60';
       }
     } else {
       save.gearLevels[entry.itemId] = save.gearLevels[entry.itemId] || 1;
-      result.detail = g ? `获得装备：${g.name}` : entry.label;
+      result.line = g ? g.desc : entry.label;
     }
   } else if (entry.type === 'char') {
+    const c = who(entry.charId);
+    result.name = c ? c.name : entry.label;
+    result.portrait = `assets/char_${entry.charId}_full.png`;
     if (!isCharUnlocked(save, entry.charId)) {
       unlockChar(save, entry.charId);
-      result.detail = `解锁角色：${CHARACTERS.find((c) => c.id === entry.charId)?.name || entry.charId}`;
+      result.line = c ? c.flavor : '新伙伴到手';
     } else {
       save.shards[entry.charId] = (save.shards[entry.charId] || 0) + 3;
-      result.detail = `已拥有，折合碎片 ×3`;
+      result.owned = true;
+      result.line = '已拥有，折成碎片 ×3';
     }
   } else if (entry.type === 'shards') {
+    const c = who(entry.charId);
+    result.name = c ? `${c.name}碎片` : entry.label;
+    result.portrait = `assets/char_${entry.charId}_full.png`;
     save.shards[entry.charId] = (save.shards[entry.charId] || 0) + (entry.amount || 1);
-    const need = entry.charId === 'intern' ? 10 : 5;
-    result.detail = `碎片 ${save.shards[entry.charId]}/${need}`;
-    if (save.shards[entry.charId] >= need && !isCharUnlocked(save, entry.charId)) {
+    const need = shardNeed(entry.charId);
+    const have = save.shards[entry.charId];
+    result.line = `碎片 ${have}/${need}`;
+    if (have >= need && !isCharUnlocked(save, entry.charId)) {
       unlockChar(save, entry.charId);
-      result.detail += ` → 解锁角色！`;
+      result.line = '碎片够啦，可以出战';
     }
   }
 
+  result.detail = result.line;
   save.gachaCount = (save.gachaCount || 0) + 1;
   return result;
 }
