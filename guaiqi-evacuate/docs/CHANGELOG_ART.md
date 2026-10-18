@@ -14,5 +14,6 @@
 | 2026-10-18 | 美术替换 | `upgrade_icons_sheet`、`proj_*`、`ui_btn_pause`、`ui_panel` 换为美术交付的轻微像素+平滑粗黑边（同名覆盖，格子仍 5×5×128） |
 | 2026-10-18 | hub 替换 | 六个 `hub_*.png` 换成美术交付稿；金币/钻石图标核对后未改 |
 | 2026-10-18 | 二轮手感 | 升级卡疏排与「新」标签；首升更快；击杀火花暖色减量；菜单标题用 hub 图标 |
+| 2026-10-18 | 币钻换装 | `icon_coin.png` 暖金 ¥、`icon_diamond.png` 暖珊瑚宝石，界面改回这两个文件 |
 
 线上：https://40166262.github.io/botview/guaiqi-evacuate/
