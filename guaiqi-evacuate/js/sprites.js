@@ -129,6 +129,9 @@ function sliceIconSheet(img) {
       const cell = document.createElement('canvas');
       cell.width = side; cell.height = side;
       const ctx = cell.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = false;
+      if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = false;
       const ox = Math.floor((side - cw) / 2);
       const oy = Math.floor((side - ch) / 2);
       ctx.drawImage(src, col * cw, row * ch, cw, ch, ox, oy, cw, ch);

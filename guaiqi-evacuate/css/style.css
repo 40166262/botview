@@ -277,7 +277,11 @@ html, body {
 .hub-btn:active { background: rgba(92,184,168,0.18); }
 
 #game-wrap { background: #1a2218; justify-content: flex-start; }
-#game { display: block; width: 100%; height: 100%; touch-action: none; }
+#game {
+  display: block; width: 100%; height: 100%; touch-action: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
 .hud {
   position: absolute; top: 0; left: 0; right: 0;
   padding: 10px 12px 0; pointer-events: none; z-index: 5;
@@ -1041,4 +1045,22 @@ html, body {
   content: ''; position: absolute; left: 0; right: 0; top: 0; height: 112px; z-index: -1;
   background: linear-gradient(180deg, rgba(255,243,220,0.62) 0%, rgba(255,243,220,0.35) 60%, rgba(255,243,220,0) 100%);
   pointer-events: none;
+}
+
+/* Crisp nearest-neighbor when CSS scales pixel-art icons / canvas thumbs */
+#game,
+.card-icon img, .card-icon canvas,
+.equip-slot img, .equip-slot canvas,
+.hub-btn img,
+.char-thumb img, .stage-thumb img,
+.cur-ico,
+.gal-art img,
+.gs-img, .bag-ico,
+.chest-btn img,
+.gr-art img,
+.home-loadout img,
+.rchip img,
+.gear-slot img, .gear-slot canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
