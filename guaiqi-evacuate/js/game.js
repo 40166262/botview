@@ -56,7 +56,7 @@ export class Game {
     canvas.width = W * dpr;
     canvas.height = H * dpr;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this.ctx.imageSmoothingEnabled = false;
+    this.ctx.imageSmoothingEnabled = true;
     if ('webkitImageSmoothingEnabled' in this.ctx) this.ctx.webkitImageSmoothingEnabled = false;
     if ('mozImageSmoothingEnabled' in this.ctx) this.ctx.mozImageSmoothingEnabled = false;
     this.hooks = hooks;
@@ -1168,10 +1168,10 @@ export class Game {
     ctx.scale(VIEW_ZOOM, VIEW_ZOOM);
     ctx.translate(-W / 2, -H / 2);
     ctx.translate(-this.camX + off.x, -this.camY + off.y);
-    // Crisp nearest-neighbor for world sprites (Style E pixels); HUD re-enables after restore
-    ctx.imageSmoothingEnabled = false;
-    if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = false;
-    if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = false;
+    // Smooth bilinear for thick anti-aliased outlines; HUD stays true after restore
+    ctx.imageSmoothingEnabled = true;
+    if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = true;
+    if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = true;
 
     this._drawFloor(ctx, FLOOR);
 
