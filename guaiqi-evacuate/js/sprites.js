@@ -129,7 +129,7 @@ function sliceIconSheet(img) {
       const cell = document.createElement('canvas');
       cell.width = side; cell.height = side;
       const ctx = cell.getContext('2d');
-      ctx.imageSmoothingEnabled = false;
+      ctx.imageSmoothingEnabled = true;
       if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = false;
       if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = false;
       const ox = Math.floor((side - cw) / 2);
@@ -324,9 +324,9 @@ export function drawClippedSprite(ctx, img, x, y, radius, opts = {}) {
 
   ctx.save();
   applyWalk(ctx, opts.walk, x, dy + dh * 0.94); // pivot near the feet
-  ctx.imageSmoothingEnabled = false;
-  if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = false;
-  if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = false;
+  ctx.imageSmoothingEnabled = true;
+  if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = true;
+  if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = true;
   ctx.drawImage(img, 0, 0, iw, ih, dx, dy, dw, dh);
   // Tint / hit flash are drawn as a silhouette of the sprite itself (no rectangular box)
   if (opts.tint) {
@@ -367,9 +367,9 @@ export function drawStandingSprite(ctx, img, x, footY, h, opts = {}) {
   ctx.fill();
   // r6: front-facing art — never mirrored; movement reads through the walk pose instead
   applyWalk(ctx, opts.walk, x, footY);
-  ctx.imageSmoothingEnabled = false;
-  if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = false;
-  if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = false;
+  ctx.imageSmoothingEnabled = true;
+  if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = true;
+  if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = true;
   ctx.drawImage(img, 0, 0, iw, ih, dx, dy, dw, dh);
   if (opts.tint) {
     ctx.globalAlpha = opts.tintAlpha ?? 0.22;

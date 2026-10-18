@@ -279,8 +279,7 @@ html, body {
 #game-wrap { background: #1a2218; justify-content: flex-start; }
 #game {
   display: block; width: 100%; height: 100%; touch-action: none;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
+  image-rendering: auto;
 }
 .hud {
   position: absolute; top: 0; left: 0; right: 0;
@@ -431,6 +430,7 @@ html, body {
 .card-icon img, .card-icon canvas {
   width: 100%; height: 100%; object-fit: contain;
   padding: 4px;
+  image-rendering: auto;
 }
 .card-body { flex: 1; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
 .card-body h3 {
@@ -1047,9 +1047,12 @@ html, body {
   pointer-events: none;
 }
 
-/* Crisp nearest-neighbor when CSS scales pixel-art icons / canvas thumbs */
+/* Smooth CSS upscale for battle canvas + card icons (thick AA outlines).
+   Other small UI thumbs stay nearest-neighbor until their sheets are redrawn. */
 #game,
-.card-icon img, .card-icon canvas,
+.card-icon img, .card-icon canvas {
+  image-rendering: auto;
+}
 .equip-slot img, .equip-slot canvas,
 .hub-btn img,
 .char-thumb img, .stage-thumb img,
