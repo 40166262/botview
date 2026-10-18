@@ -1,8 +1,8 @@
-import { formatTime } from './save.js';
+import { formatTime, gearUpgradeCost } from './save.js';
 import { STAGES, ENDLESS, isStageUnlocked, stageLockReason, allStagesIncludingEndless, STAGE_COUNT } from './stages.js';
 import {
   CHARACTERS, GALLERY, PASSIVE_ITEMS, RARITY_LABEL, RARITY_COLOR,
-  isCharUnlocked, galleryCount, ensureDailyQuests, canFreeGacha,
+  isCharUnlocked, charLockLine, galleryCount, ensureDailyQuests, canFreeGacha,
   GEAR_SLOTS, GEAR_ITEMS, getGear, ensureGearSave, equipGear,
   CHARM_ICON_CELL,
 } from './meta.js';
@@ -447,18 +447,21 @@ export function renderCharCards(save, selectedId, onSelect, onBuy) {
     } else {
       thumb.textContent = unlocked ? (c.name[0] || '*') : '锁';
     }
+    const current = selectedId === c.id;
+    if (current) btn.classList.add('is-current');
     const info = document.createElement('div');
     info.className = 'char-info';
     let extra = '';
-    if (!unlocked && c.coinCost) extra = `<p class="char-buy">金币 ${c.coinCost} 解锁</p>`;
-    else if (!unlocked) extra = `<p class="char-buy alt">通关或抽奖解锁</p>`;
-    info.innerHTML = `<h3>${c.name}${selectedId === c.id ? '<span class="st-now">出战</span>' : ''}</h3><p class="char-desc">${c.desc}</p><p class="char-flavor" style="border-color:${c.tint}">${c.flavor}</p>${extra}`;
+    if (!unlocked) extra = `<p class="char-buy">${charLockLine(save, c.id)}</p>`;
+    else if (!current) extra = `<p class="char-pick">点此选用</p>`;
+    const badge = current ? '<span class="st-now">当前</span>' : '';
+    info.innerHTML = `<h3>${c.name}${badge}</h3><p class="char-desc">${c.desc}</p><p class="char-flavor" style="border-color:${c.tint}">${c.flavor}</p>${extra}`;
     btn.appendChild(thumb);
     btn.appendChild(info);
     btn.addEventListener('click', () => {
       if (unlocked) onSelect(c.id);
       else if (c.coinCost && onBuy) onBuy(c);
-      else toast('尚未解锁');
+      else toast(charLockLine(save, c.id) || '尚未解锁');
     });
     wrap.appendChild(btn);
   });
@@ -568,15 +571,21 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
       const id = (save.gear || {})[slot.id];
       const g = id ? getGear(id) : null;
       const lv = g ? ((save.gearLevels || {})[g.id] || 1) : 0;
+      const maxed = !!(g && lv >= 10);
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = `gear-slot${g ? '' : ' empty'}`;
+      btn.className = `gear-slot${g ? '' : ' empty'}${maxed ? ' maxed' : ''}`;
       const src = (g && g.icon) || SLOT_ICON[slot.id];
       const ico = `<img class="gs-img${g ? '' : ' dim'}" src="${src}" alt=""/>`;
+      const meta = g
+        ? (maxed
+          ? '<span class="gs-lv max">已满级</span>'
+          : `<span class="gs-lv">Lv.${lv}</span>${gearCostChip(lv)}`)
+        : '';
       btn.innerHTML = `${ico}
         <div class="gs-copy"><span class="gs-label">${slot.name}</span>
         <div class="gs-name">${g ? g.name : '未装备'}</div>
-        ${g ? `<span class="gs-lv">Lv.${lv}</span>` : ''}</div>`;
+        ${meta}</div>`;
       if (g && onUpgradeGear) {
         btn.addEventListener('click', () => onUpgradeGear(g.id));
       }
@@ -631,16 +640,36 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
   });
 }
 
+function gachaArt(result) {
+  if (result.portrait) return { src: result.portrait, portrait: true };
+  if (result.sheet != null) {
+    const url = sheetIconUrl(result.sheet);
+    if (url) return { src: url, portrait: false };
+  }
+  return { src: result.icon || '', portrait: false };
+}
+
+function gearCostChip(lv) {
+  const cost = gearUpgradeCost(lv);
+  if (!cost) return '';
+  const mat = MAT_NAMES[cost.mat] || cost.mat;
+  return `<span class="gs-costs"><span class="gs-cost">${cost.coins}金</span><span class="gs-cost">${mat}×${cost.n}</span></span>`;
+}
+
 export function showGachaResult(result) {
   const el = $('gacha-result');
   const rar = result.rarity || 'common';
+  const art = gachaArt(result);
+  const badge = result.dup
+    ? '<span class="gr-dup">重复＝强化</span>'
+    : (result.owned ? '<span class="gr-dup owned">已拥有</span>' : '');
   el.className = `gacha-result r-${rar}`;
   el.innerHTML = `
-    <div class="gr-art">${result.icon ? `<img src="${result.icon}" alt=""/>` : ''}</div>
+    <div class="gr-art${art.portrait ? ' portrait' : ''}">${art.src ? `<img src="${art.src}" alt=""/>` : ''}</div>
     <div class="gr-text">
-      <div class="gr-rar">${RARITY_LABEL[rar] || ''}${result.dup ? '<span class="gr-dup">重复加成</span>' : ''}</div>
-      <div class="big">${result.label}</div>
-      <div class="sub">${result.detail || ''}</div>
+      <div class="gr-rar"><span class="gr-pill">${RARITY_LABEL[rar] || ''}</span>${badge}</div>
+      <div class="big">${result.name || result.label || ''}</div>
+      <div class="sub">${result.line || result.detail || ''}</div>
     </div>`;
   void el.offsetWidth;
   el.classList.add('reveal');

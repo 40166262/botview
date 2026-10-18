@@ -301,20 +301,23 @@ $('btn-chars').addEventListener('click', () => {
 });
 function openChars() {
   renderCharCards(save, save.selectedChar, (id) => {
-    save.selectedChar = id;
-    writeSave(save);
-    toast(`出战：${(CHARACTERS.find(c=>c.id===id)||{}).name || id}`);
+    if (save.selectedChar !== id) {
+      save.selectedChar = id;
+      writeSave(save);
+      const name = (CHARACTERS.find((c) => c.id === id) || {}).name || id;
+      toast(`选用：${name}`);
+    }
     openChars();
   }, (c) => {
-    if ((save.coins || 0) >= c.coinCost) {
-      save.coins -= c.coinCost;
-      unlockChar(save, c.id);
-      save.selectedChar = c.id;
-      writeSave(save);
-      refreshHomeStats(save);
-      toast(`解锁 ${c.name}！`);
-      openChars();
-    } else toast('金币不足');
+    if ((save.coins || 0) < c.coinCost) { toast('金币不足'); return; }
+    const fresh = !isCharUnlocked(save, c.id);
+    save.coins -= c.coinCost;
+    unlockChar(save, c.id);
+    save.selectedChar = c.id;
+    writeSave(save);
+    refreshHomeStats(save);
+    if (fresh) pushAchievement({ kicker: '新伙伴', name: c.name, desc: '已选用，出战吧' });
+    openChars();
   });
   show('chars');
 }
@@ -368,7 +371,8 @@ function openBag() {
     const r = tryUpgradeGear(save, gearId);
     writeSave(save);
     refreshHomeStats(save);
-    if (r.ok) { toast(`强化成功 → +${r.level - 1}`); openBag(); }
+    if (r.ok) { toast(`强化到 Lv.${r.level}`); openBag(); }
+    else if (r.reason === '已满级') toast('已经满级啦');
     else {
       const matNames = { scrap: '废料', battery: '电池', tape: '胶带', chip: '芯片' };
       const need = cost ? `需${cost.coins}金+${matNames[cost.mat]||cost.mat}×${cost.n}` : '';
@@ -392,16 +396,38 @@ $('btn-goto-gacha')?.addEventListener('click', () => {
   hideResult();
   hide('game-wrap');
   show('home');
-  hide('gacha-result');
-  refreshGachaUI();
-  show('gacha');
+  openGacha();
 });
 
 
 
 // —— Gacha ——
+let lastPay = 'free';
+
+function againMode() {
+  if (canFreeGacha(save)) return 'free';
+  if (lastPay === 'coin' && (save.coins || 0) >= 80) return 'coin';
+  if (lastPay === 'dia' && (save.diamonds || 0) >= 15) return 'dia';
+  if (lastPay === 'ad') return 'ad';
+  if ((save.coins || 0) >= 80) return 'coin';
+  if ((save.diamonds || 0) >= 15) return 'dia';
+  return 'ad';
+}
+function againLabel(mode) {
+  if (mode === 'free') return '再抽 · 免费';
+  if (mode === 'coin') return '再抽 · 80金';
+  if (mode === 'dia') return '再抽 · 15钻';
+  return '再抽 · 广告';
+}
+
 function refreshGachaUI() {
-  $('pity-num').textContent = String(save.pity || 0);
+  const n = Math.max(0, Math.min(10, save.pity || 0));
+  const num = $('pity-num');
+  if (num) num.textContent = String(n);
+  const bar = $('pity-bar');
+  if (bar) bar.style.width = `${(n / 10) * 100}%`;
+  const track = $('pity-track');
+  if (track) track.setAttribute('aria-valuenow', String(n));
   const free = canFreeGacha(save);
   const btn = $('btn-gacha-free');
   btn.disabled = !free;
@@ -412,52 +438,99 @@ function refreshGachaUI() {
     st.textContent = free ? '今日免费还没领，点下面的金色按钮' : '今日免费已领取，明天 0 点再来';
     st.classList.toggle('claimed', !free);
   }
+  const again = $('btn-gacha-again');
+  if (again) {
+    const mode = againMode();
+    again.textContent = againLabel(mode);
+    again.dataset.mode = mode;
+  }
+}
+function openGacha() {
+  hide('gacha-result');
+  hide('gacha-next');
+  refreshGachaUI();
+  show('gacha');
 }
 $('btn-gacha').addEventListener('click', () => {
   SFX.click();
-  hide('gacha-result');
-  refreshGachaUI();
-  show('gacha');
+  openGacha();
 });
 $('btn-gacha-close').addEventListener('click', () => { hide('gacha'); refreshHomeStats(save); });
 
-function doGacha(paid) {
+function showGachaNext() {
+  const next = $('gacha-next');
+  if (!next) return;
+  next.classList.remove('reveal');
+  show(next);
+  void next.offsetWidth;
+  next.classList.add('reveal');
+  const panel = next.closest('.panel');
+  if (panel) {
+    const top = next.offsetTop + next.offsetHeight - panel.clientHeight + 12;
+    if (top > panel.scrollTop) panel.scrollTop = top;
+  }
+}
+
+function doGacha() {
   resumeAudio();
   const result = rollGacha(save);
   writeSave(save);
   showGachaResult(result);
   refreshGachaUI();
   refreshHomeStats(save);
+  showGachaNext();
   SFX.chest(); // result card shows the detail — no duplicate toast
   noteGalleryMilestone();
   writeSave(save);
   flushAchievements();
 }
 
-$('btn-gacha-free').addEventListener('click', () => {
-  if (!canFreeGacha(save)) { toast('今日免费已经领过了'); return; }
-  markFreeGacha(save);
-  writeSave(save);
-  doGacha(false);
-  pushAchievement({ name: '今日免费已领', desc: '明天 0 点刷新 · 奖励在上方卡片' });
-});
-$('btn-gacha-ad').addEventListener('click', () => {
+function pullGacha(mode) {
+  if (mode === 'free') {
+    if (!canFreeGacha(save)) { toast('今日免费已经领过了'); refreshGachaUI(); return; }
+    markFreeGacha(save);
+    writeSave(save);
+    lastPay = 'free';
+    doGacha();
+    return;
+  }
+  if (mode === 'coin') {
+    if ((save.coins || 0) < 80) { toast('金币不足'); refreshGachaUI(); return; }
+    save.coins -= 80;
+    writeSave(save);
+    lastPay = 'coin';
+    doGacha();
+    return;
+  }
+  if (mode === 'dia') {
+    if ((save.diamonds || 0) < 15) { toast('钻石不足'); refreshGachaUI(); return; }
+    save.diamonds -= 15;
+    writeSave(save);
+    lastPay = 'dia';
+    doGacha();
+    return;
+  }
   Ads.showRewarded((ok) => {
     if (!ok) { toast('广告未完成'); return; }
-    doGacha(true);
+    lastPay = 'ad';
+    doGacha();
   });
+}
+
+$('btn-gacha-free').addEventListener('click', () => pullGacha('free'));
+$('btn-gacha-ad').addEventListener('click', () => pullGacha('ad'));
+$('btn-gacha-coin').addEventListener('click', () => pullGacha('coin'));
+$('btn-gacha-dia').addEventListener('click', () => pullGacha('dia'));
+$('btn-gacha-again')?.addEventListener('click', () => {
+  SFX.click();
+  pullGacha(againMode());
 });
-$('btn-gacha-coin').addEventListener('click', () => {
-  if ((save.coins || 0) < 80) { toast('金币不足'); return; }
-  save.coins -= 80;
-  writeSave(save);
-  doGacha(true);
-});
-$('btn-gacha-dia').addEventListener('click', () => {
-  if ((save.diamonds || 0) < 15) { toast('钻石不足'); return; }
-  save.diamonds -= 15;
-  writeSave(save);
-  doGacha(true);
+$('btn-gacha-home')?.addEventListener('click', () => {
+  SFX.click();
+  hide('gacha');
+  hide('gacha-result');
+  hide('gacha-next');
+  refreshHomeStats(save);
 });
 
 // Daily quest chip claim
@@ -477,11 +550,48 @@ $('daily-quest-chip').addEventListener('click', () => {
     else toast(`${next.name}还差 ${Math.max(0, next.target - (next.progress || 0))}`);
   }
 });
-$('daily-gift').addEventListener('click', () => {
-  hide('gacha-result');
-  refreshGachaUI();
-  show('gacha');
+$('daily-gift').addEventListener('click', () => openGacha());
+
+let titleTaps = 0;
+let titleTapTimer = 0;
+let titleLine = 0;
+const TITLE_LINES = [
+  { name: '工牌背面', desc: '笑一笑，再撤离。' },
+  { name: '值班便签', desc: '今天适合抽一张。' },
+];
+$('home-title')?.addEventListener('click', () => {
+  titleTaps += 1;
+  clearTimeout(titleTapTimer);
+  titleTapTimer = setTimeout(() => { titleTaps = 0; }, 700);
+  if (titleTaps < 3) return;
+  titleTaps = 0;
+  const line = TITLE_LINES[titleLine % TITLE_LINES.length];
+  titleLine += 1;
+  pushAchievement({ kicker: '悄悄话', name: line.name, desc: line.desc });
+  SFX.click();
 });
+
+const versionEl = $('settings-version');
+let versionHold = 0;
+function armCredits() {
+  clearTimeout(versionHold);
+  versionHold = setTimeout(() => {
+    versionHold = 0;
+    pushAchievement({ kicker: '制作', name: '怪奇撤离', desc: '纸板暖光，一起撤离。' });
+    SFX.click();
+  }, 650);
+}
+function cancelCredits() {
+  clearTimeout(versionHold);
+  versionHold = 0;
+}
+if (versionEl) {
+  versionEl.addEventListener('pointerdown', (e) => { e.preventDefault(); armCredits(); });
+  versionEl.addEventListener('pointerup', cancelCredits);
+  versionEl.addEventListener('pointerleave', cancelCredits);
+  versionEl.addEventListener('pointercancel', cancelCredits);
+  versionEl.addEventListener('contextmenu', (e) => e.preventDefault());
+}
 
 $('btn-settings').addEventListener('click', () => { SFX.click(); show('settings'); });
 $('btn-settings-close').addEventListener('click', () => hide('settings'));

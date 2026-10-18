@@ -36,7 +36,7 @@
           <img id="home-hero-art" class="home-hero-art" src="assets/char_grin_full.png" alt=""/>
           <div id="home-loadout" class="home-loadout"></div>
         </div>
-        <h1 class="title-zh">怪奇撤离</h1>
+        <h1 id="home-title" class="title-zh">怪奇撤离</h1>
         <p class="tagline">短局爽感 · 关卡推进 · 装备与抽奖</p>
         <button type="button" id="daily-gift" class="daily-gift hidden">
           <span class="dg-kicker">今日免费</span>
@@ -85,10 +85,20 @@
     <div id="gacha" class="overlay hidden">
       <div class="panel">
         <h2 class="with-ico"><img src="assets/hub_gacha.png" alt=""/>设施补给抽奖</h2>
-        <p class="gacha-pity">保底进度 <strong id="pity-num">0</strong>/10（必出史诗+）</p>
+        <div class="pity-box">
+          <div class="pity-row"><span>保底</span><b><strong id="pity-num">0</strong>/10</b></div>
+          <div id="pity-track" class="pity-track" role="progressbar" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0" aria-label="保底进度">
+            <div id="pity-bar" class="pity-bar"></div>
+          </div>
+          <p class="pity-cap">满 10 必出史诗以上</p>
+        </div>
         <p class="gacha-note">已拥有的装备/挂件出率提升，重复抽到 = 免费强化</p>
         <p id="gacha-free-status" class="gacha-free-status">今日免费还没领，点下面的金色按钮</p>
         <div id="gacha-result" class="gacha-result hidden"></div>
+        <div id="gacha-next" class="gacha-next hidden">
+          <button id="btn-gacha-again" class="btn primary" type="button">再抽</button>
+          <button id="btn-gacha-home" class="btn ghost" type="button">回首页</button>
+        </div>
         <button id="btn-gacha-free" class="btn primary glow">每日免费 ×1</button>
         <button id="btn-gacha-ad" class="btn secondary">看广告再抽</button>
         <button id="btn-gacha-coin" class="btn secondary">金币抽（80）</button>
@@ -205,6 +215,7 @@
         <p class="settings-note">存档保存在本机。重置会清空金币、装备、关卡和抽奖进度。</p>
         <button id="btn-reset-save" class="btn ghost" type="button">重置存档</button>
         <button id="btn-settings-close" class="btn primary">关闭</button>
+        <p id="settings-version" class="settings-version">版本 1.0</p>
       </div>
     </div>
 
