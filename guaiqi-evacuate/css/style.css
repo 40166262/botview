@@ -1123,13 +1123,24 @@ button.daily-gift {
 .hud-pause:active { transform: translateY(2px); }
 .hud-pause:active img { filter: none; }
 
-.move-hint {
-  position: absolute; left: 50%; bottom: 18%; transform: translateX(-50%);
-  z-index: 8; pointer-events: none;
+.battle-tips {
+  position: absolute; left: 50%; top: 214px; transform: translateX(-50%);
+  z-index: 7; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  width: max-content; max-width: 88%;
+  transition: top 0.28s ease;
+}
+.battle-tips.settled { top: 122px; }
+.coach-tip {
   background: var(--paper); color: var(--ink); font-weight: 900; font-size: 14px;
-  border: 3px solid var(--ink); border-radius: 99px; padding: 8px 16px;
-  box-shadow: 0 4px 0 var(--ink);
-  animation: giftBob 1.3s ease-in-out infinite;
+  border: 3px solid var(--ink); border-radius: 99px; padding: 7px 14px;
+  box-shadow: 0 3px 0 var(--ink); letter-spacing: 0.02em; white-space: nowrap;
+  animation: coachIn 0.28s ease;
+}
+.coach-tip.soft { background: #fff6e4; font-size: 13px; }
+@keyframes coachIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .home-loadout { gap: 10px; }
 .home-loadout img,
@@ -1161,7 +1172,8 @@ button.daily-gift {
   display: flex !important;
   align-items: center;
   justify-content: center;
-  opacity: 0.4 !important;
+  /* 0.4 sat under the beige floor. Keep the ghost, just make the ring readable. */
+  opacity: 0.82 !important;
   visibility: visible !important;
   pointer-events: none !important;
 }
@@ -1175,13 +1187,13 @@ button.daily-gift {
 }
 .joystick.ghost .joy-base {
   width: 92px; height: 92px;
-  border: 3px dashed rgba(59, 42, 26, 0.55);
-  background: rgba(255, 243, 220, 0.22);
+  border: 3px dashed rgba(59, 42, 26, 0.9);
+  background: rgba(255, 243, 220, 0.5);
 }
 .joystick.ghost .joy-knob {
   width: 34px; height: 34px;
-  border: 3px solid rgba(59, 42, 26, 0.6);
-  background: rgba(255, 246, 220, 0.72);
+  border: 3px solid rgba(59, 42, 26, 0.92);
+  background: rgba(255, 246, 220, 0.95);
 }
 
 .home-hero { margin-top: -18px; }

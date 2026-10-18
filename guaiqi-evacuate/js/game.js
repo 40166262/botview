@@ -27,6 +27,28 @@ const WORLD_W = 1200;
 const WORLD_H = 1600;
 const VIEW_ZOOM = 1.22; // pull-in so chars/loot read larger on phone
 
+/**
+ * Opening density and timed events. Stages 1–2 stay sparse so a new player
+ * can move, open the first crate, and clear. 40+ keeps the old seed and
+ * adds a little more swarm pressure.
+ */
+function paceProfile(stage) {
+  const n = stage.stageNum || 1;
+  if (n <= 1) {
+    return { seed: 4, minD: 240, maxD: 340, scale: 0.7, spawnAcc: 0.08, earlyBoost: 0.85, swarmAt: 34, swarmBase: 6, swarmStep: 1, eliteAt: 64, announceExtra: 2, swarmCap: 16 };
+  }
+  if (n === 2) {
+    return { seed: 5, minD: 210, maxD: 310, scale: 0.78, spawnAcc: 0.3, earlyBoost: 1.0, swarmAt: 26, swarmBase: 8, swarmStep: 1, eliteAt: 50, announceExtra: 3, swarmCap: 18 };
+  }
+  if (n >= 70) {
+    return { seed: 7, minD: 140, maxD: 210, scale: 0.9, spawnAcc: 0.9, earlyBoost: 1.8, swarmAt: 12, swarmBase: 12, swarmStep: 2, eliteAt: 28, announceExtra: 6, swarmCap: 26 };
+  }
+  if (n >= 40) {
+    return { seed: 7, minD: 150, maxD: 220, scale: 0.88, spawnAcc: 0.85, earlyBoost: 1.75, swarmAt: 13, swarmBase: 11, swarmStep: 2, eliteAt: 32, announceExtra: 5, swarmCap: 24 };
+  }
+  return { seed: 7, minD: 150, maxD: 220, scale: 0.85, spawnAcc: 0.85, earlyBoost: 1.6, swarmAt: 14, swarmBase: 10, swarmStep: 2, eliteAt: 38, announceExtra: 5, swarmCap: 22 };
+}
+
 /** r6 floor palettes — warm pixel-grid tiles (stronger grout, less soft bevel). */
 const FLOOR_THEMES = {
   office: { // warm beige carpet tiles
@@ -70,11 +92,20 @@ export class Game {
     this.reset();
   }
 
-  configure({ stageId, charId, equipped, save }) {
+  configure({ stageId, charId, equipped, save, coach }) {
     this.stageId = stageId || 's1';
     this.charId = charId || 'grin';
     this.equipped = equipped || [];
     this.saveRef = save || null;
+    this.coachFresh = !!coach;
+  }
+
+  /** Hide a first-run plaque. Movement itself is tracked in update(). */
+  dismissCoach(which) {
+    if (!this.tips) return;
+    if (which === 'move') this.tips.move = false;
+    if (which === 'act') this.tips.act = false;
+    if (which === 'idle') this.tips.idle = false;
   }
 
   reset() {
@@ -99,7 +130,8 @@ export class Game {
     this.time = 0;
     this.kills = 0;
     this.coinsEarned = 0;
-    this.spawnAcc = 0.85; // first enemies almost immediately
+    this.pace = paceProfile(this.stage);
+    this.spawnAcc = this.pace.spawnAcc;
     this.killsSinceElite = 0;
     this.bossFired = {};
     this.bossesKilled = 0;
@@ -129,14 +161,24 @@ export class Game {
     this.bannerQueue = [];
     this.lvRing = 0; // soft level-up ring timer
     this.events = {
-      swarmNext: 14,          // first zombie swarm ring
-      eliteNext: 38,          // timed elite every ~45s
+      swarmNext: this.pace.swarmAt,
+      eliteNext: this.pace.eliteAt, // then every ~45s
       goldenAt: 24 + Math.random() * 12, // one golden chest per run (mid-run surprise)
-      chestNext: 5, // first chest inside the opening 10s
+      chestNext: 5, // first chest stays inside the opening 10s
       goldenDone: false,
       slackerAt: 30 + Math.random() * 8, // funny 摸鱼丧尸 easter egg
       slackerDone: false,
       bossWarned: {},
+      bossMarks: {},
+    };
+    this.tips = {
+      move: !!this.coachFresh,
+      act: !!this.coachFresh,
+      idle: false,
+      age: 0,
+      moved: false,
+      idleShown: false,
+      idleUntil: 0,
     };
     this.bgStars = []; // indoor facility — no night-sky starfield
     // r6: no decorative scenery at all (props/stains/fog/dust read as fake or as pickups).
@@ -156,11 +198,13 @@ export class Game {
     this.alive = true;
     this.cleared = false;
     this._last = performance.now();
-    // Retention: seed nearby enemies so first 2s has targets
-    for (let i = 0; i < 7; i++) {
-      const a = (Math.PI * 2 * i) / 7;
-      const d = 150 + Math.random() * 70;
-      this.enemies.push(createEnemy('slime', this.player.x + Math.cos(a) * d, this.player.y + Math.sin(a) * d, 0.85));
+    // Opening ring. Stages 1–2 stand farther back so the move tip and first crate read first.
+    const pace = this.pace || paceProfile(this.stage);
+    const seedN = pace.seed;
+    for (let i = 0; i < seedN; i++) {
+      const a = (Math.PI * 2 * i) / seedN + 0.4;
+      const d = pace.minD + Math.random() * (pace.maxD - pace.minD);
+      this.enemies.push(createEnemy('slime', this.player.x + Math.cos(a) * d, this.player.y + Math.sin(a) * d, pace.scale));
     }
     if (this.hooks.onBanner) this.hooks.onBanner(this.bannerTitle, this.bannerSub);
     this._raf = requestAnimationFrame((t) => this._loop(t));
@@ -241,7 +285,7 @@ export class Game {
 
   _loop(now) {
     if (!this.running) return;
-    let raw = Math.min(0.05, (now - this._last) / 1000);
+    let raw = Math.min(0.05, Math.max(0, (now - this._last) / 1000));
     this._last = now;
     // hitstop freezes gameplay briefly
     if (inHitstop(this.juice)) {
@@ -284,6 +328,7 @@ export class Game {
     p.x = Math.max(p.r + 6, Math.min(WORLD_W - p.r - 6, p.x)); // stay off the baseboard
     p.y = Math.max(p.r + 6, Math.min(WORLD_H - p.r - 6, p.y));
     if (this.joy.active) p.facing = Math.atan2(this.joy.dy, this.joy.dx);
+    this._tickTips(dt);
     p.pulse += dt;
     if (p.invuln > 0) p.invuln -= dt;
     p.orbitAngle += dt * 2.2;
@@ -617,6 +662,7 @@ export class Game {
         c.opened = true;
         c.alive = false;
         this.cratesOpened = (this.cratesOpened || 0) + 1;
+        this.dismissCoach('act');
         this.paused = true;
         this._noteGallery('item_chest');
         SFX.chest();
@@ -679,13 +725,51 @@ export class Game {
         bannerTitle: this.bannerTitle,
         bannerSub: this.bannerSub,
         midBanner: this.midBanner,
+        tips: this._tipPayload(),
       });
     }
   }
 
+  _tipPayload() {
+    const tips = this.tips;
+    if (!tips) return null;
+    return {
+      move: !!tips.move,
+      act: !!tips.act,
+      idle: !!tips.idle && !tips.move,
+      settled: this.bannerTimer <= 0,
+    };
+  }
+
+  /** First-run plaques (8s) and one idle nudge per run if they never move. */
+  _tickTips(dt) {
+    const tips = this.tips;
+    if (!tips) return;
+    const moving = this.joy.active && Math.hypot(this.joy.dx, this.joy.dy) > 0.15;
+    if (moving) {
+      tips.moved = true;
+      tips.move = false;
+      tips.idle = false;
+    }
+    if (tips.move || tips.act) {
+      tips.age += dt;
+      if (tips.age >= 8) {
+        tips.move = false;
+        tips.act = false;
+      }
+    }
+    const early = (this.stage.stageNum || 1) <= 3 && this.time < 40;
+    if (!tips.moved && !tips.idleShown && early && this.time >= 12 && !tips.move) {
+      tips.idleShown = true;
+      tips.idle = true;
+      tips.idleUntil = this.time + 4.2;
+    }
+    if (tips.idle && this.time >= tips.idleUntil) tips.idle = false;
+  }
+
   _spawnWave(dt) {
-    // Retention: denser early spawns for first 10s
-    const earlyBoost = this.time < 20 ? 1.6 : 1;
+    const pace = this.pace || paceProfile(this.stage);
+    const earlyBoost = this.time < 20 ? pace.earlyBoost : 1;
     const rate = spawnRateAt(this.stage, this.time) * earlyBoost;
     this.spawnAcc += dt * rate;
     const scale = difficultyScale(this.stage, this.time);
@@ -701,10 +785,11 @@ export class Game {
   }
 
   _checkBosses() {
+    const marks = (this.events && this.events.bossMarks) || {};
     for (const b of this.stage.bosses || []) {
       if (this.time >= b.at && !this.bossFired[b.at]) {
         this.bossFired[b.at] = true;
-        this._spawnBoss(b.label);
+        this._spawnBoss(b.label, { pos: marks[b.at] });
       }
     }
     // endless: boss every 150s, elite surge every 90s
@@ -712,7 +797,8 @@ export class Game {
       const bossSlot = Math.floor(this.time / 150);
       if (bossSlot > 0 && !this.bossFired['e'+bossSlot]) {
         this.bossFired['e'+bossSlot] = true;
-        this._spawnBoss('无尽设施霸主', { bonus: true });
+        const slotTime = bossSlot * 150;
+        this._spawnBoss('无尽设施霸主', { bonus: true, pos: marks['e'+slotTime] });
       }
       const surge = Math.floor(this.time / 90);
       if (surge > 0 && !this.announceFired['surge'+surge]) {
@@ -735,7 +821,8 @@ export class Game {
         this._banner(a.text, 'info', 1.8);
         SFX.announce();
         const scale = difficultyScale(this.stage, this.time);
-        for (let i = 0; i < 5; i++) {
+        const extra = (this.pace && this.pace.announceExtra) || 5;
+        for (let i = 0; i < extra; i++) {
           const pos = spawnPointAround(this.player.x, this.player.y, 200, 320, WORLD_W, WORLD_H);
           const type = pickEnemyType(this.stage, this.time);
           this.enemies.push(createEnemy(type, pos.x, pos.y, scale));
@@ -761,9 +848,13 @@ export class Game {
 
   /** Wave changes get one short line, and only when nothing else is on screen. */
   _noteWave() {
-    const wave = Math.floor(this.time / 20) + 1;
+    const wave = Math.max(1, Math.floor(Math.max(0, this.time) / 20) + 1);
     if (wave === this._waveShown) return;
     this._waveShown = wave;
+    // Intro already says the opening wave. Coach plaques own the first seconds.
+    if (this.bannerTimer > 0) return;
+    const tips = this.tips;
+    if (tips && (tips.move || tips.act || tips.idle)) return;
     if (this.midBanner || (this.bannerQueue && this.bannerQueue.length)) return;
     const goal = stageGoalLine(this.stage);
     this._banner(`波次 ${wave} · 目标 ${goal}`, 'info', 1.2);
@@ -794,8 +885,9 @@ export class Game {
 
     // 1) zombie swarm ring every ~22s: weak fodder closing in from all sides = AoE payoff
     if (t >= ev.swarmNext && t < endT - 6) {
-      ev.swarmNext = t + 20 + Math.random() * 5;
-      const n = Math.min(22, 10 + Math.floor(t / 25) * 2);
+      const pace = this.pace || paceProfile(this.stage);
+      ev.swarmNext = t + (pace.swarmBase <= 8 ? 24 : 20) + Math.random() * 5;
+      const n = Math.min(pace.swarmCap || 22, pace.swarmBase + Math.floor(t / 25) * pace.swarmStep);
       const R = 250;
       for (let i = 0; i < n; i++) {
         const a = (Math.PI * 2 * i) / n;
@@ -819,10 +911,21 @@ export class Game {
       this._banner('精英来袭！', 'elite', 1.6);
     }
 
-    // 3) boss warning 3s ahead (soft pulsing stripe, no strobe)
+    // 3) boss warning 3s ahead: under-HUD plaque + a soft rust ring on the landing spot
     for (const b of this.stage.bosses || []) {
       if (!ev.bossWarned[b.at] && t >= b.at - 3 && t < b.at) {
         ev.bossWarned[b.at] = true;
+        this._markBossLanding(b.at, t, b.at + 0.55);
+        this._banner('警告 · 首领接近', 'boss', 3);
+        SFX.announce();
+      }
+    }
+    if (this.stage.endless) {
+      const nextBossT = (Math.floor(t / 150) + 1) * 150;
+      const key = 'e' + nextBossT;
+      if (!ev.bossWarned[key] && t >= nextBossT - 3 && t < nextBossT) {
+        ev.bossWarned[key] = true;
+        this._markBossLanding(key, t, nextBossT + 0.55);
         this._banner('警告 · 首领接近', 'boss', 3);
         SFX.announce();
       }
@@ -896,9 +999,17 @@ export class Game {
     }
   }
 
+  _markBossLanding(key, from, until) {
+    const pos = spawnPointAround(this.player.x, this.player.y, 280, 340, WORLD_W, WORLD_H);
+    if (!this.events.bossMarks) this.events.bossMarks = {};
+    this.events.bossMarks[key] = { x: pos.x, y: pos.y, from, until };
+  }
+
   _spawnBoss(label, opts = {}) {
     const bonus = !!opts.bonus; // combo/secret extras must NOT count toward stage clear
-    const pos = spawnPointAround(this.player.x, this.player.y, 300, 360, WORLD_W, WORLD_H);
+    const pos = (opts.pos && opts.pos.x != null)
+      ? opts.pos
+      : spawnPointAround(this.player.x, this.player.y, 300, 360, WORLD_W, WORLD_H);
     const scale = difficultyScale(this.stage, this.time);
     const theme = this.stage.theme || 'office';
     const variant = theme === 'ward' ? 1 : theme === 'basement' ? 2 : 0;
@@ -1152,6 +1263,32 @@ export class Game {
   }
 
   /** Pixel-grid floor: tone variation + thin bevel + 1px darker grout + boundary baseboard. */
+  /** Soft rust ring where a boss will land. Slow breathe, no white flash. */
+  _drawBossMarks(ctx) {
+    const marks = this.events && this.events.bossMarks;
+    if (!marks) return;
+    const t = this.time;
+    for (const key of Object.keys(marks)) {
+      const m = marks[key];
+      if (!m || t < m.from || t > m.until) continue;
+      const pulse = 0.5 + 0.5 * Math.sin(t * 3.1);
+      const r = 48 + 8 * pulse;
+      ctx.save();
+      ctx.fillStyle = `rgba(176, 98, 48, ${0.1 + 0.05 * pulse})`;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, r * 0.78, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(150, 78, 36, ${0.38 + 0.1 * pulse})`;
+      ctx.lineWidth = 4;
+      ctx.setLineDash([10, 8]);
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+  }
+
   _drawFloor(ctx, F) {
     if (!this._floorCache) this._ensureFloorCache();
     if (this._floorCache) {
@@ -1236,6 +1373,7 @@ export class Game {
     if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = true;
 
     this._drawFloor(ctx, FLOOR);
+    this._drawBossMarks(ctx);
 
     // hazard zones visual
     for (const z of (this.hazardZones || [])) {
@@ -1594,10 +1732,14 @@ export class Game {
         gold: ['#ffd76a', '#3b2a1a', '#5a3400'],
         boss: ['#f7b089', '#3b2a1a', '#6a1a08'],
       }[kind] || ['#fff3dc', '#3b2a1a', '#3b2a1a'];
-      // Boss / wave / elite plaques stack under the HUD, and under the intro while it is up.
+      // Boss / wave / elite plaques stack under the HUD, and under the intro and coach tips.
       // Pause button occupies the top-right (~y 30–82); never place a plaque there.
       const hudClear = 168;
+      const tips = this.tips;
+      const tipCount = tips ? ((tips.move ? 1 : 0) + (tips.act ? 1 : 0) + (tips.idle && !tips.move ? 1 : 0)) : 0;
+      const coachBottom = tipCount ? (this.bannerTimer > 0 ? 214 : 122) + tipCount * 40 : 0;
       let cy = this.bannerTimer > 0 ? 268 : 204;
+      if (coachBottom) cy = Math.max(cy, coachBottom + 28);
       if (cy - 25 < hudClear) cy = hudClear + 25;
       ctx.save();
       ctx.globalAlpha = a;

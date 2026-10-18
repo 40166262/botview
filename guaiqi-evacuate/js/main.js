@@ -9,7 +9,7 @@ import {
   $, show, hide, setLoadingProgress, refreshHomeStats,
   updateHud, showUpgradeCards, hideUpgrade, showResult, hideResult,
   toast, pushAchievement, celebrateFinds, bindJoystick, renderStageCards, renderCharCards, renderGallery,
-  renderBag, showChestPick, showGachaResult, showPause, hidePause,
+  renderBag, showChestPick, showGachaResult, showPause, hidePause, syncBattleTips,
 } from './ui.js';
 import { preloadSprites } from './sprites.js';
 import { STAGES, getStage, isStageUnlocked, markStageCleared, runXpGain, ENDLESS } from './stages.js';
@@ -85,7 +85,10 @@ function takeFinds() {
 }
 
 const game = new Game(canvas, {
-  onHud: updateHud,
+  onHud(data) {
+    updateHud(data);
+    syncBattleTips(data.tips);
+  },
   onLevelUp(choices) {
     showUpgradeCards(choices, (u) => {
       SFX.click();
@@ -125,7 +128,8 @@ const game = new Game(canvas, {
     flushAchievements();
     const failN = (save.failStreak || {})[result.stageId] || 0;
     let suggest = '差一点点，再来一局就稳了。';
-    if ((result.time || 0) < 25) suggest = '先拉开距离，捡经验再输出。';
+    if (result.stageId === 's1') suggest = '先开箱补给，再绕开走位。';
+    else if ((result.time || 0) < 25) suggest = '先拉开距离，捡经验再输出。';
     else if (failN >= 2) suggest = '去装备栏升一级，会好过很多。';
     else if ((result.kills || 0) < 8) suggest = '贴着物资箱走，箱子能翻盘。';
     showResult({
@@ -218,6 +222,19 @@ function goHome() {
   refreshHomeStats(save);
 }
 
+function isFreshCoach(data) {
+  // First battle only. Starter coins from gear bootstrap do not count as play.
+  if (!data || data.coachSeen) return false;
+  const cleared = data.stagesCleared || {};
+  if (Object.keys(cleared).some((k) => cleared[k])) return false;
+  if ((data.bestTime || 0) > 0 || (data.bestKills || 0) > 0) return false;
+  if ((data.playerLevel || 1) > 1) return false;
+  if ((data.gachaCount || 0) > 0) return false;
+  const fails = data.failStreak || {};
+  if (Object.keys(fails).some((k) => fails[k] > 0)) return false;
+  return true;
+}
+
 function startRun(stageId) {
   resumeAudio();
   SFX.click();
@@ -237,13 +254,18 @@ function startRun(stageId) {
   show('game-wrap');
   const joy = $('joystick');
   if (joy) joy.classList.add('ghost');
-  const moveHint = $('move-hint');
-  if (moveHint) moveHint.classList.add('hidden');
+  syncBattleTips(null);
+  const coach = isFreshCoach(save);
+  if (coach) {
+    save.coachSeen = true;
+    writeSave(save);
+  }
   game.configure({
     stageId: sid,
     charId: save.selectedChar || 'grin',
     equipped: save.equipped || [],
     save,
+    coach,
   });
   game.start();
   const egg = maybeEggToast();

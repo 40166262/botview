@@ -352,35 +352,21 @@ function flashColor(e) {
 function drawEliteBossAura(ctx, e, bob, t) {
   const pulse = 1 + 0.06 * Math.sin(t * 4.2 + e.wobble);
   if (e.isElite) {
-    const ar = e.r * 1.55 * pulse;
-    const aura = ctx.createRadialGradient(e.x, e.y + bob, 0, e.x, e.y + bob, ar);
-    aura.addColorStop(0, 'rgba(255,170,60,0.42)');
-    aura.addColorStop(0.45, 'rgba(220,140,40,0.22)');
+    const ar = e.r * 1.48 * pulse;
+    const aura = ctx.createRadialGradient(e.x, e.y + bob, e.r * 0.2, e.x, e.y + bob, ar);
+    aura.addColorStop(0, 'rgba(240, 176, 80, 0.22)');
+    aura.addColorStop(0.55, 'rgba(210, 140, 50, 0.1)');
     aura.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = aura;
     ctx.beginPath();
-    ctx.ellipse(e.x, e.y + bob + e.r * 0.15, ar * 0.95, ar * 0.72, 0, 0, Math.PI * 2);
+    ctx.ellipse(e.x, e.y + bob + e.r * 0.12, ar * 0.9, ar * 0.68, 0, 0, Math.PI * 2);
     ctx.fill();
-    // thick gold outline ring
-    ctx.strokeStyle = `rgba(255,200,80,${0.55 + 0.15 * Math.sin(t * 5)})`;
+    // Steady warm ring. The sprite rim carries the read; this stays soft.
+    ctx.strokeStyle = `rgba(214, 146, 58, ${0.34 + 0.08 * Math.sin(t * 2.2)})`;
     ctx.lineWidth = 3;
-    ctx.setLineDash([6, 4]);
     ctx.beginPath();
-    ctx.ellipse(e.x, e.y + bob + e.r * 0.1, e.r * 1.25 * pulse, e.r * 0.95 * pulse, 0, 0, Math.PI * 2);
+    ctx.ellipse(e.x, e.y + bob + e.r * 0.08, e.r * 1.22 * pulse, e.r * 0.92 * pulse, 0, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.setLineDash([]);
-    // small upward spark particles
-    for (let i = 0; i < 4; i++) {
-      const a = t * 2.5 + i * 1.7 + e.wobble;
-      const sx = e.x + Math.cos(a) * e.r * 0.9;
-      const sy = e.y + bob - e.r * 0.4 - ((t * 28 + i * 11) % 22);
-      ctx.globalAlpha = 0.35 + 0.35 * Math.sin(t * 6 + i);
-      ctx.fillStyle = '#ffe080';
-      ctx.beginPath();
-      ctx.arc(sx, sy, 1.6, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
   } else if (e.isBoss) {
     const ar = e.r * 1.7 * pulse;
     const aura = ctx.createRadialGradient(e.x, e.y + bob, e.r * 0.4, e.x, e.y + bob, ar);
@@ -536,8 +522,11 @@ export function drawEnemy(ctx, e, t) {
     drawStandingSprite(ctx, sprite, e.x, e.y + e.r * stand.foot + bob * 0.5, e.r * stand.h * bump, {
       maxW: stand.maxW ? e.r * stand.maxW * bump : 0,
       walk,
-      tint: e.isElite ? '#ffb640' : stand.tint || null,
-      tintAlpha: e.isElite ? 0.16 : 0.2,
+      tint: e.isElite ? '#ffb45a' : stand.tint || null,
+      tintAlpha: e.isElite ? 0.1 : 0.2,
+      rim: e.isElite ? '#f2b15a' : (e.isSlacker ? '#ffe0a8' : null),
+      rimAlpha: e.isElite ? 0.9 : 0.55,
+      rimPx: e.isElite ? 4 : 2,
       flash,
     });
     ctx.globalAlpha = 1;
@@ -552,8 +541,11 @@ export function drawEnemy(ctx, e, t) {
     drawStandingSprite(ctx, sprite, e.x, e.y + e.r * 0.85 + bob * 0.5, e.r * hMul * bump, {
       maxW: e.r * (e.type === 'bat' ? 3.9 : 2.6) * bump,
       walk,
-      tint: e.isElite ? '#ffb640' : null,
-      tintAlpha: e.isElite ? 0.16 : 0.2,
+      tint: e.isElite ? '#ffb45a' : null,
+      tintAlpha: e.isElite ? 0.1 : 0.2,
+      rim: e.isElite ? '#f2b15a' : (e.isSlacker ? '#ffe0a8' : null),
+      rimAlpha: e.isElite ? 0.9 : 0.55,
+      rimPx: e.isElite ? 4 : 2,
       flash,
     });
     ctx.globalAlpha = 1;
