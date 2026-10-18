@@ -35,8 +35,6 @@ const MANIFEST = {
   projExtinguish: 'assets/proj_extinguish.png',
   projNail: 'assets/proj_nail.png',
   roboVac: 'assets/icon_robo_vac.png',
-  uiPause: 'assets/ui_btn_pause.png',
-  uiPanel: 'assets/ui_panel.png',
 };
 
 /** @type {Record<string, HTMLImageElement|null>} */

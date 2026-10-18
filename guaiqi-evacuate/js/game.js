@@ -34,15 +34,15 @@ const FLOOR_THEMES = {
     seam: 'rgba(140,96,48,0.38)', hi: 'rgba(255,248,226,0.28)', lo: 'rgba(150,104,52,0.14)',
     edge: '#d9b77e', accent: null,
   },
-  ward: { // mint linoleum with a cream accent tile now and then
-    tile: 48, base: '#c8e6d4', tones: ['#c8e6d4', '#c3e2cf', '#cdeadb', '#c6e4d2'],
-    seam: 'rgba(48,118,100,0.36)', hi: 'rgba(250,255,246,0.30)', lo: 'rgba(52,128,108,0.14)',
-    edge: '#9fd0bc', accent: '#daeedd',
+  ward: { // warm clinic paper tiles (no mint/teal)
+    tile: 48, base: '#f0dcc8', tones: ['#f0dcc8', '#ead4be', '#f4e2d0', '#e8d0b8'],
+    seam: 'rgba(140,90,50,0.32)', hi: 'rgba(255,248,236,0.32)', lo: 'rgba(150,100,60,0.14)',
+    edge: '#d7b48e', accent: '#f7e6d2',
   },
-  basement: { // peach-sand tech plates, teal seams
+  basement: { // peach-sand plates, warm grout
     tile: 56, accentP: 0.06, base: '#f2d4a8', tones: ['#f2d4a8', '#efcfa1', '#f5d9b0', '#f0d2a5'],
-    seam: 'rgba(36,140,132,0.50)', hi: 'rgba(255,246,226,0.32)', lo: 'rgba(196,120,60,0.20)',
-    edge: '#5fb8ae', accent: '#dfe9cf', // occasional pale-teal service plate
+    seam: 'rgba(140,90,40,0.42)', hi: 'rgba(255,246,226,0.32)', lo: 'rgba(196,120,60,0.20)',
+    edge: '#c4a078', accent: '#f6e2c4',
   },
 };
 
@@ -51,7 +51,7 @@ export class Game {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     // HiDPI backing store: CSS still displays at 100%, game draws in 390×844 logical coords
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.dpr = dpr;
     canvas.width = W * dpr;
     canvas.height = H * dpr;
@@ -145,6 +145,7 @@ export class Game {
 
   start() {
     this.reset();
+    this._ensureFloorCache();
     this.running = true;
     this.paused = false;
     this.alive = true;
@@ -182,7 +183,7 @@ export class Game {
     this.owned[upgrade.id] = (this.owned[upgrade.id] || 0) + 1;
     if (upgrade.id === 'leaf_drone') syncDrones(this.player);
     SFX.level();
-    spawnBurst(this.particles, this.player.x, this.player.y, '#ffe066', 18, 140);
+    spawnBurst(this.particles, this.player.x, this.player.y, '#ffe066', 10, 110);
     if (upgrade.id === 'crit' || upgrade.id === 'critdmg') {
       if (this.saveRef) unlockGallery(this.saveRef, 'item_crit');
     }
@@ -952,7 +953,7 @@ export class Game {
     dt.text = String(Math.round(dmg));
     dt.age = 0;
     dt.life = crit ? 0.75 : 0.55;
-    dt.color = crit ? '#ffc23a' : (e.isBoss ? '#ffb0a0' : '#ffffff');
+    dt.color = crit ? '#ffc23a' : (e.isBoss ? '#ffd0b8' : '#fff1d0');
     dt.crit = crit;
     dt.scale = crit ? 1.25 : 1;
     }
@@ -992,7 +993,7 @@ export class Game {
         g.x = e.x + (Math.random() - 0.5) * 22;
         g.y = e.y + (Math.random() - 0.5) * 22;
         g.value = e.isBoss ? 3 : 1;
-        g.r = e.isBoss ? 8 : 6;
+        g.r = e.isBoss ? 11 : 9;
         g.age = 0;
         g.color = e.isBoss ? '#ffe066' : '#c8963a';
         g.trail = [];
@@ -1067,7 +1068,7 @@ export class Game {
     this.alive = true;
     this.running = false;
     SFX.stageClear();
-    spawnBurst(this.particles, this.player.x, this.player.y, '#ffe066', 36, 200);
+    spawnBurst(this.particles, this.player.x, this.player.y, '#ffe066', 14, 140);
     const bonus = this.stage.rewardCoins || 20;
     this.coinsEarned += bonus;
     if (this.hooks.onClear) {
@@ -1088,7 +1089,7 @@ export class Game {
     this.alive = false;
     this.running = false;
     SFX.death();
-    spawnBurst(this.particles, this.player.x, this.player.y, '#ffe066', 30, 180);
+    spawnBurst(this.particles, this.player.x, this.player.y, '#ffe066', 12, 120);
     if (this.hooks.onDeath) {
       this.hooks.onDeath({
         stageId: this.stage.id,
@@ -1102,15 +1103,41 @@ export class Game {
     }
   }
 
+  /** Paint the floor once per theme. Redrawing every tile each frame is the main mobile hitch. */
+  _ensureFloorCache() {
+    const theme = (this.stage && this.stage.theme) || 'office';
+    if (this._floorCache && this._floorCacheTheme === theme) return;
+    const F = FLOOR_THEMES[theme] || FLOOR_THEMES.office;
+    const c = document.createElement('canvas');
+    c.width = WORLD_W;
+    c.height = WORLD_H;
+    this._paintFloor(c.getContext('2d'), F, true);
+    this._floorCache = c;
+    this._floorCacheTheme = theme;
+  }
+
   /** Pixel-grid floor: tone variation + thin bevel + 1px darker grout + boundary baseboard. */
   _drawFloor(ctx, F) {
+    if (!this._floorCache) this._ensureFloorCache();
+    if (this._floorCache) {
+      ctx.drawImage(this._floorCache, 0, 0);
+      return;
+    }
+    this._paintFloor(ctx, F, false);
+  }
+
+  _paintFloor(ctx, F, full) {
     const t = F.tile;
-    const mx = (W / 2) * (1 - 1 / VIEW_ZOOM), my = (H / 2) * (1 - 1 / VIEW_ZOOM);
-    const vx0 = this.camX + mx - t, vy0 = this.camY + my - t;
-    const vx1 = vx0 + W / VIEW_ZOOM + t * 2, vy1 = vy0 + H / VIEW_ZOOM + t * 2;
-    const i0 = Math.max(0, Math.floor(vx0 / t)), j0 = Math.max(0, Math.floor(vy0 / t));
-    const i1 = Math.min(Math.ceil(WORLD_W / t), Math.ceil(vx1 / t));
-    const j1 = Math.min(Math.ceil(WORLD_H / t), Math.ceil(vy1 / t));
+    let i0 = 0, j0 = 0, i1 = Math.ceil(WORLD_W / t), j1 = Math.ceil(WORLD_H / t);
+    if (!full) {
+      const mx = (W / 2) * (1 - 1 / VIEW_ZOOM), my = (H / 2) * (1 - 1 / VIEW_ZOOM);
+      const vx0 = this.camX + mx - t, vy0 = this.camY + my - t;
+      const vx1 = vx0 + W / VIEW_ZOOM + t * 2, vy1 = vy0 + H / VIEW_ZOOM + t * 2;
+      i0 = Math.max(0, Math.floor(vx0 / t));
+      j0 = Math.max(0, Math.floor(vy0 / t));
+      i1 = Math.min(Math.ceil(WORLD_W / t), Math.ceil(vx1 / t));
+      j1 = Math.min(Math.ceil(WORLD_H / t), Math.ceil(vy1 / t));
+    }
     const seed = this._floorSeed || 0;
     ctx.fillStyle = F.base;
     ctx.fillRect(0, 0, WORLD_W, WORLD_H);
@@ -1255,36 +1282,6 @@ export class Game {
       ctx.globalAlpha = 1;
     }
 
-    // gems with trails
-    for (const g of this.gems.active) {
-      if (!g.alive) continue;
-      if (g.magnetized && g.trail.length > 1) {
-        ctx.strokeStyle = g.color;
-        ctx.globalAlpha = 0.35;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(g.trail[0].x, g.trail[0].y);
-        for (const t of g.trail) ctx.lineTo(t.x, t.y);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      }
-      // battery-cell pickup: bright amber diamond with ink outline (reads on beige floors)
-      const gr = g.r + 1;
-      // soft contact shadow so cells sit on the floor and pop on every theme
-      ctx.fillStyle = 'rgba(59,42,26,0.20)';
-      ctx.beginPath();
-      ctx.ellipse(g.x, g.y + gr * 1.35, gr * 0.95, gr * 0.38, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(g.x, g.y - gr * 1.25); ctx.lineTo(g.x + gr, g.y);
-      ctx.lineTo(g.x, g.y + gr * 1.25); ctx.lineTo(g.x - gr, g.y); ctx.closePath();
-      ctx.fillStyle = g.value > 1 ? '#ffd23d' : '#ffa53a';
-      ctx.fill();
-      ctx.lineWidth = 2; ctx.strokeStyle = '#3b2a1a'; ctx.stroke();
-      ctx.fillStyle = 'rgba(255,250,225,0.85)';
-      ctx.fillRect(g.x - gr * 0.35, g.y - gr * 0.6, gr * 0.3, gr * 0.5);
-    }
-
     // chests — loud interactive loot (vs dull scenery props)
     for (const c of this.chests.active) {
       if (!c.alive) continue;
@@ -1303,7 +1300,7 @@ export class Game {
         ctx.beginPath(); ctx.arc(c.x, by, 58, 0, Math.PI * 2); ctx.fill();
       }
       ctx.globalAlpha = 0.45 + 0.4 * pulse;
-      ctx.strokeStyle = c.golden ? '#ffb43a' : rare ? '#2fb5b0' : '#e8a040';
+      ctx.strokeStyle = c.golden ? '#ffb43a' : rare ? '#e0a040' : '#e8a040';
       ctx.lineWidth = c.golden ? 4 : 3;
       ctx.beginPath();
       ctx.arc(c.x, by + 4, (c.golden ? 38 : 32) + 3 * pulse, 0, Math.PI * 2);
@@ -1333,7 +1330,7 @@ export class Game {
       ctx.lineWidth = 4;
       const lab = c.golden ? '金色物资' : rare ? '稀有物资' : '物资';
       ctx.strokeText(lab, c.x, by - 38);
-      ctx.fillStyle = c.golden ? '#ffd050' : rare ? '#8ff0e8' : '#fff0c0';
+      ctx.fillStyle = c.golden ? '#ffd050' : rare ? '#ffe08a' : '#fff0c0';
       ctx.fillText(lab, c.x, by - 38);
       ctx.restore();
     }
@@ -1380,6 +1377,28 @@ export class Game {
         ctx.fill();
       }
       ctx.globalAlpha = 1;
+    }
+
+    // XP cells sit above enemies so bodies don't hide them, under the player.
+    for (const g of this.gems.active) {
+      if (!g.alive) continue;
+      const gy = g.y + Math.sin(g.age * 4) * 1.2;
+      const gr = g.r;
+      ctx.fillStyle = 'rgba(59,42,26,0.22)';
+      ctx.beginPath();
+      ctx.ellipse(g.x, gy + gr * 1.15, gr * 0.9, gr * 0.32, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(g.x, gy - gr * 1.35); ctx.lineTo(g.x + gr * 0.95, gy);
+      ctx.lineTo(g.x, gy + gr * 1.35); ctx.lineTo(g.x - gr * 0.95, gy); ctx.closePath();
+      ctx.fillStyle = g.value > 1 ? '#ffd23d' : '#ffb03a';
+      ctx.fill();
+      ctx.lineWidth = 2.5; ctx.strokeStyle = '#3b2a1a'; ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(g.x, gy - gr * 0.55); ctx.lineTo(g.x + gr * 0.38, gy);
+      ctx.lineTo(g.x, gy + gr * 0.45); ctx.lineTo(g.x - gr * 0.38, gy); ctx.closePath();
+      ctx.fillStyle = '#fff6d2';
+      ctx.fill();
     }
 
     // player — use char sprite if available
@@ -1441,14 +1460,20 @@ export class Game {
     if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = true;
     if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = true;
 
-    // vignette — warmer / chapter tinted
-    const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.22, W / 2, H / 2, H * 0.8);
-    vig.addColorStop(0, 'rgba(0,0,0,0)');
-    if (theme === 'basement') vig.addColorStop(1, 'rgba(90,50,15,0.20)');
-    else if (theme === 'ward') vig.addColorStop(1, 'rgba(20,50,44,0.22)');
-    else vig.addColorStop(1, 'rgba(70,40,10,0.22)');
-    ctx.fillStyle = vig;
-    ctx.fillRect(0, 0, W, H);
+    // vignette — cached warm edge so we don't rebuild a gradient every frame
+    if (!this._vig || this._vigTheme !== theme) {
+      const c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      const vctx = c.getContext('2d');
+      const vig = vctx.createRadialGradient(W / 2, H / 2, H * 0.22, W / 2, H / 2, H * 0.8);
+      vig.addColorStop(0, 'rgba(0,0,0,0)');
+      vig.addColorStop(1, theme === 'basement' ? 'rgba(90,50,15,0.20)' : 'rgba(70,40,10,0.20)');
+      vctx.fillStyle = vig;
+      vctx.fillRect(0, 0, W, H);
+      this._vig = c;
+      this._vigTheme = theme;
+    }
+    ctx.drawImage(this._vig, 0, 0);
 
     drawJuiceOverlay(ctx, this.juice, W, H);
 
@@ -1470,9 +1495,9 @@ export class Game {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     if (this.bannerTimer > 0) {
-      // compact intro plaque, sits just under the HUD and clears in 1.6s
+      // intro plaque sits under the HUD stack (combo ends ~122px) and clears in 1.6s
       const a = Math.max(0, Math.min(1, this.bannerTimer * 2.5, (1.6 - this.bannerTimer) * 4));
-      const cy = 146 - (1 - a) * 10;
+      const cy = 176;
       ctx.globalAlpha = a;
       plaque(W / 2, cy, 236, 54, '#fff3dc', '#3b2a1a');
       ctx.fillStyle = '#e8772a';
@@ -1498,7 +1523,8 @@ export class Game {
         gold: ['#ffd76a', '#3b2a1a', '#5a3400'],
         boss: ['#f7b089', '#3b2a1a', '#6a1a08'],
       }[kind] || ['#fff3dc', '#3b2a1a', '#3b2a1a'];
-      const cy = H * 0.24;
+      // below HUD, and below the intro plaque while that is still up
+      const cy = this.bannerTimer > 0 ? 268 : 204;
       ctx.save();
       ctx.globalAlpha = a;
       ctx.translate(W / 2, cy); ctx.scale(pop, pop); ctx.translate(-W / 2, -cy);

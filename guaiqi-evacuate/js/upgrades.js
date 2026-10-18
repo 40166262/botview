@@ -1,7 +1,7 @@
 /** Upgrade catalog — facility weapons + passives; sheet cells into 5×5 icon sheet */
 export const RARITY = {
   common: { id: 'common', name: '普通', color: '#9aaa90', border: 'rgba(154,170,144,0.75)' },
-  rare: { id: 'rare', name: '稀有', color: '#5cb8c8', border: 'rgba(92,184,200,0.85)' },
+  rare: { id: 'rare', name: '稀有', color: '#c47a32', border: 'rgba(196,122,50,0.85)' },
   epic: { id: 'epic', name: '史诗', color: '#e0b050', border: 'rgba(224,176,80,0.95)' },
 };
 

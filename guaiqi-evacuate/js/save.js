@@ -34,6 +34,8 @@ const defaults = () => ({
   materials: { scrap: 0, battery: 0, tape: 0, chip: 0 },
   _gearBootstrapped: false,
   failStreak: {},
+  achievements: {},
+  achievementsSeeded: false,
 });
 
 function migrateFacility(save) {

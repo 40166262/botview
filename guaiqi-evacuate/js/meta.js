@@ -27,7 +27,7 @@ export const CHARACTERS = [
     desc: '近战清场。扇叶/拖把范围伤害。',
     icon: '', unlock: { type: 'gacha' },
     coinCost: 120,
-    tint: '#7ab0c8',
+    tint: '#c4a070',
     stats: { damage: 1.15, speed: 0.9, hp: 1.3, crit: 0.85 },
     flavor: '「地板要干净，怪也一样。」',
   },
@@ -81,10 +81,21 @@ export const RARITY_LABEL = {
 };
 
 export const RARITY_COLOR = {
-  common: '#9aaa90',
-  rare: '#5cb8c8',
+  common: '#7d8a62',
+  rare: '#c47a32',
   epic: '#e0b050',
-  legendary: '#e8889a',
+  legendary: '#d4654a',
+};
+
+/** Sheet cell for passive charms — same 5×5 upgrade icon language as battle cards. */
+export const CHARM_ICON_CELL = {
+  charm_xp: 4,
+  charm_coin: 14,
+  charm_crit: 8,
+  charm_shield: 11,
+  charm_frost: 13,
+  charm_thorn: 12,
+  charm_legend: 1,
 };
 
 export const DEATH_LINES = [
@@ -485,6 +496,51 @@ export function claimDailyQuest(save) {
   if (q.reward.coins) save.coins = (save.coins || 0) + q.reward.coins;
   if (q.reward.diamonds) save.diamonds = (save.diamonds || 0) + q.reward.diamonds;
   return q.reward;
+}
+
+function earnedAchievements(save) {
+  const cleared = Object.keys(save.stagesCleared || {}).filter((id) => save.stagesCleared[id] && id !== 'endless').length;
+  const out = [];
+  const add = (id, name, desc, ok) => { if (ok) out.push({ id, name, desc }); };
+  add('first_clear', '初次撤离', '成功撤离一个章节', cleared >= 1);
+  add('clear_5', '深入设施', '累计通关 5 章', cleared >= 5);
+  add('clear_10', '设施熟客', '累计通关 10 章', cleared >= 10);
+  add('clear_25', '层层下探', '累计通关 25 章', cleared >= 25);
+  add('lv_5', '见习撤离员', '撤离员达到 5 级', (save.playerLevel || 1) >= 5);
+  add('lv_10', '正式撤离员', '撤离员达到 10 级', (save.playerLevel || 1) >= 10);
+  add('lv_20', '资深撤离员', '撤离员达到 20 级', (save.playerLevel || 1) >= 20);
+  add('combo_10', '连击手感', '最高连击达到 10', (save.maxComboBest || 0) >= 10);
+  add('combo_25', '手没停过', '最高连击达到 25', (save.maxComboBest || 0) >= 25);
+  add('kills_30', '清场起步', '单局击杀达到 30', (save.bestKills || 0) >= 30);
+  add('kills_100', '清场百人', '单局击杀达到 100', (save.bestKills || 0) >= 100);
+  add('gallery_10', '图鉴启程', '图鉴解锁 10 项', galleryCount(save) >= 10);
+  return out;
+}
+
+/**
+ * First call after this build records already-earned achievements silently
+ * so old saves do not get a toast burst. Later calls return newly earned ones.
+ */
+export function takeNewAchievements(save) {
+  save.achievements = save.achievements || {};
+  const earned = earnedAchievements(save);
+  if (!save.achievementsSeeded) {
+    for (const a of earned) save.achievements[a.id] = true;
+    save.achievementsSeeded = true;
+    return [];
+  }
+  const fresh = [];
+  for (const a of earned) {
+    if (!save.achievements[a.id]) {
+      save.achievements[a.id] = true;
+      fresh.push(a);
+    }
+  }
+  if (!fresh.length) return [];
+  if (fresh.length === 1) return fresh;
+  const names = fresh.map((a) => a.name);
+  const desc = names.length <= 3 ? names.join(' · ') : `${names.slice(0, 3).join(' · ')} 等`;
+  return [{ id: 'batch', name: `新成就 ×${fresh.length}`, desc }];
 }
 
 /** Gallery milestone: unlock 10 → diamonds */
