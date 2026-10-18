@@ -266,7 +266,7 @@ export async function preloadSprites(onProgress) {
 
 /**
  * Front-facing walk cycle (art is never mirrored). amt 0..1 = how much the unit is moving.
- * Returns a small hop (≤ ~2.5px), squash/stretch (±4%) and sway (±3°), pivoted at the feet.
+ * Soft hop (≤1.5px), squash (±2%), sway (±1°) — readable without subpixel smear.
  */
 export function walkPose(phase, amt) {
   if (!amt || amt < 0.01) return null;
@@ -274,10 +274,10 @@ export function walkPose(phase, amt) {
   const hop = Math.abs(s);                 // 0 at foot contact, 1 mid-stride
   const k = (hop - 0.5) * 2 * amt;         // -1 contact … +1 airborne
   return {
-    lift: hop * 2.5 * amt,
-    sx: 1 - 0.04 * k,
-    sy: 1 + 0.04 * k,
-    rot: s * (3 * Math.PI / 180) * amt,
+    lift: hop * 1.5 * amt,
+    sx: 1 - 0.02 * k,
+    sy: 1 + 0.02 * k,
+    rot: s * (1 * Math.PI / 180) * amt,
   };
 }
 
@@ -302,10 +302,10 @@ export function drawClippedSprite(ctx, img, x, y, radius, opts = {}) {
   const ih = img.naturalHeight || img.height;
   // True aspect (Style E tall pixels ~0.5); only cap absurdly wide
   const aspect = iw / Math.max(1, ih);
-  const dh = r * 2;
-  const dw = dh * Math.min(1.35, aspect);
-  const dx = x - dw / 2;
-  const dy = y - dh / 2;
+  const dh = Math.round(r * 2);
+  const dw = Math.round(dh * Math.min(1.35, aspect));
+  const dx = Math.round(x - dw / 2);
+  const dy = Math.round(y - dh / 2);
 
   // Soft elliptical ground shadow (not a white ring)
   ctx.save();
@@ -330,6 +330,9 @@ export function drawClippedSprite(ctx, img, x, y, radius, opts = {}) {
 
   ctx.save();
   applyWalk(ctx, opts.walk, x, dy + dh * 0.94); // pivot near the feet
+  ctx.imageSmoothingEnabled = false;
+  if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = false;
+  if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = false;
   ctx.drawImage(img, 0, 0, iw, ih, dx, dy, dw, dh);
   // Tint / hit flash are drawn as a silhouette of the sprite itself (no rectangular box)
   if (opts.tint) {
@@ -358,8 +361,11 @@ export function drawStandingSprite(ctx, img, x, footY, h, opts = {}) {
   const aspect = iw / Math.max(1, ih);
   let dh = h, dw = h * aspect;
   if (opts.maxW && dw > opts.maxW) { dw = opts.maxW; dh = dw / aspect; }
-  const dx = x - dw / 2;
-  const dy = footY - dh;
+  // Snap to integer pixels so Style E art stays crisp under VIEW_ZOOM
+  dh = Math.round(dh);
+  dw = Math.round(dw);
+  const dx = Math.round(x - dw / 2);
+  const dy = Math.round(footY - dh);
   ctx.save();
   ctx.fillStyle = opts.shadow || 'rgba(70,45,20,0.30)';
   ctx.beginPath();
@@ -367,6 +373,9 @@ export function drawStandingSprite(ctx, img, x, footY, h, opts = {}) {
   ctx.fill();
   // r6: front-facing art — never mirrored; movement reads through the walk pose instead
   applyWalk(ctx, opts.walk, x, footY);
+  ctx.imageSmoothingEnabled = false;
+  if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = false;
+  if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = false;
   ctx.drawImage(img, 0, 0, iw, ih, dx, dy, dw, dh);
   if (opts.tint) {
     ctx.globalAlpha = opts.tintAlpha ?? 0.22;

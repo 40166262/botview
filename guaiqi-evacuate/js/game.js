@@ -27,21 +27,21 @@ const WORLD_W = 1200;
 const WORLD_H = 1600;
 const VIEW_ZOOM = 1.22; // pull-in so chars/loot read larger on phone
 
-/** r6 floor palettes — flat painted tiles, warm & bright, never gray. */
+/** r6 floor palettes — warm pixel-grid tiles (stronger grout, less soft bevel). */
 const FLOOR_THEMES = {
   office: { // warm beige carpet tiles
     tile: 64, base: '#ecd6a6', tones: ['#ecd6a6', '#e8d19f', '#efdaae', '#ead4a3'],
-    seam: 'rgba(150,104,52,0.22)', hi: 'rgba(255,248,226,0.45)', lo: 'rgba(150,104,52,0.10)',
+    seam: 'rgba(140,96,48,0.38)', hi: 'rgba(255,248,226,0.28)', lo: 'rgba(150,104,52,0.14)',
     edge: '#d9b77e', accent: null,
   },
   ward: { // mint linoleum with a cream accent tile now and then
     tile: 48, base: '#c8e6d4', tones: ['#c8e6d4', '#c3e2cf', '#cdeadb', '#c6e4d2'],
-    seam: 'rgba(52,128,108,0.22)', hi: 'rgba(250,255,246,0.50)', lo: 'rgba(52,128,108,0.10)',
+    seam: 'rgba(48,118,100,0.36)', hi: 'rgba(250,255,246,0.30)', lo: 'rgba(52,128,108,0.14)',
     edge: '#9fd0bc', accent: '#daeedd',
   },
   basement: { // peach-sand tech plates, teal seams
     tile: 56, accentP: 0.06, base: '#f2d4a8', tones: ['#f2d4a8', '#efcfa1', '#f5d9b0', '#f0d2a5'],
-    seam: 'rgba(36,150,140,0.42)', hi: 'rgba(255,246,226,0.55)', lo: 'rgba(196,120,60,0.18)',
+    seam: 'rgba(36,140,132,0.50)', hi: 'rgba(255,246,226,0.32)', lo: 'rgba(196,120,60,0.20)',
     edge: '#5fb8ae', accent: '#dfe9cf', // occasional pale-teal service plate
   },
 };
@@ -1093,7 +1093,7 @@ export class Game {
     }
   }
 
-  /** Flat painted floor: per-tile gentle tone variation + soft bevel + boundary baseboard. */
+  /** Pixel-grid floor: tone variation + thin bevel + 1px darker grout + boundary baseboard. */
   _drawFloor(ctx, F) {
     const t = F.tile;
     const mx = (W / 2) * (1 - 1 / VIEW_ZOOM), my = (H / 2) * (1 - 1 / VIEW_ZOOM);
@@ -1113,21 +1113,21 @@ export class Game {
         const w = Math.min(t, WORLD_W - x), hh = Math.min(t, WORLD_H - y);
         ctx.fillStyle = (F.accent && h < (F.accentP || 0.05)) ? F.accent : F.tones[Math.floor(h * F.tones.length) % F.tones.length];
         ctx.fillRect(x, y, w, hh);
-        // soft painted bevel: light top/left, warm shade bottom/right
+        // thin bevel (1px) — less soft painted look, closer to chunky tiles
         ctx.fillStyle = F.hi;
-        ctx.fillRect(x + 1, y + 1, w - 2, 2);
-        ctx.fillRect(x + 1, y + 1, 2, hh - 2);
+        ctx.fillRect(x + 1, y + 1, w - 2, 1);
+        ctx.fillRect(x + 1, y + 1, 1, hh - 2);
         ctx.fillStyle = F.lo;
-        ctx.fillRect(x + 1, y + hh - 3, w - 2, 2);
-        ctx.fillRect(x + w - 3, y + 1, 2, hh - 2);
+        ctx.fillRect(x + 1, y + hh - 2, w - 2, 1);
+        ctx.fillRect(x + w - 2, y + 1, 1, hh - 2);
       }
     }
-    // grout seams
+    // 1px darker grout seams for a subtle pixel-grid read
     ctx.strokeStyle = F.seam;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    for (let i = i0; i <= i1; i++) { const x = Math.min(WORLD_W, i * t); ctx.moveTo(x, j0 * t); ctx.lineTo(x, Math.min(WORLD_H, j1 * t)); }
-    for (let j = j0; j <= j1; j++) { const y = Math.min(WORLD_H, j * t); ctx.moveTo(i0 * t, y); ctx.lineTo(Math.min(WORLD_W, i1 * t), y); }
+    for (let i = i0; i <= i1; i++) { const x = Math.min(WORLD_W, i * t) + 0.5; ctx.moveTo(x, j0 * t); ctx.lineTo(x, Math.min(WORLD_H, j1 * t)); }
+    for (let j = j0; j <= j1; j++) { const y = Math.min(WORLD_H, j * t) + 0.5; ctx.moveTo(i0 * t, y); ctx.lineTo(Math.min(WORLD_W, i1 * t), y); }
     ctx.stroke();
     // boundary baseboard so the arena edge reads as a wall line, not a void
     const bb = 14;
@@ -1158,6 +1158,10 @@ export class Game {
     ctx.scale(VIEW_ZOOM, VIEW_ZOOM);
     ctx.translate(-W / 2, -H / 2);
     ctx.translate(-this.camX + off.x, -this.camY + off.y);
+    // Crisp nearest-neighbor for world sprites (Style E pixels); HUD re-enables after restore
+    ctx.imageSmoothingEnabled = false;
+    if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = false;
+    if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = false;
 
     this._drawFloor(ctx, FLOOR);
 
@@ -1422,6 +1426,10 @@ export class Game {
     // world-space combo popups removed (duplicated the HUD ×N counter and cluttered the fight)
 
     ctx.restore();
+    // Screen-space HUD / banners: allow smoothing for readable text
+    ctx.imageSmoothingEnabled = true;
+    if ('webkitImageSmoothingEnabled' in ctx) ctx.webkitImageSmoothingEnabled = true;
+    if ('mozImageSmoothingEnabled' in ctx) ctx.mozImageSmoothingEnabled = true;
 
     // vignette — warmer / chapter tinted
     const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.22, W / 2, H / 2, H * 0.8);
@@ -1519,17 +1527,11 @@ export class Game {
     const bob = Math.sin(this.time * 4 + p.pulse) * 2 * (1 - this._pWalk);
     const spr = getCharSprite(this.charId);
     if (spr) {
-      // soft teal ground ring under feet; body via standing draw (true aspect, no fat stretch)
+      // No teal sticker ring — warm contact shadow only (matches enemies via drawStandingSprite)
       const footY = p.y + bob;
-      const hh = p.r * 4.0;
-      ctx.save();
-      ctx.fillStyle = 'rgba(64, 180, 168, 0.22)';
-      ctx.beginPath();
-      ctx.ellipse(p.x, footY, p.r * 1.55, p.r * 0.42, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+      const hh = p.r * 4.4;
       drawStandingSprite(ctx, spr, p.x, footY, hh, {
-        maxW: p.r * 2.4,
+        maxW: p.r * 2.6,
         walk,
         shadow: 'rgba(70,45,20,0.28)',
       });
