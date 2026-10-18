@@ -30,13 +30,6 @@ const MANIFEST = {
   chestUpgrade: 'assets/chest_upgrade.png',
   iconCoin: 'assets/icon_coin.png',
   iconDiamond: 'assets/icon_diamond.png',
-  propDesk: 'assets/prop_desk.png',
-  propChair: 'assets/prop_chair.png',
-  propCrate: 'assets/prop_crate.png',
-  propBed: 'assets/prop_bed.png',
-  propCart: 'assets/prop_cart.png',
-  propPipe: 'assets/prop_pipe.png',
-  propRock: 'assets/prop_rock.png',
   projChem: 'assets/proj_chem.png',
   projBullet: 'assets/proj_bullet.png',
   projExtinguish: 'assets/proj_extinguish.png',
@@ -272,6 +265,32 @@ export async function preloadSprites(onProgress) {
 }
 
 /**
+ * Front-facing walk cycle (art is never mirrored). amt 0..1 = how much the unit is moving.
+ * Returns a small hop (≤ ~2.5px), squash/stretch (±4%) and sway (±3°), pivoted at the feet.
+ */
+export function walkPose(phase, amt) {
+  if (!amt || amt < 0.01) return null;
+  const s = Math.sin(phase);
+  const hop = Math.abs(s);                 // 0 at foot contact, 1 mid-stride
+  const k = (hop - 0.5) * 2 * amt;         // -1 contact … +1 airborne
+  return {
+    lift: hop * 2.5 * amt,
+    sx: 1 - 0.04 * k,
+    sy: 1 + 0.04 * k,
+    rot: s * (3 * Math.PI / 180) * amt,
+  };
+}
+
+/** Apply a walkPose about pivot (px, py). */
+function applyWalk(ctx, w, px, py) {
+  if (!w) return;
+  ctx.translate(px, py - w.lift);
+  ctx.rotate(w.rot);
+  ctx.scale(w.sx, w.sy);
+  ctx.translate(-px, -py);
+}
+
+/**
  * Draw full chibi sprite (NO circular clip / white plate).
  * Soft elliptical ground shadow only; optional soft tint/flash.
  */
@@ -290,7 +309,7 @@ export function drawClippedSprite(ctx, img, x, y, radius, opts = {}) {
 
   // Soft elliptical ground shadow (not a white ring)
   ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ctx.fillStyle = 'rgba(70,45,20,0.26)'; // warm contact shadow (was neutral gray)
   ctx.beginPath();
   ctx.ellipse(x, y + r * 0.72, r * 0.85, r * 0.28, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -309,6 +328,8 @@ export function drawClippedSprite(ctx, img, x, y, radius, opts = {}) {
     ctx.fill();
   }
 
+  ctx.save();
+  applyWalk(ctx, opts.walk, x, dy + dh * 0.94); // pivot near the feet
   ctx.drawImage(img, 0, 0, iw, ih, dx, dy, dw, dh);
   // Tint / hit flash are drawn as a silhouette of the sprite itself (no rectangular box)
   if (opts.tint) {
@@ -324,6 +345,7 @@ export function drawClippedSprite(ctx, img, x, y, radius, opts = {}) {
     ctx.drawImage(silhouette(img, '#ffe2b0'), 0, 0, iw, ih, dx, dy, dw, dh);
     ctx.restore();
   }
+  ctx.restore();
 }
 
 /**
@@ -343,10 +365,8 @@ export function drawStandingSprite(ctx, img, x, footY, h, opts = {}) {
   ctx.beginPath();
   ctx.ellipse(x, footY - dh * 0.03, Math.max(dw * 0.42, 8), Math.max(dh * 0.09, 3.5), 0, 0, Math.PI * 2);
   ctx.fill();
-  if (opts.flip) {
-    ctx.translate(x * 2, 0);
-    ctx.scale(-1, 1);
-  }
+  // r6: front-facing art — never mirrored; movement reads through the walk pose instead
+  applyWalk(ctx, opts.walk, x, footY);
   ctx.drawImage(img, 0, 0, iw, ih, dx, dy, dw, dh);
   if (opts.tint) {
     ctx.globalAlpha = opts.tintAlpha ?? 0.22;

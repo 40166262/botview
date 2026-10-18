@@ -1,4 +1,4 @@
-import { getSprite, drawClippedSprite, drawStandingSprite } from './sprites.js';
+import { getSprite, drawClippedSprite, drawStandingSprite, walkPose } from './sprites.js';
 
 /** Enemy types + bosses — DESIGN §6 */
 export const ENEMY_TYPES = {
@@ -455,30 +455,34 @@ function drawEnemyVector(ctx, e, bob, flash, t = 0) {
 
 /**
  * v4 standing art per enemy type. h = sprite height in hit-radius units, foot = feet offset
- * below centre (r units), maxW caps wide art (crawler). faceLeft: art looks left by default.
+ * below centre (r units), maxW caps wide art (crawler). (art is front-facing; never mirrored)
  */
 const STANDING = {
-  slime: { key: 'slime', h: 4.0, foot: 0.85, faceLeft: true, waddle: true },          // 上班族丧尸
-  bat: { key: 'bat', h: 3.2, maxW: 3.9, foot: 0.8, faceLeft: true },                   // 爬行患者
-  beetle: { key: 'armored', h: 3.4, foot: 0.85, faceLeft: false, waddle: true },     // 铠甲尸
-  golem: { key: 'armored', h: 3.2, foot: 0.85, faceLeft: false, waddle: true, tint: '#7a8fa8' }, // 重装保安 (steel tint)
-  wisp: { key: 'monitor', h: 3.8, foot: 0.85, faceLeft: false },                       // 故障监视器
-  slacker: { key: 'slacker', h: 3.0, maxW: 3.4, foot: 0.85, faceLeft: false },         // 摸鱼丧尸
+  slime: { key: 'slime', h: 4.0, foot: 0.85 },          // 上班族丧尸
+  bat: { key: 'bat', h: 3.2, maxW: 3.9, foot: 0.8 },                   // 爬行患者
+  beetle: { key: 'armored', h: 3.4, foot: 0.85 },     // 铠甲尸
+  golem: { key: 'armored', h: 3.2, foot: 0.85, tint: '#7a8fa8' }, // 重装保安 (steel tint)
+  wisp: { key: 'monitor', h: 3.8, foot: 0.85 },                       // 故障监视器
+  slacker: { key: 'slacker', h: 3.0, maxW: 3.4, foot: 0.85 },         // 摸鱼丧尸
 };
 
 export function drawEnemy(ctx, e, t) {
   ctx.save();
   const flash = e.hitFlash > 0;
-  const bob = Math.sin(t * 3 + e.wobble) * (e.isBoss ? 3 : 2);
+  // r6: front-facing art, never mirrored. Track movement to drive a walk pose instead.
+  if (e._lx != null) {
+    const moved = Math.hypot(e.x - e._lx, e.y - e._ly);
+    const target = moved > 0.12 ? 1 : 0;
+    e._walkAmt = (e._walkAmt || 0) + (target - (e._walkAmt || 0)) * 0.2;
+  }
+  e._lx = e.x; e._ly = e.y;
+  const walkAmt = e._walkAmt || 0;
+  const walk = walkPose(t * (e.isBoss ? 7 : 9) + (e.wobble || 0) * 3, walkAmt * (e.isBoss ? 0.8 : 1));
+  // idle breathing bob only while standing still (walk pose takes over when moving)
+  const bob = Math.sin(t * 3 + e.wobble) * (e.isBoss ? 3 : 2) * (1 - walkAmt);
   const typeMeta = ENEMY_TYPES[e.type] || ENEMY_TYPES.slime;
   const stand = e.isSlacker ? STANDING.slacker : STANDING[e.type];
   const sprite = stand ? (getSprite(stand.key) || getSprite(e.type)) : getSprite(e.type === 'boss' ? 'boss' : e.type);
-  // face the walking direction (art faces left by default)
-  if (e._lx != null) {
-    const dx = e.x - e._lx;
-    if (Math.abs(dx) > 0.15) e._faceR = dx > 0;
-  }
-  e._lx = e.x;
 
   // skill telegraph
   if (e.skillState === 'windup') {
@@ -546,10 +550,9 @@ export function drawEnemy(ctx, e, t) {
     ctx.globalAlpha = e.phaseHidden ? 0.35 : 1;
     const bump = e.isElite ? 1.1 : 1;
     // feet sit just below the hit-circle centre; body rises above it (3/4 view)
-    const step = stand.waddle ? Math.abs(Math.sin(t * 7 + e.wobble)) * 2 : 0;
-    drawStandingSprite(ctx, sprite, e.x, e.y + e.r * stand.foot, e.r * stand.h * bump - step, {
+    drawStandingSprite(ctx, sprite, e.x, e.y + e.r * stand.foot + bob * 0.5, e.r * stand.h * bump, {
       maxW: stand.maxW ? e.r * stand.maxW * bump : 0,
-      flip: stand.faceLeft ? !!e._faceR : !e._faceR,
+      walk,
       tint: e.isElite ? '#ffb640' : stand.tint || null,
       tintAlpha: e.isElite ? 0.16 : 0.2,
       flash,
@@ -568,6 +571,7 @@ export function drawEnemy(ctx, e, t) {
       glow: 'none',
       scale: baseScale * scaleBump,
       flash,
+      walk,
     });
     ctx.globalAlpha = 1;
   } else {
@@ -590,14 +594,19 @@ export function drawEnemy(ctx, e, t) {
     const bx = e.x - bw / 2;
     const top = stand && sprite ? e.y + e.r * (stand.foot - stand.h * (e.isElite ? 1.1 : 1)) : e.y - e.r;
     const by = top - (thick ? 10 : 6);
-    ctx.fillStyle = 'rgba(0,0,0,0.65)';
-    ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
-    ctx.fillStyle = e.isBoss ? '#ff6a9a' : e.isElite ? '#ffc050' : '#6db88a';
-    ctx.fillRect(bx, by, bw * Math.max(0, e.hp / e.maxHp), bh);
-    if (thick) {
-      ctx.strokeStyle = e.isBoss ? 'rgba(255,120,160,0.7)' : 'rgba(255,210,100,0.7)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(bx - 1, by - 1, bw + 2, bh + 2);
+    // ink-framed pill bar (matches HUD bars) instead of a flat black strip
+    const rr = (x, y, w, h, r) => {
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+    };
+    rr(bx - 1.5, by - 1.5, bw + 3, bh + 3, (bh + 3) / 2);
+    ctx.fillStyle = '#3b2a1a';
+    ctx.fill();
+    const fw = Math.max(0, bw * Math.max(0, e.hp / e.maxHp));
+    if (fw > 0.5) {
+      rr(bx, by, fw, bh, bh / 2);
+      ctx.fillStyle = e.isBoss ? '#ff6a5a' : e.isElite ? '#ffc23a' : '#ff8a5a';
+      ctx.fill();
     }
   }
   ctx.restore();

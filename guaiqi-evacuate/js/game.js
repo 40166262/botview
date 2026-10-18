@@ -16,16 +16,35 @@ import {
 } from './stages.js';
 import {
   createJuice, tickJuice, inHitstop, registerKill, triggerCritFlash,
-  drawJuiceOverlay, drawFloatCombos, spawnKillBurst, addShake, shakeOffset,
+  drawJuiceOverlay, spawnKillBurst, addShake, shakeOffset,
 } from './juice.js';
 import { applyCharacterToPlayer, applyPassivesToPlayer, applyGearToPlayer, applyCharLevelToPlayer, unlockGallery } from './meta.js';
-import { getIconCell, getChestImage, getCharSprite, getSprite, drawClippedSprite, drawStandingSprite } from './sprites.js';
+import { getIconCell, getChestImage, getCharSprite, getSprite, drawClippedSprite, drawStandingSprite, walkPose } from './sprites.js';
 
 const W = 390;
 const H = 844;
 const WORLD_W = 1200;
 const WORLD_H = 1600;
 const VIEW_ZOOM = 1.22; // pull-in so chars/loot read larger on phone
+
+/** r6 floor palettes — flat painted tiles, warm & bright, never gray. */
+const FLOOR_THEMES = {
+  office: { // warm beige carpet tiles
+    tile: 64, base: '#ecd6a6', tones: ['#ecd6a6', '#e8d19f', '#efdaae', '#ead4a3'],
+    seam: 'rgba(150,104,52,0.22)', hi: 'rgba(255,248,226,0.45)', lo: 'rgba(150,104,52,0.10)',
+    edge: '#d9b77e', accent: null,
+  },
+  ward: { // mint linoleum with a cream accent tile now and then
+    tile: 48, base: '#c8e6d4', tones: ['#c8e6d4', '#c3e2cf', '#cdeadb', '#c6e4d2'],
+    seam: 'rgba(52,128,108,0.22)', hi: 'rgba(250,255,246,0.50)', lo: 'rgba(52,128,108,0.10)',
+    edge: '#9fd0bc', accent: '#daeedd',
+  },
+  basement: { // peach-sand tech plates, teal seams
+    tile: 56, accentP: 0.06, base: '#f2d4a8', tones: ['#f2d4a8', '#efcfa1', '#f5d9b0', '#f0d2a5'],
+    seam: 'rgba(36,150,140,0.42)', hi: 'rgba(255,246,226,0.55)', lo: 'rgba(196,120,60,0.18)',
+    edge: '#5fb8ae', accent: '#dfe9cf', // occasional pale-teal service plate
+  },
+};
 
 export class Game {
   constructor(canvas, hooks = {}) {
@@ -88,7 +107,7 @@ export class Game {
     this.juice = createJuice();
     this.noDamageTimer = 0;
     this.secretSpawned = false;
-    this.bannerTimer = 2.4;
+    this.bannerTimer = 1.6;
     this.bannerTitle = this.stage.introBanner.title;
     this.bannerSub = this.stage.introBanner.sub;
     this.midBanner = null;
@@ -107,107 +126,12 @@ export class Game {
       bossWarned: {},
     };
     this.bgStars = []; // indoor facility — no night-sky starfield
-    this.trees = this._genTrees(10);
-    this.props = this._genProps(48);
-    this._dustMotes = this._genDust(36);
-    this.fogBands = this._genFog(5);
-    this.parallaxSpark = []; // indoor — no outdoor sparkles
-    this.groundPatches = this._genGround(80);
+    // r6: no decorative scenery at all (props/stains/fog/dust read as fake or as pickups).
+    // Floor is flat painted tiles only — see _drawFloor().
+    this.parallaxSpark = [];
+    this._floorSeed = (Math.random() * 1e9) | 0;
     this.hazardZones = []; // temporary spore / shock rings for draw+tick
     resetWeaponTimers(this.player);
-  }
-
-  _genStars(n) {
-    const a = [];
-    for (let i = 0; i < n; i++) {
-      a.push({
-        x: Math.random() * WORLD_W, y: Math.random() * WORLD_H,
-        r: 0.4 + Math.random() * 1.6, a: 0.15 + Math.random() * 0.55,
-        s: Math.random() * Math.PI * 2, layer: Math.random() < 0.4 ? 0.3 : 0.7,
-      });
-    }
-    return a;
-  }
-
-  // Floor scuffs / stains only — no wall silhouettes (walls were decorative-only = visual lie)
-  _genTrees(n) {
-    const a = [];
-    for (let i = 0; i < n; i++) {
-      a.push({
-        x: 40 + Math.random() * (WORLD_W - 80),
-        y: 40 + Math.random() * (WORLD_H - 80),
-        r: 8 + Math.random() * 22,
-        rot: Math.random() * Math.PI,
-        shade: 0.02 + Math.random() * 0.04, // keep ≤ ~0.06 so stains stay faint
-        style: Math.floor(Math.random() * 3), // 0 ellipse stain, 1 scuff line, 2 tile chip
-      });
-    }
-    return a;
-  }
-
-  _genDust(n) {
-    const a = [];
-    for (let i = 0; i < n; i++) {
-      a.push({
-        x: Math.random() * WORLD_W, y: Math.random() * WORLD_H,
-        phase: Math.random() * Math.PI * 2,
-        speed: 0.35 + Math.random() * 1.1,
-        r: 1.2 + Math.random() * 2,
-      });
-    }
-    return a;
-  }
-
-  _genFog(n) {
-    const a = [];
-    for (let i = 0; i < n; i++) {
-      a.push({
-        y: (WORLD_H / n) * i + Math.random() * 80,
-        h: 40 + Math.random() * 60,
-        a: 0.04 + Math.random() * 0.06,
-        drift: (Math.random() - 0.5) * 12,
-      });
-    }
-    return a;
-  }
-
-  _genProps(n) {
-    // Facility props only — never reed/lantern/pillar/stone/stump
-    const theme = (this.stage && this.stage.theme) || 'office';
-    // weighted mix of standalone v4 (desk/bed/cart/crate) + v5 (chair/pipe/rock) props
-    const kinds = theme === 'ward'
-      ? ['bed', 'bed', 'cart', 'cart', 'crate', 'chair', 'rock']
-      : theme === 'basement'
-        ? ['crate', 'crate', 'pipe', 'pipe', 'cart', 'rock', 'rock']
-        : ['desk', 'desk', 'desk', 'chair', 'chair', 'crate', 'rock'];
-    const a = [];
-    for (let i = 0; i < n; i++) {
-      a.push({
-        x: 50 + Math.random() * (WORLD_W - 100),
-        y: 50 + Math.random() * (WORLD_H - 100),
-        kind: kinds[Math.floor(Math.random() * kinds.length)],
-        s: 0.7 + Math.random() * 0.6,
-      });
-    }
-    return a;
-  }
-
-  _genGround(n) {
-    const theme = (this.stage && this.stage.theme) || 'office';
-    const a = [];
-    for (let i = 0; i < n; i++) {
-      let color = 'rgba(150,140,120,0.12)';
-      if (theme === 'ward') color = 'rgba(140,150,160,0.12)';
-      if (theme === 'basement') color = 'rgba(240,170,110,0.14)';
-      a.push({
-        x: Math.random() * WORLD_W,
-        y: Math.random() * WORLD_H,
-        r: 20 + Math.random() * 50,
-        color,
-        shade: Math.random(),
-      });
-    }
-    return a;
   }
 
   start() {
@@ -336,8 +260,8 @@ export class Game {
     if (p._sporeSlow > 0) p._sporeSlow -= dt;
     p.x += this.joy.dx * p.speed * moveMul * dt;
     p.y += this.joy.dy * p.speed * moveMul * dt;
-    p.x = Math.max(p.r, Math.min(WORLD_W - p.r, p.x));
-    p.y = Math.max(p.r, Math.min(WORLD_H - p.r, p.y));
+    p.x = Math.max(p.r + 6, Math.min(WORLD_W - p.r - 6, p.x)); // stay off the baseboard
+    p.y = Math.max(p.r + 6, Math.min(WORLD_H - p.r - 6, p.y));
     if (this.joy.active) p.facing = Math.atan2(this.joy.dy, this.joy.dx);
     p.pulse += dt;
     if (p.invuln > 0) p.invuln -= dt;
@@ -365,9 +289,11 @@ export class Game {
     }
     p.ghosts = p.ghosts.filter((g) => g.age < g.life);
 
-    const vw = W / VIEW_ZOOM, vh = H / VIEW_ZOOM;
-    this.camX = Math.max(0, Math.min(WORLD_W - vw, p.x - vw / 2));
-    this.camY = Math.max(0, Math.min(WORLD_H - vh, p.y - vh / 2));
+    // camera: draw() zooms about screen centre, so world point (camX + W/2) is the screen centre.
+    // Clamp so the zoomed view never shows past the floor edge (was leaking a dark strip).
+    const mx = (W / 2) * (1 - 1 / VIEW_ZOOM), my = (H / 2) * (1 - 1 / VIEW_ZOOM);
+    this.camX = Math.max(-mx, Math.min(WORLD_W - W + mx, p.x - W / 2));
+    this.camY = Math.max(-my, Math.min(WORLD_H - H + my, p.y - H / 2));
 
     this._spawnWave(dt);
     this._checkBosses();
@@ -1017,9 +943,9 @@ export class Game {
     dt.text = String(Math.round(dmg));
     dt.age = 0;
     dt.life = crit ? 0.75 : 0.55;
-    dt.color = crit ? '#e8c878' : (e.isBoss ? '#e0a0a8' : '#f0e6d0');
+    dt.color = crit ? '#ffc23a' : (e.isBoss ? '#ffb0a0' : '#ffffff');
     dt.crit = crit;
-    dt.scale = crit ? 1.6 : 1;
+    dt.scale = crit ? 1.25 : 1;
     }
 
     if (e.hp <= 0) {
@@ -1167,29 +1093,63 @@ export class Game {
     }
   }
 
+  /** Flat painted floor: per-tile gentle tone variation + soft bevel + boundary baseboard. */
+  _drawFloor(ctx, F) {
+    const t = F.tile;
+    const mx = (W / 2) * (1 - 1 / VIEW_ZOOM), my = (H / 2) * (1 - 1 / VIEW_ZOOM);
+    const vx0 = this.camX + mx - t, vy0 = this.camY + my - t;
+    const vx1 = vx0 + W / VIEW_ZOOM + t * 2, vy1 = vy0 + H / VIEW_ZOOM + t * 2;
+    const i0 = Math.max(0, Math.floor(vx0 / t)), j0 = Math.max(0, Math.floor(vy0 / t));
+    const i1 = Math.min(Math.ceil(WORLD_W / t), Math.ceil(vx1 / t));
+    const j1 = Math.min(Math.ceil(WORLD_H / t), Math.ceil(vy1 / t));
+    const seed = this._floorSeed || 0;
+    ctx.fillStyle = F.base;
+    ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+    for (let j = j0; j < j1; j++) {
+      for (let i = i0; i < i1; i++) {
+        let h = (Math.imul(i + 11, 73856093) ^ Math.imul(j + 7, 19349663) ^ seed) >>> 0;
+        h = (Math.imul(h ^ (h >>> 13), 1274126177) >>> 0) / 4294967296;
+        const x = i * t, y = j * t;
+        const w = Math.min(t, WORLD_W - x), hh = Math.min(t, WORLD_H - y);
+        ctx.fillStyle = (F.accent && h < (F.accentP || 0.05)) ? F.accent : F.tones[Math.floor(h * F.tones.length) % F.tones.length];
+        ctx.fillRect(x, y, w, hh);
+        // soft painted bevel: light top/left, warm shade bottom/right
+        ctx.fillStyle = F.hi;
+        ctx.fillRect(x + 1, y + 1, w - 2, 2);
+        ctx.fillRect(x + 1, y + 1, 2, hh - 2);
+        ctx.fillStyle = F.lo;
+        ctx.fillRect(x + 1, y + hh - 3, w - 2, 2);
+        ctx.fillRect(x + w - 3, y + 1, 2, hh - 2);
+      }
+    }
+    // grout seams
+    ctx.strokeStyle = F.seam;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = i0; i <= i1; i++) { const x = Math.min(WORLD_W, i * t); ctx.moveTo(x, j0 * t); ctx.lineTo(x, Math.min(WORLD_H, j1 * t)); }
+    for (let j = j0; j <= j1; j++) { const y = Math.min(WORLD_H, j * t); ctx.moveTo(i0 * t, y); ctx.lineTo(Math.min(WORLD_W, i1 * t), y); }
+    ctx.stroke();
+    // boundary baseboard so the arena edge reads as a wall line, not a void
+    const bb = 14;
+    ctx.fillStyle = F.edge;
+    ctx.fillRect(0, 0, WORLD_W, bb); ctx.fillRect(0, WORLD_H - bb, WORLD_W, bb);
+    ctx.fillRect(0, 0, bb, WORLD_H); ctx.fillRect(WORLD_W - bb, 0, bb, WORLD_H);
+    ctx.strokeStyle = 'rgba(59,42,26,0.55)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(bb, bb, WORLD_W - bb * 2, WORLD_H - bb * 2);
+  }
+
   draw() {
     const ctx = this.ctx;
     const off = shakeOffset(this.juice);
-    const tint = this.stage.bgTint || [0.1, 0.18, 0.25];
     const theme = this.stage.theme || 'office';
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, W, H);
 
-    // warm chapter backgrounds — cream / teal linoleum, not pale gray
-    let c0, c1, c2;
-    if (theme === 'ward') {
-      c0 = [78, 88, 82]; c1 = [68, 78, 74]; c2 = [56, 66, 62];
-    } else if (theme === 'basement') {
-      c0 = [96, 78, 58]; c1 = [84, 68, 50]; c2 = [70, 56, 42];
-    } else {
-      c0 = [86, 74, 56]; c1 = [72, 62, 46]; c2 = [58, 50, 38];
-    }
-    const bg = ctx.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0, `rgb(${c0[0]},${c0[1]},${c0[2]})`);
-    bg.addColorStop(0.55, `rgb(${c1[0]},${c1[1]},${c1[2]})`);
-    bg.addColorStop(1, `rgb(${c2[0]},${c2[1]},${c2[2]})`);
-    ctx.fillStyle = bg;
+    // outside-world fill = floor tone (camera clamp keeps it off-screen anyway)
+    const FLOOR = FLOOR_THEMES[theme] || FLOOR_THEMES.office;
+    ctx.fillStyle = FLOOR.base;
     ctx.fillRect(0, 0, W, H);
 
     ctx.save();
@@ -1199,140 +1159,7 @@ export class Game {
     ctx.translate(-W / 2, -H / 2);
     ctx.translate(-this.camX + off.x, -this.camY + off.y);
 
-    // ground base — warm beige carpet / mint linoleum / warm basement
-    // opaque, bright warm floors (no muddy gray wash)
-    if (theme === 'ward') ctx.fillStyle = '#c4e2d4';
-    else if (theme === 'basement') ctx.fillStyle = '#f2d4a8'; // bright warm peach-sand tech floor
-    else ctx.fillStyle = '#ecd6a6';
-    ctx.fillRect(0, 0, WORLD_W, WORLD_H);
-
-    // ground patches
-    for (const g of (this.groundPatches || [])) {
-      if (theme === 'ward') ctx.fillStyle = `rgba(200, 220, 210, ${0.14 + g.shade * 0.14})`;
-      else if (theme === 'basement') ctx.fillStyle = `rgba(250, 180, 110, ${0.10 + g.shade * 0.12})`;
-      else ctx.fillStyle = `rgba(200, 170, 120, ${0.08 + g.shade * 0.1})`;
-      ctx.beginPath();
-      ctx.ellipse(g.x, g.y, g.r, g.r * 0.65, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // starfield / outdoor sparkles disabled for indoor facility floors
-    // (parallaxSpark + bgStars kept empty in reset)
-    ctx.globalAlpha = 1;
-
-    // fog bands
-    for (const f of this.fogBands) {
-      ctx.fillStyle = `rgba(180,175,155,${f.a * 0.55})`;
-      ctx.fillRect(0, f.y + Math.sin(this.time * 0.3) * f.drift, WORLD_W, f.h);
-    }
-
-    // Open floor tile / carpet grid (no room-wall strokes — player has no wall collision)
-    {
-      const tile = theme === 'basement' ? 56 : theme === 'ward' ? 48 : 64;
-      let gridA, gridB;
-      if (theme === 'ward') {
-        gridA = 'rgba(70, 120, 105, 0.22)';
-        gridB = 'rgba(255, 255, 250, 0.16)';
-      } else if (theme === 'basement') {
-        // warm orange plate seams + teal-tinted alternate tech plates (never gray)
-        gridA = 'rgba(200, 120, 60, 0.30)';
-        gridB = 'rgba(255, 246, 226, 0.34)';
-      } else {
-        // warm beige office carpet seams
-        gridA = 'rgba(150, 110, 60, 0.22)';
-        gridB = 'rgba(255, 244, 214, 0.22)';
-      }
-      ctx.strokeStyle = gridA;
-      ctx.lineWidth = 1;
-      const x0 = Math.floor(this.camX / tile) * tile;
-      const y0 = Math.floor(this.camY / tile) * tile;
-      const x1 = this.camX + W / VIEW_ZOOM + tile;
-      const y1 = this.camY + H / VIEW_ZOOM + tile;
-      for (let x = x0; x < x1; x += tile) {
-        ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
-      }
-      for (let y = y0; y < y1; y += tile) {
-        ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
-      }
-      // subtle alternate tile tint (carpet / linoleum / tech plate)
-      ctx.fillStyle = gridB;
-      for (let y = y0; y < y1; y += tile) {
-        for (let x = x0; x < x1; x += tile) {
-          if (((x / tile) + (y / tile)) % 2 === 0) ctx.fillRect(x + 1, y + 1, tile - 2, tile - 2);
-        }
-      }
-      if (theme === 'basement') {
-        // bright teal tech-plate inlays on the off tiles (accent, not a gray wash)
-        ctx.strokeStyle = 'rgba(30, 175, 170, 0.30)';
-        ctx.lineWidth = 2;
-        for (let y = y0; y < y1; y += tile) {
-          for (let x = x0; x < x1; x += tile) {
-            if (((x / tile) + (y / tile)) % 2 !== 0) ctx.strokeRect(x + 7, y + 7, tile - 14, tile - 14);
-          }
-        }
-        ctx.lineWidth = 1;
-      }
-    }
-
-    // Flat floor stains / scuffs (was wall silhouettes — decorative only, removed)
-    for (const tr of this.trees) {
-      ctx.save();
-      ctx.translate(tr.x, tr.y);
-      ctx.rotate(tr.rot || 0);
-      if (tr.style === 1) {
-        ctx.strokeStyle = theme === 'basement'
-          ? `rgba(170,105,55,${Math.min(0.06, tr.shade + 0.02)})`
-          : theme === 'ward'
-            ? `rgba(130,138,145,${Math.min(0.06, tr.shade + 0.02)})`
-            : `rgba(110,98,78,${Math.min(0.06, tr.shade + 0.02)})`;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(-tr.r, 0);
-        ctx.lineTo(tr.r, 0);
-        ctx.stroke();
-      } else if (tr.style === 2) {
-        ctx.fillStyle = theme === 'basement'
-          ? `rgba(200,130,70,${tr.shade * 0.8})`
-          : theme === 'ward'
-            ? `rgba(155,160,168,${tr.shade})`
-            : `rgba(145,132,108,${tr.shade})`;
-        ctx.fillRect(-tr.r * 0.4, -tr.r * 0.25, tr.r * 0.8, tr.r * 0.5);
-      } else {
-        ctx.fillStyle = theme === 'basement'
-          ? `rgba(70,170,160,${tr.shade * 0.7})`
-          : theme === 'ward'
-            ? `rgba(140,148,155,${tr.shade})`
-            : `rgba(130,118,95,${tr.shade})`;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, tr.r, tr.r * 0.55, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
-    }
-
-    // chapter props — standalone v4/v5 images, all drawn upright via drawStandingSprite
-    const PROP_SPRITE = {
-      desk: 'propDesk', chair: 'propChair', bed: 'propBed',
-      cart: 'propCart', crate: 'propCrate', pipe: 'propPipe', rock: 'propRock',
-    };
-    // [target height, max width] in world px (before per-prop random scale)
-    const PROP_SIZE = {
-      desk: [54, 70], chair: [50, 40], bed: [58, 72], cart: [50, 56],
-      crate: [42, 48], pipe: [36, 56], rock: [36, 42],
-    };
-    for (const pr of (this.props || [])) {
-      const s = (pr.s || 1) * 0.85;
-      const key = PROP_SPRITE[pr.kind];
-      const spr = key ? getSprite(key) : null;
-      if (!spr) continue;
-      const [h, mw] = PROP_SIZE[pr.kind] || [30, 40];
-      ctx.save();
-      ctx.globalAlpha = 0.95; // readable scenery; loot keeps its pulse ring + label
-      drawStandingSprite(ctx, spr, pr.x, pr.y + h * s * 0.45, h * s, {
-        maxW: mw * s, shadow: 'rgba(70,45,20,0.24)',
-      });
-      ctx.restore();
-    }
+    this._drawFloor(ctx, FLOOR);
 
     // hazard zones visual
     for (const z of (this.hazardZones || [])) {
@@ -1414,17 +1241,6 @@ export class Game {
       ctx.globalAlpha = 1;
     }
 
-    for (const f of (this._dustMotes || [])) {
-      const fx = f.x + Math.cos(this.time * f.speed + f.phase) * 18;
-      const fy = f.y + Math.sin(this.time * f.speed * 0.8 + f.phase) * 12;
-      ctx.globalAlpha = 0.12 + 0.18 * Math.sin(this.time * 2 + f.phase);
-      ctx.fillStyle = '#b8b0a0';
-      ctx.beginPath();
-      ctx.arc(fx, fy, f.r * 0.7, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-
     // gems with trails
     for (const g of this.gems.active) {
       if (!g.alive) continue;
@@ -1440,6 +1256,11 @@ export class Game {
       }
       // battery-cell pickup: bright amber diamond with ink outline (reads on beige floors)
       const gr = g.r + 1;
+      // soft contact shadow so cells sit on the floor and pop on every theme
+      ctx.fillStyle = 'rgba(59,42,26,0.20)';
+      ctx.beginPath();
+      ctx.ellipse(g.x, g.y + gr * 1.35, gr * 0.95, gr * 0.38, 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.beginPath();
       ctx.moveTo(g.x, g.y - gr * 1.25); ctx.lineTo(g.x + gr, g.y);
       ctx.lineTo(g.x, g.y + gr * 1.25); ctx.lineTo(g.x - gr, g.y); ctx.closePath();
@@ -1490,11 +1311,12 @@ export class Game {
       }
       // floating label
       ctx.save();
-      ctx.globalAlpha = 0.95;
-      ctx.font = 'bold 12px sans-serif';
+      ctx.globalAlpha = 1;
+      ctx.font = '900 12px sans-serif';
       ctx.textAlign = 'center';
-      ctx.strokeStyle = 'rgba(20,16,10,0.9)';
-      ctx.lineWidth = 3;
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#3b2a1a';
+      ctx.lineWidth = 4;
       const lab = c.golden ? '金色物资' : rare ? '稀有物资' : '物资';
       ctx.strokeText(lab, c.x, by - 38);
       ctx.fillStyle = c.golden ? '#ffd050' : rare ? '#8ff0e8' : '#fff0c0';
@@ -1570,17 +1392,18 @@ export class Game {
 
     for (const d of this.dmgTexts.active) {
       if (!d.alive) continue;
-      ctx.globalAlpha = 1 - d.age / d.life;
+      const dk = d.age / d.life;
+      ctx.globalAlpha = 1 - dk * dk; // stay solid, then drop out (no long gray ghost)
       ctx.save();
       ctx.translate(d.x, d.y);
       ctx.scale(d.scale || 1, d.scale || 1);
-      ctx.font = d.crit ? 'bold 18px sans-serif' : 'bold 14px sans-serif';
+      // every number gets an ink outline so it reads on bright floors (was cream-on-beige)
+      ctx.font = d.crit ? '900 17px sans-serif' : 'bold 12px sans-serif';
       ctx.textAlign = 'center';
-      if (d.crit) {
-        ctx.strokeStyle = '#5a3000';
-        ctx.lineWidth = 3;
-        ctx.strokeText(d.text, 0, 0);
-      }
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#3b2a1a';
+      ctx.lineWidth = d.crit ? 4 : 3;
+      ctx.strokeText(d.text, 0, 0);
       ctx.fillStyle = d.color;
       ctx.fillText(d.text, 0, 0);
       ctx.restore();
@@ -1596,7 +1419,7 @@ export class Game {
     }
     ctx.globalAlpha = 1;
 
-    drawFloatCombos(ctx, this.juice, 0, 0);
+    // world-space combo popups removed (duplicated the HUD ×N counter and cluttered the fight)
 
     ctx.restore();
 
@@ -1629,24 +1452,25 @@ export class Game {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     if (this.bannerTimer > 0) {
-      const a = Math.max(0, Math.min(1, this.bannerTimer * 2, (2.4 - this.bannerTimer) * 3));
-      const cy = 150 - (1 - a) * 14;
+      // compact intro plaque, sits just under the HUD and clears in 1.6s
+      const a = Math.max(0, Math.min(1, this.bannerTimer * 2.5, (1.6 - this.bannerTimer) * 4));
+      const cy = 146 - (1 - a) * 10;
       ctx.globalAlpha = a;
-      plaque(W / 2, cy, 300, 78, '#fff3dc', '#3b2a1a');
+      plaque(W / 2, cy, 236, 54, '#fff3dc', '#3b2a1a');
       ctx.fillStyle = '#e8772a';
-      ctx.fillRect(W / 2 - 150 + 3, cy - 39 + 3, 294, 6);
-      ctx.font = '900 26px sans-serif';
+      ctx.fillRect(W / 2 - 118 + 8, cy - 27 + 3, 220, 4);
+      ctx.font = '900 19px sans-serif';
       ctx.fillStyle = '#3b2a1a';
-      ctx.fillText(this.bannerTitle, W / 2, cy - 9);
-      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText(this.bannerTitle, W / 2, cy - 6);
+      ctx.font = 'bold 11px sans-serif';
       ctx.fillStyle = '#7a5530';
-      ctx.fillText(this.bannerSub, W / 2, cy + 20);
+      ctx.fillText(this.bannerSub, W / 2, cy + 14);
       ctx.globalAlpha = 1;
     }
     if (this.midBanner) {
       const dur = this.midBannerDur || 1.8;
       const life = dur - this.midBannerT;
-      const a = Math.max(0, Math.min(1, this.midBannerT * 2.5, life * 6));
+      const a = Math.max(0, Math.min(1, this.midBannerT * 4, life * 6)); // quick 0.25s fade, no long ghost
       const pop = 1 + Math.max(0, 0.18 - life) * 1.2; // tiny pop-in
       const kind = this.midBannerKind || 'info';
       const sty = {
@@ -1688,7 +1512,11 @@ export class Game {
 
   _drawPlayerChar(ctx) {
     const p = this.player;
-    const bob = Math.sin(this.time * 4 + p.pulse) * 2;
+    // r6: front-facing art (never mirrored). Moving → walk pose; idle → gentle breathing bob.
+    const moving = this.joy && this.joy.active && Math.hypot(this.joy.dx, this.joy.dy) > 0.12 && this.alive && !this.paused;
+    this._pWalk = (this._pWalk || 0) + ((moving ? 1 : 0) - (this._pWalk || 0)) * 0.2;
+    const walk = walkPose(this.time * 10, this._pWalk);
+    const bob = Math.sin(this.time * 4 + p.pulse) * 2 * (1 - this._pWalk);
     const spr = getCharSprite(this.charId);
     if (spr) {
       const tint = null; // v6 art is colour-matched; old intern wash tint removed
@@ -1696,6 +1524,7 @@ export class Game {
         glow: 'none',
         scale: 1.95,
         tint,
+        walk,
       });
       // shield / orbit still via drawPlayer partial — call drawPlayer for overlays
       // but avoid double body: manually draw orbit+shield

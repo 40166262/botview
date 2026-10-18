@@ -1035,3 +1035,10 @@ html, body {
 
 /* level-up icons fill their frame */
 .card-icon img, .card-icon canvas { width: 86% !important; height: 86% !important; object-fit: contain; }
+
+/* r6: soft paper scrim behind HUD so enemies walking under it don't clutter the bars */
+.hud::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 112px; z-index: -1;
+  background: linear-gradient(180deg, rgba(255,243,220,0.62) 0%, rgba(255,243,220,0.35) 60%, rgba(255,243,220,0) 100%);
+  pointer-events: none;
+}
