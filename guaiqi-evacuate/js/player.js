@@ -8,20 +8,20 @@ export function createPlayer(cx, cy) {
     hp: 100,
     maxHp: 100,
     speed: 145,
-    damage: 10, // starts weaker → grows via upgrades
-    fireCooldown: 0.48,
+    damage: 12, // fodder dies in 1-2 hits → instant 爽感; grows via upgrades
+    fireCooldown: 0.4,
     fireTimer: 0,
     projectiles: 1,
     pierce: 0,
     spread: 0.12,
-    magnet: 55,
+    magnet: 85,
     lifesteal: 0,
     orbitBalls: 0,
     orbitAngle: 0,
     invuln: 0,
     xp: 0,
     level: 1,
-    xpToNext: 12,
+    xpToNext: 5, // first level-up within ~5s
     facing: 0,
     pulse: 0,
     // new stats
@@ -64,7 +64,8 @@ export function createPlayer(cx, cy) {
 }
 
 export function xpNeeded(level) {
-  return Math.floor(12 + (level - 1) * 8 + Math.pow(level, 1.35) * 2);
+  // gentle early curve (Lv2-4 arrive fast), steeper later
+  return Math.floor(5 + (level - 1) * 5 + Math.pow(level, 1.5) * 1.2);
 }
 
 function drawPlayerVector(ctx, p, t, bob) {

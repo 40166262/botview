@@ -53,7 +53,7 @@ function buildStage(n) {
   const tier = n;
   // Raised difficulty vs earlier trivial clears (~56s on stage 8)
   const clearTime = Math.min(300, 105 + Math.floor(tier * 1.35));
-  const clearKills = Math.min(260, 42 + Math.floor(tier * 1.85));
+  const clearKills = Math.min(360, 95 + Math.floor(tier * 2.4)); // swarms raise kill pace
   const eliteEvery = Math.max(7, 28 - Math.floor(tier / 5));
   const hasBoss = n >= 5;
   const dualBoss = n >= 15;
@@ -103,7 +103,7 @@ function buildStage(n) {
     clearTime,
     clearKills,
     clearMode,
-    spawnBase: 0.42 + tier * 0.014,
+    spawnBase: 0.78 + tier * 0.014,
     spawnRamp: 0.018 + tier * 0.0004,
     maxEnemies: Math.min(130, 52 + Math.floor(tier * 0.75)),
     enemies,
@@ -119,7 +119,7 @@ function buildStage(n) {
     rewardDiamonds: n % 5 === 0 ? 5 + Math.floor(n / 10) : (n === 1 ? 5 : 0),
     bgTint: th.bgTint,
     hpScale: 1.12 + (tier - 1) * 0.085,
-    dmgScale: 1.08 + (tier - 1) * 0.055,
+    dmgScale: 0.9 + (tier - 1) * 0.058,
     levelGate: STAGE_LEVEL_GATES[n] || 0,
     difficultyTag: difficultyTag(n),
   };
@@ -295,7 +295,7 @@ export function isStageCleared(stage, timeSec, kills, extras = {}) {
 }
 
 export function waveLabel(stage, timeSec) {
-  const wave = Math.floor(timeSec / 30) + 1;
+  const wave = Math.floor(timeSec / 20) + 1;
   return `波次 ${wave}`;
 }
 

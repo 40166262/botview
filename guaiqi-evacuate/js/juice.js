@@ -15,6 +15,7 @@ export function createJuice() {
     flashColor: '#c4a574',
     critFlash: 0,
     floatCombos: [],
+    stopCd: 0,
   };
 }
 
@@ -27,6 +28,7 @@ export function tickJuice(j, dt) {
     j.shake -= dt;
     if (j.shake < 0) j.shake = 0;
   }
+  if (j.stopCd > 0) j.stopCd -= dt;
   if (j.flash > 0) j.flash -= dt;
   if (j.critFlash > 0) j.critFlash -= dt;
 
@@ -73,8 +75,9 @@ export function registerKill(j, worldX, worldY, isElite = false, isBoss = false)
   j.comboTimer = j.comboWindow + (isBoss ? 0.8 : isElite ? 0.4 : 0);
   if (j.combo > j.maxCombo) j.maxCombo = j.combo;
 
-  const stopMs = isBoss ? 70 : isElite ? 40 : 22;
-  triggerHitstop(j, stopMs);
+  // tiny freeze-frame; normal kills rate-limited so swarms never stutter
+  if (isBoss || isElite) triggerHitstop(j, isBoss ? 80 : 45);
+  else if (j.stopCd <= 0) { triggerHitstop(j, 18); j.stopCd = 0.22; }
   addShake(j, isBoss ? 7 : isElite ? 4.5 : 2.2 + Math.min(2.5, j.combo * 0.12), isBoss ? 0.28 : 0.12);
 
   // Soft colored edge pulse only — never white / never full-screen opaque

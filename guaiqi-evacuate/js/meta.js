@@ -48,6 +48,7 @@ export const GALLERY = [
   { id: 'enemy_golem', kind: 'enemy', name: '保安机器人', icon: '', flavor: '护盾模块还半好使。' },
   { id: 'enemy_boss', kind: 'enemy', name: '设施霸主', icon: '', flavor: '开会从不迟到，溃烂除外。' },
   { id: 'enemy_elite', kind: 'enemy', name: '精英变异体', icon: '', flavor: '身上镀了层假金，气场却是真的。' },
+  { id: 'enemy_slacker', kind: 'enemy', name: '摸鱼丧尸', icon: '', flavor: '抱着公文包到处跑，抓住它奖金翻倍。' },
   { id: 'enemy_secret', kind: 'enemy', name: '失控安保影', icon: '', flavor: '连击过高时才冒出来的故障投影。' },
   { id: 'char_grin', kind: 'char', name: '狂笑射手', icon: '', flavor: '初始搭子，永不背刺。' },
   { id: 'char_medic', kind: 'char', name: '急救狂魔', icon: '', flavor: '针筒比枪还吓人。' },
@@ -232,13 +233,21 @@ export function applyCharLevelToPlayer(player, save) {
 }
 
 
+export const CHARM_MAX_STARS = 5;
+
 export function applyPassivesToPlayer(player, equippedIds, inventory) {
   const owned = inventory || {};
   for (const id of equippedIds || []) {
     if (!owned[id]) continue;
     const item = PASSIVE_ITEMS.find((p) => p.id === id);
     if (!item) continue;
-    const e = item.effect;
+    // duplicates from gacha stack the charm up to ★5 (+25% effect per star)
+    const k = 1 + 0.25 * (Math.min(CHARM_MAX_STARS, owned[id]) - 1);
+    const e = {};
+    for (const [key, v] of Object.entries(item.effect)) {
+      e[key] = (key === 'damageMul' || key === 'speedMul') ? 1 + (v - 1) * k
+        : key === 'shield' ? v : v * k;
+    }
     if (e.xpBonus) player.xpBonus = (player.xpBonus || 1) + e.xpBonus;
     if (e.coinBonus) player.coinBonus = (player.coinBonus || 1) + e.coinBonus;
     if (e.critChance) player.critChance = (player.critChance || 0.08) + e.critChance;
@@ -326,10 +335,18 @@ export function rollGacha(save) {
   if (!save.shards) save.shards = {};
   if (!save.unlockedChars) save.unlockedChars = ['grin'];
 
-  let pool = GACHA_POOL;
+  // Affinity: things you already own (and can still level) roll more often → max out fast
+  const gl = save.gearLevels || {};
+  let pool = GACHA_POOL.map((p) => {
+    let w = p.weight;
+    if (p.type === 'gear' && save.inventory[p.itemId] > 0 && (gl[p.itemId] || 1) < 10) w *= 2.2;
+    if (p.type === 'item' && save.inventory[p.itemId] > 0 && save.inventory[p.itemId] < CHARM_MAX_STARS) w *= 2;
+    if (p.type === 'shards' && (save.shards[p.charId] || 0) > 0 && !isCharUnlocked(save, p.charId)) w *= 1.6;
+    return w === p.weight ? p : { ...p, weight: w };
+  });
   let forced = null;
   if (save.pity >= 9) {
-    forced = GACHA_POOL.filter((p) => p.rarity === 'epic' || p.rarity === 'legendary');
+    forced = pool.filter((p) => p.rarity === 'epic' || p.rarity === 'legendary');
   }
   const entry = pickWeighted(forced && forced.length ? forced : pool);
   const isHigh = entry.rarity === 'epic' || entry.rarity === 'legendary';
@@ -342,6 +359,10 @@ export function rollGacha(save) {
     detail: '',
   };
 
+  if (entry.type === 'coins') result.icon = 'assets/icon_coin.png';
+  if (entry.type === 'diamonds') result.icon = 'assets/icon_diamond.png';
+  if (entry.type === 'char' || entry.type === 'shards') result.icon = `assets/char_${entry.charId}.png`;
+
   if (entry.type === 'coins') {
     save.coins = (save.coins || 0) + entry.amount;
     result.detail = `+${entry.amount} 金币`;
@@ -349,14 +370,42 @@ export function rollGacha(save) {
     save.diamonds = (save.diamonds || 0) + entry.amount;
     result.detail = `+${entry.amount} 钻石`;
   } else if (entry.type === 'item') {
-    save.inventory[entry.itemId] = (save.inventory[entry.itemId] || 0) + 1;
+    const had = save.inventory[entry.itemId] || 0;
+    save.inventory[entry.itemId] = had + 1;
     const item = PASSIVE_ITEMS.find((i) => i.id === entry.itemId);
-    result.detail = item ? `获得道具：${item.name}` : entry.label;
+    const stars = Math.min(CHARM_MAX_STARS, had + 1);
+    result.icon = 'assets/chest_upgrade.png';
+    if (had > 0) {
+      result.dup = true;
+      result.detail = stars >= CHARM_MAX_STARS && had >= CHARM_MAX_STARS
+        ? `${item ? item.name : entry.label} 已满星，折合金币 +40`
+        : `重复！${item ? item.name : entry.label} 升至 ★${stars}`;
+      if (had >= CHARM_MAX_STARS) save.coins = (save.coins || 0) + 40;
+    } else {
+      result.detail = item ? `获得挂件：${item.name}（装备栏佩戴）` : entry.label;
+    }
     unlockGallery(save, entry.itemId === 'charm_crit' ? 'item_crit' : entry.itemId === 'charm_frost' ? 'item_frost' : entry.itemId === 'charm_shield' ? 'item_shield' : 'item_chest');
   } else if (entry.type === 'gear') {
-    save.inventory[entry.itemId] = (save.inventory[entry.itemId] || 0) + 1;
+    const had = save.inventory[entry.itemId] || 0;
+    save.inventory[entry.itemId] = had + 1;
     const g = GEAR_ITEMS.find((i) => i.id === entry.itemId);
-    result.detail = g ? `获得装备：${g.name}` : entry.label;
+    result.icon = g && g.icon;
+    if (!save.gearLevels) save.gearLevels = {};
+    if (had > 0) {
+      // duplicate gear = free enhance (+1 level, max 10)
+      const lv = save.gearLevels[entry.itemId] || 1;
+      result.dup = true;
+      if (lv < 10) {
+        save.gearLevels[entry.itemId] = lv + 1;
+        result.detail = `重复！${g ? g.name : entry.label} 免费强化 → Lv.${lv + 1}`;
+      } else {
+        save.coins = (save.coins || 0) + 60;
+        result.detail = `${g ? g.name : entry.label} 已满级，折合金币 +60`;
+      }
+    } else {
+      save.gearLevels[entry.itemId] = save.gearLevels[entry.itemId] || 1;
+      result.detail = g ? `获得装备：${g.name}` : entry.label;
+    }
   } else if (entry.type === 'char') {
     if (!isCharUnlocked(save, entry.charId)) {
       unlockChar(save, entry.charId);

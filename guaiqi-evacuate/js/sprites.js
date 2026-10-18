@@ -22,12 +22,6 @@ const MANIFEST = {
   chestUpgrade: 'assets/chest_upgrade.png',
   iconCoin: 'assets/icon_coin.png',
   iconDiamond: 'assets/icon_diamond.png',
-  hubStages: 'assets/hub_stages.png',
-  hubChars: 'assets/hub_chars.png',
-  hubGacha: 'assets/hub_gacha.png',
-  hubGallery: 'assets/hub_gallery.png',
-  hubBag: 'assets/hub_bag.png',
-  hubSettings: 'assets/hub_settings.png',
   propDesk: 'assets/prop_desk.png',
   propChair: 'assets/prop_chair.png',
   propCrate: 'assets/prop_crate.png',
@@ -41,7 +35,6 @@ const MANIFEST = {
   projNail: 'assets/proj_nail.png',
   roboVac: 'assets/icon_robo_vac.png',
   uiPause: 'assets/ui_btn_pause.png',
-  uiPlay: 'assets/ui_btn_play.png',
   uiPanel: 'assets/ui_panel.png',
 };
 
@@ -195,12 +188,49 @@ function prepareOptionalArt() {
   }
 }
 
+const _trimmed = {};
+function trimCanvas(src) {
+  const w = src.width, h = src.height;
+  const c = src.getContext ? src : null;
+  let ctx;
+  let cv = src;
+  if (!c) {
+    cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    cv.getContext('2d').drawImage(src, 0, 0);
+  }
+  ctx = cv.getContext('2d');
+  let data;
+  try { data = ctx.getImageData(0, 0, w, h).data; } catch (e) { return src; }
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3] > 40) {
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (x1 < 0) return src;
+  const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+  const side = Math.max(bw, bh) + 4;
+  const out = document.createElement('canvas');
+  out.width = side; out.height = side;
+  out.getContext('2d').drawImage(cv, x0, y0, bw, bh, (side - bw) / 2, (side - bh) / 2, bw, bh);
+  return out;
+}
+
 export function getIconCell(index) {
-  return processed[`icon${index}`] || null;
+  const key = `icon${index}`;
+  if (_trimmed[key]) return _trimmed[key];
+  const raw = processed[key];
+  if (!raw) return null;
+  _trimmed[key] = trimCanvas(raw);
+  return _trimmed[key];
 }
 
 export function getChestImage() {
-  return processed.chest || getSprite('chest');
+  // clean outlined chest art (item_chest.png has a torn paper border baked in)
+  return getSprite('chestUpgrade') || processed.chest || getSprite('chest');
 }
 
 export function getUiIcon(key) {
@@ -270,22 +300,41 @@ export function drawClippedSprite(ctx, img, x, y, radius, opts = {}) {
     ctx.fill();
   }
 
-  ctx.save();
   ctx.drawImage(img, 0, 0, iw, ih, dx, dy, dw, dh);
+  // Tint / hit flash are drawn as a silhouette of the sprite itself (no rectangular box)
   if (opts.tint) {
-    ctx.globalAlpha = 0.2;
-    ctx.fillStyle = opts.tint;
-    ctx.fillRect(dx, dy, dw, dh);
-    ctx.globalAlpha = 1;
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.drawImage(silhouette(img, opts.tint), 0, 0, iw, ih, dx, dy, dw, dh);
+    ctx.restore();
   }
   if (flash) {
-    // Soft warm hit tint — avoid bright white plate on sprite edges
-    ctx.globalAlpha = 0.14;
-    ctx.fillStyle = 'rgba(200,160,90,0.55)';
-    ctx.fillRect(dx, dy, dw, dh);
-    ctx.globalAlpha = 1;
+    // soft warm hit tint — never pure white, never full-screen
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.drawImage(silhouette(img, '#ffe2b0'), 0, 0, iw, ih, dx, dy, dw, dh);
+    ctx.restore();
   }
-  ctx.restore();
+}
+
+const _silCache = new Map();
+/** Cached single-colour silhouette of a sprite (alpha preserved). */
+function silhouette(img, color) {
+  let byImg = _silCache.get(img);
+  if (!byImg) { byImg = new Map(); _silCache.set(img, byImg); }
+  let c = byImg.get(color);
+  if (c) return c;
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  c = document.createElement('canvas');
+  c.width = iw; c.height = ih;
+  const g = c.getContext('2d');
+  g.drawImage(img, 0, 0);
+  g.globalCompositeOperation = 'source-atop';
+  g.fillStyle = color;
+  g.fillRect(0, 0, iw, ih);
+  byImg.set(color, c);
+  return c;
 }
 
 /** Draw sprite fitted in a rounded rect (hub cards) — no white circle. */
