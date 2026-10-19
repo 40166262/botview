@@ -247,7 +247,6 @@ export class Game {
     upgrade.apply(this.player);
     this.owned[upgrade.id] = (this.owned[upgrade.id] || 0) + 1;
     if (upgrade.id === 'leaf_drone') syncDrones(this.player);
-    SFX.level();
     spawnBurst(this.particles, this.player.x, this.player.y, '#ffe066', 10, 110);
     if (upgrade.id === 'crit' || upgrade.id === 'critdmg') this._noteGallery('item_crit');
     if (upgrade.id === 'frost') this._noteGallery('item_frost');
@@ -281,7 +280,7 @@ export class Game {
       const choices = this.getUpgradeChoices();
       if (choices.length) this.applyUpgrade(choices[0]);
     }
-    SFX.chest();
+    SFX.click();
   }
 
   revive() {
@@ -625,12 +624,12 @@ export class Game {
           p.shield -= 1;
           p.invuln = 1.0;
           spawnBurst(this.particles, p.x, p.y, '#e8c878', 14, 110);
-          SFX.hit();
+          SFX.hurt();
         } else {
           p.hp -= e.damage * (p.damageTakenMul || 1);
           p.invuln = 0.9;
           addShake(this.juice, 10, 0.25);
-          SFX.hit();
+          SFX.hurt();
           spawnBurst(this.particles, p.x, p.y, '#c87860', 10, 100);
           tookDamage = true;
           this.noDamageTimer = 0;
@@ -1101,9 +1100,11 @@ export class Game {
       e.kby = (e.kby || 0) * 0.5 + ((e.y - this.player.y) / kd) * kb;
     }
     const crit = !!wasCrit;
-    if (crit) {
-      triggerCritFlash(this.juice);
-      SFX.crit();
+    const dying = e.hp <= 0;
+    if (crit) triggerCritFlash(this.juice);
+    if (!dying) {
+      if (crit) SFX.crit();
+      else SFX.hit();
     }
     const showNum = dmg >= 1 && (crit || !(e._numCd > this.time));
     if (showNum) {
@@ -1190,7 +1191,7 @@ export class Game {
         if (Math.hypot(this.player.x - e.x, this.player.y - e.y) < 75) this.player._sporeSlow = 1.2;
         spawnBurst(this.particles, e.x, e.y, '#c8c050', 12, 80);
       }
-      if (!crit) SFX.hit();
+      if (!e.isSlacker) SFX.kill();
 
       // elite every N kills
       if (this.killsSinceElite >= this.stage.eliteEvery) {

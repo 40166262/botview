@@ -272,7 +272,7 @@ export function showResult(opts) {
   $('btn-revive').style.display = opts.canRevive ? '' : 'none';
   $('btn-double').style.display = opts.canDouble ? '' : 'none';
   $('btn-double').disabled = false;
-  $('btn-double').innerHTML = '<span class="ad-tag">AD</span>看广告 · 金币翻倍';
+  $('btn-double').innerHTML = '<span class="ad-tag">演示</span>看广告 · 金币翻倍';
   const nextShown = !!(opts.cleared && opts.hasNext);
   const homePrimary = !!(opts.cleared && !opts.hasNext);
   if (nextShown) show('btn-next-stage');

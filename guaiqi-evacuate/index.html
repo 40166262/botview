@@ -100,7 +100,7 @@
           <button id="btn-gacha-home" class="btn ghost" type="button">回首页</button>
         </div>
         <button id="btn-gacha-free" class="btn primary glow">每日免费 ×1</button>
-        <button id="btn-gacha-ad" class="btn secondary">看广告再抽</button>
+        <button id="btn-gacha-ad" class="btn ad-btn" type="button"><span class="ad-tag">演示</span>看广告再抽</button>
         <button id="btn-gacha-coin" class="btn secondary">金币抽（80）</button>
         <button id="btn-gacha-dia" class="btn secondary">钻石抽（15）</button>
         <button id="btn-gacha-close" class="btn ghost">返回</button>
@@ -202,8 +202,8 @@
           <button id="btn-next-stage" class="btn primary glow hidden">下一关</button>
           <button id="btn-retry" class="btn primary glow">再来一局</button>
           <button id="btn-home" class="btn ghost">返回首页</button>
-          <button id="btn-revive" class="btn secondary"><span class="ad-tag">AD</span>看广告 · 半血复活</button>
-          <button id="btn-double" class="btn ad-btn"><span class="ad-tag">AD</span>看广告 · 金币翻倍</button>
+          <button id="btn-revive" class="btn ad-btn" type="button"><span class="ad-tag">演示</span>看广告 · 半血复活</button>
+          <button id="btn-double" class="btn ad-btn" type="button"><span class="ad-tag">演示</span>看广告 · 金币翻倍</button>
           <div id="res-cta-row" class="res-cta-row hidden">
             <button id="btn-goto-upgrade" class="btn ghost">去强化</button>
             <button id="btn-goto-gacha" class="btn ghost">去抽奖</button>
@@ -215,7 +215,7 @@
     <div id="settings" class="overlay hidden">
       <div class="panel">
         <h2 class="with-ico"><img src="assets/hub_settings.png" alt=""/>设置</h2>
-        <label class="toggle-row"><span>音效</span><input type="checkbox" id="chk-sound" checked /></label>
+        <label class="toggle-row"><span id="sound-label">音效 · 开</span><input type="checkbox" id="chk-sound" checked /></label>
         <p class="settings-note">存档保存在本机。重置会清空金币、装备、关卡和抽奖进度。</p>
         <button id="btn-reset-save" class="btn ghost" type="button">重置存档</button>
         <button id="btn-settings-close" class="btn primary">关闭</button>
@@ -244,6 +244,16 @@
         <p class="confirm-copy">将清除本机全部进度，包括金币、钻石、装备、关卡与抽奖记录。此操作无法撤销。</p>
         <button id="btn-reset-yes" class="btn danger" type="button">确认重置</button>
         <button id="btn-reset-no" class="btn ghost" type="button">取消</button>
+      </div>
+    </div>
+    <div id="ad-stub" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="ad-stub-title">
+      <div class="panel ad-stub-panel">
+        <p class="ad-demo">演示</p>
+        <h2 id="ad-stub-title">模拟广告 · 约3秒</h2>
+        <p class="ad-stub-copy">看完就发奖励。这是占位，不是真实广告，也不会扣钱。</p>
+        <div class="ad-progress" aria-hidden="true"><div id="ad-bar"></div></div>
+        <p id="ad-status">看一会儿就好</p>
+        <button id="btn-ad-skip" class="btn ghost" type="button">先不看</button>
       </div>
     </div>
     <div id="toast" class="toast hidden"></div>
