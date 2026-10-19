@@ -148,6 +148,84 @@ function buildStage(n) {
   ];
   if (dualBoss) midAnnounces.push({ at: Math.floor(clearTime * 0.85), text: '终焉之战！' });
 
+  // Early-stage retention hooks (unique beats so 1–5 never feel copy-paste)
+  let hooks = [];
+  let introTitle = `第${n}关 · 波次 1`;
+  let introSub = `目标 · ${clearMode === 'boss' ? '击败首领' : `生存 ${fmt(clearTime)} 或 ${clearKills} 杀`}`;
+  let rewardCoins = 15 + tier * 3;
+  let rewardDiamonds = n % 5 === 0 ? 5 + Math.floor(n / 10) : (n === 1 ? 5 : 0);
+  if (n === 1) {
+    introTitle = '第1关 · 初次撤离';
+    introSub = '开箱补给 · 活着出去就行';
+    midAnnounces[0] = { at: Math.floor(clearTime * 0.28), text: '设施广播：有人发福利箱' };
+    midAnnounces[1] = { at: Math.floor(clearTime * 0.62), text: '最后冲刺！门在亮' };
+    hooks = [
+      { at: 12, kind: 'lucky_burst', label: '新手幸运币' },
+      { at: 22, kind: 'golden_early' },
+      { at: 38, kind: 'cheer_pack', label: '撤离员加油包' },
+    ];
+    rewardDiamonds = 5;
+  } else if (n === 2) {
+    introTitle = '第2关 · 病房廊';
+    introSub = '灯光发青……故障监视器要醒了';
+    midAnnounces[0] = { at: Math.floor(clearTime * 0.25), text: '病房警报！监视器上线' };
+    midAnnounces[1] = { at: Math.floor(clearTime * 0.58), text: '走廊尽头有动静' };
+    hooks = [
+      { at: 16, kind: 'wisp_debut' },
+      { at: 28, kind: 'slacker_early' },
+      { at: 48, kind: 'heal_rain', label: '急救空投' },
+    ];
+    rewardCoins += 8;
+  } else if (n === 3) {
+    introTitle = '第3关 · 铠甲登场';
+    introSub = '厚皮怪来了 · 空投会砸三箱';
+    midAnnounces[0] = { at: Math.floor(clearTime * 0.22), text: '地面在震……' };
+    midAnnounces[1] = { at: Math.floor(clearTime * 0.5), text: '三重空投坐标锁定' };
+    hooks = [
+      { at: 20, kind: 'beetle_fanfare' },
+      { at: Math.floor(clearTime * 0.48), kind: 'triple_drop' },
+      { at: Math.floor(clearTime * 0.72), kind: 'overdrive', dur: 10, mul: 1.45 },
+    ];
+    rewardCoins += 12;
+    rewardDiamonds = Math.max(rewardDiamonds, 2);
+  } else if (n === 4) {
+    introTitle = '第4关 · 过载协议';
+    introSub = '中段会突然加速 · 别浪费那十秒';
+    midAnnounces[0] = { at: Math.floor(clearTime * 0.2), text: '权限芯片发热' };
+    midAnnounces[1] = { at: Math.floor(clearTime * 0.52), text: '过载协议启动！' };
+    hooks = [
+      { at: 18, kind: 'mystery_choice' },
+      { at: Math.floor(clearTime * 0.5), kind: 'overdrive', dur: 12, mul: 1.55 },
+      { at: Math.floor(clearTime * 0.7), kind: 'elite_pair' },
+      { at: 35, kind: 'combo_fever', need: 8 },
+    ];
+    rewardCoins += 16;
+    rewardDiamonds = Math.max(rewardDiamonds, 3);
+  } else if (n === 5) {
+    introTitle = '第5关 · 首领试炼';
+    introSub = '第一次正式首领 · 金色箱 + 摸鱼 + 终战';
+    midAnnounces[0] = { at: Math.floor(clearTime * 0.22), text: '灯在闪……有东西在集合' };
+    midAnnounces[1] = { at: Math.floor(clearTime * 0.52), text: '设施霸主苏醒！' };
+    hooks = [
+      { at: 14, kind: 'golden_early' },
+      { at: 26, kind: 'slacker_early' },
+      { at: Math.floor(clearTime * 0.4), kind: 'overdrive', dur: 9, mul: 1.35 },
+      { at: Math.floor(clearTime * 0.48), kind: 'pre_boss_show' },
+      { at: 32, kind: 'secret_easy' },
+    ];
+    rewardCoins += 25;
+    rewardDiamonds = Math.max(rewardDiamonds, 5);
+  } else if (n === 6) {
+    introTitle = '第6关 · 机甲保安';
+    introSub = '重装单位入场 · 打爆它有额外掉落';
+    hooks = [
+      { at: 22, kind: 'golem_debut' },
+      { at: 40, kind: 'triple_drop' },
+      { at: 55, kind: 'overdrive', dur: 8, mul: 1.4 },
+    ];
+    rewardCoins += 10;
+  }
+
   return {
     id: `s${n}`,
     index: n - 1,
@@ -166,12 +244,13 @@ function buildStage(n) {
     golemFrom: n >= 3 ? Math.max(15, 45 - tier) : 9999,
     bosses,
     introBanner: {
-      title: `第${n}关 · 波次 1`,
-      sub: `目标 · ${clearMode === 'boss' ? '击败首领' : `生存 ${fmt(clearTime)} 或 ${clearKills} 杀`}`,
+      title: introTitle,
+      sub: introSub,
     },
     midAnnounces,
-    rewardCoins: 15 + tier * 3,
-    rewardDiamonds: n % 5 === 0 ? 5 + Math.floor(n / 10) : (n === 1 ? 5 : 0),
+    hooks,
+    rewardCoins,
+    rewardDiamonds,
     bgTint: th.bgTint,
     hpScale,
     dmgScale,

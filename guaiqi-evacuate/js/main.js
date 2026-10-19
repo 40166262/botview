@@ -190,10 +190,18 @@ const game = new Game(canvas, {
     flushAchievements();
     const idx = STAGES.findIndex((s) => s.id === result.stageId);
     const hasNext = idx >= 0 && idx < STAGES.length - 1;
-    const bonusLine = result.rewardCoins ? `含通关奖金 +${result.rewardCoins}` : '';
+    const surprisePack = grantClearSurprise(save, result);
+    const bonusBits = [];
+    if (result.rewardCoins) bonusBits.push(`通关奖金 +${result.rewardCoins}`);
+    if (surprisePack.line) bonusBits.push(surprisePack.line);
+    const bonusLine = bonusBits.join(' · ');
+    const surpriseFlavor = surprisePack.flavor
+      || (result.surprises && result.surprises.length
+        ? `本局彩蛋：${result.surprises.slice(0, 3).join('、')}`
+        : '');
     showResult({
       cleared: true,
-      flavor: prog.msg || '设施又干净了一层，继续向下撤离！',
+      flavor: surpriseFlavor || prog.msg || '设施又干净了一层，继续向下撤离！',
       xp: prog.xp,
       matLine: prog.matLine,
       levelLine: prog.levelLine,
@@ -203,14 +211,15 @@ const game = new Game(canvas, {
       time: result.time,
       kills: result.kills,
       maxCombo: result.maxCombo,
-      coins: result.coins,
-      diamonds: result.rewardDiamonds,
+      coins: result.coins + (surprisePack.coins || 0),
+      diamonds: (result.rewardDiamonds || 0) + (surprisePack.diamonds || 0),
       rewardCoins: result.rewardCoins,
       canRevive: false,
       canDouble: (result.coins || 0) > 0,
       hasNext,
     });
-    celebrateFinds(finds, medicNew ? '急救狂魔' : '');
+    celebrateFinds(finds, medicNew ? '星铠机甲' : '');
+    if (surprisePack.toast) setTimeout(() => toast(surprisePack.toast), 700);
   },
   onToast: toast,
   onBanner() {},
@@ -221,6 +230,93 @@ bindJoystick(game, $('joystick'), $('joy-knob'));
 if (new URLSearchParams(location.search).has('debug')) {
   window.__game = game;
   window.__shot = { showResult, showUpgradeCards, renderGallery, refreshHomeStats, save: () => save };
+}
+
+
+/** Early-stage clear gifts — one memorable beat per chapter so 1–5 never feel empty. */
+function grantClearSurprise(save, result) {
+  const id = result && result.stageId;
+  const out = { coins: 0, diamonds: 0, line: '', flavor: '', toast: '' };
+  if (!id) return out;
+  if (!save.clearSurprises) save.clearSurprises = {};
+  // Always surface in-run surprises on the result card
+  if (result.surprises && result.surprises.length) {
+    out.flavor = `本局抓到了：${result.surprises.slice(0, 3).join('、')}${result.surprises.length > 3 ? '…' : ''}`;
+  }
+  const first = !save.clearSurprises[id];
+  save.clearSurprises[id] = true;
+  if (id === 's1') {
+    out.diamonds += first ? 8 : 2;
+    out.coins += first ? 40 : 15;
+    out.line = first ? '首通惊喜：钻石 +8 · 金币 +40' : '再次撤离补给 +';
+    out.flavor = first
+      ? '门开了！系统塞给你一笔「活着的奖金」。星铠机甲已解锁，去角色页看看。'
+      : (out.flavor || '办公区又清扫了一遍。');
+    out.toast = first ? '首通大礼到手！' : '';
+    if (save.materials) save.materials.scrap = (save.materials.scrap || 0) + (first ? 4 : 1);
+  } else if (id === 's2') {
+    out.diamonds += first ? 4 : 1;
+    out.coins += first ? 35 : 12;
+    out.line = first ? '病房首通：钻石 +4 · 抽奖运势小暖' : '病房补给';
+    out.flavor = first
+      ? '监视器还在闪雪花。图鉴多了新条目，抽奖页今晚手气可能偏暖。'
+      : (out.flavor || '走廊灯又灭了一排。');
+    // soft pity help once
+    if (first) save.pity = Math.min(9, (save.pity || 0) + 2);
+    out.toast = first ? '病房首通 · 抽奖保底靠近了' : '';
+  } else if (id === 's3') {
+    out.diamonds += first ? 5 : 2;
+    out.coins += first ? 45 : 18;
+    out.line = first ? '铠甲首通：材料箱 + 钻石' : '空投余粮';
+    out.flavor = first
+      ? '三重空投的坐标还印在视网膜上。废料和电池塞满口袋——去强化防具！'
+      : (out.flavor || '铠甲碎了一地。');
+    if (save.materials) {
+      save.materials.scrap = (save.materials.scrap || 0) + (first ? 6 : 2);
+      save.materials.battery = (save.materials.battery || 0) + (first ? 2 : 0);
+    }
+    out.toast = first ? '强化材料到账，装备栏等等你' : '';
+  } else if (id === 's4') {
+    out.diamonds += first ? 6 : 2;
+    out.coins += first ? 50 : 20;
+    out.line = first ? '过载首通：钻石 +6 · 挂件碎片感' : '过载余韵';
+    out.flavor = first
+      ? '过载散去，芯片还烫手。神秘权限箱的味道让人想再来一局。'
+      : (out.flavor || '权限又降回去了。');
+    // grant a common charm if none
+    if (first) {
+      if (!save.inventory) save.inventory = {};
+      const gift = 'charm_coin';
+      save.inventory[gift] = (save.inventory[gift] || 0) + 1;
+      out.toast = '获得挂件：清点账本';
+      out.line += ' · 清点账本 ×1';
+    }
+  } else if (id === 's5') {
+    out.diamonds += first ? 10 : 3;
+    out.coins += first ? 80 : 25;
+    out.line = first ? '首领首通大礼：钻石 +10 · 金币 +80' : '再战首领补给';
+    out.flavor = first
+      ? '你打倒了第一位正式首领！设施深处的门缝透出金光——后面会更疯，也会更爽。'
+      : (out.flavor || '霸主又倒下一次。');
+    if (first) {
+      if (!save.inventory) save.inventory = {};
+      save.inventory.charm_crit = (save.inventory.charm_crit || 0) + 1;
+      out.toast = '史诗挂件：精密螺丝！';
+      out.line += ' · 精密螺丝 ×1';
+      if (save.materials) {
+        save.materials.chip = (save.materials.chip || 0) + 2;
+        save.materials.tape = (save.materials.tape || 0) + 2;
+      }
+    }
+  } else if (id === 's6' && first) {
+    out.diamonds += 4;
+    out.coins += 30;
+    out.line = '机甲首通补给';
+    out.flavor = out.flavor || '重装保安的零件还能卖钱。继续往下挖！';
+  }
+  if (out.coins) addCoins(save, out.coins);
+  if (out.diamonds) addDiamonds(save, out.diamonds);
+  return out;
 }
 
 function goHome() {

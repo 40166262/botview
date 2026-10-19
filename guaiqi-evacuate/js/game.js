@@ -199,7 +199,14 @@ export class Game {
       slackerDone: false,
       bossWarned: {},
       bossMarks: {},
+      hookDone: {},
+      comboFeverArmed: false,
+      comboFeverDone: false,
     };
+    this.overdriveT = 0;
+    this._odMul = 1;
+    this._odSpeedMul = 1;
+    this.runSurprises = []; // strings shown on clear
     this.tips = {
       move: !!this.coachFresh,
       act: !!this.coachFresh,
@@ -347,6 +354,7 @@ export class Game {
         if (nx) this._banner(nx[0], nx[1], nx[2]);
       }
     }
+    this._tickOverdrive(dt);
     this._noteWave();
 
     // move
@@ -1011,16 +1019,200 @@ export class Game {
     // 5) 摸鱼丧尸: runs AWAY carrying a bonus briefcase; catch it in 9s for a payout
     if (!ev.slackerDone && t >= ev.slackerAt) {
       ev.slackerDone = true;
-      const pos = spawnPointAround(p.x, p.y, 150, 190, WORLD_W, WORLD_H);
-      const e = createEnemy('slime', pos.x, pos.y, scale * 1.6);
-      e.isSlacker = true;
-      e.fleeT = 9;
-      e.damage = 0;
-      e.baseSpeed = p.speed * 0.62;
-      e.xp = 6;
-      this.enemies.push(e);
-      this._banner('摸鱼丧尸出没！快抓', 'gold', 2);
-      this._noteGallery('enemy_slacker');
+      this._spawnSlacker(scale);
+    }
+
+    // 6) per-stage surprise hooks (early retention)
+    this._checkStageHooks(t, scale);
+
+    // 7) combo fever (armed by stage hook)
+    if (ev.comboFeverArmed && !ev.comboFeverDone && this.juice.combo >= (ev.comboFeverNeed || 8)) {
+      ev.comboFeverDone = true;
+      this._startOverdrive(8, 1.4);
+      this.coinsEarned = (this.coinsEarned || 0) + 18;
+      this._banner('连击狂热！过载 8 秒', 'gold', 2);
+      this._noteSurprise('连击狂热触发');
+      SFX.announce();
+    }
+  }
+
+
+  _noteSurprise(msg) {
+    if (!this.runSurprises) this.runSurprises = [];
+    if (msg && !this.runSurprises.includes(msg)) this.runSurprises.push(msg);
+  }
+
+  _tickOverdrive(dt) {
+    if (this.overdriveT <= 0) return;
+    this.overdriveT -= dt;
+    if (this.overdriveT > 0) return;
+    const p = this.player;
+    if (this._odMul !== 1) {
+      p.damage /= this._odMul;
+      p.speed /= this._odSpeedMul;
+      this._odMul = 1;
+      this._odSpeedMul = 1;
+      this._banner('过载结束', 'info', 1.1);
+      if (this.hooks.onToast) this.hooks.onToast('过载消退，火力回落');
+    }
+  }
+
+  _startOverdrive(dur = 10, mul = 1.45) {
+    const p = this.player;
+    // refresh timer; only apply mul once
+    if (this._odMul === 1) {
+      this._odMul = mul;
+      this._odSpeedMul = 1 + (mul - 1) * 0.55;
+      p.damage *= this._odMul;
+      p.speed *= this._odSpeedMul;
+    }
+    this.overdriveT = Math.max(this.overdriveT, dur);
+    spawnBurst(this.particles, p.x, p.y, '#f0b850', 28, 160);
+    this._banner(`过载协议 · ${Math.round(dur)} 秒`, 'gold', 2.2);
+    this._noteSurprise('过载协议');
+    SFX.announce();
+  }
+
+  _spawnSlacker(scale) {
+    const p = this.player;
+    const pos = spawnPointAround(p.x, p.y, 150, 190, WORLD_W, WORLD_H);
+    const e = createEnemy('slime', pos.x, pos.y, (scale || 1) * 1.6);
+    e.isSlacker = true;
+    e.fleeT = 9;
+    e.damage = 0;
+    e.baseSpeed = p.speed * 0.62;
+    e.xp = 6;
+    this.enemies.push(e);
+    this._banner('摸鱼丧尸出没！快抓', 'gold', 2);
+    this._noteGallery('enemy_slacker');
+    this._noteSurprise('摸鱼丧尸');
+    SFX.announce();
+  }
+
+  _checkStageHooks(t, scale) {
+    const hooks = (this.stage && this.stage.hooks) || [];
+    if (!hooks.length) return;
+    const ev = this.events;
+    const p = this.player;
+    for (let i = 0; i < hooks.length; i++) {
+      const h = hooks[i];
+      const key = `${h.kind}_${h.at}`;
+      if (ev.hookDone[key]) continue;
+      if (t < h.at) continue;
+      ev.hookDone[key] = true;
+      const kind = h.kind;
+      if (kind === 'lucky_burst') {
+        this.coinsEarned = (this.coinsEarned || 0) + 20;
+        spawnBurst(this.particles, p.x, p.y, '#e8c878', 18, 120);
+        this._banner(h.label || '幸运金币！', 'gold', 1.8);
+        if (this.hooks.onToast) this.hooks.onToast('设施塞给你一笔开工费 +20');
+        this._noteSurprise('幸运金币');
+      } else if (kind === 'golden_early') {
+        if (!ev.goldenDone) {
+          ev.goldenDone = true;
+          this._spawnChest('gold');
+          this._noteSurprise('金色物资箱');
+        }
+      } else if (kind === 'cheer_pack') {
+        p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * 0.35));
+        p.shield = Math.max(p.shield || 0, 1);
+        this._banner(h.label || '加油包', 'info', 1.8);
+        if (this.hooks.onToast) this.hooks.onToast('生命回升，护盾到手');
+        this._noteSurprise('加油包');
+        spawnBurst(this.particles, p.x, p.y, '#7dba8a', 16, 100);
+      } else if (kind === 'wisp_debut') {
+        for (let k = 0; k < 3; k++) {
+          const pos = spawnPointAround(p.x, p.y, 180, 260, WORLD_W, WORLD_H);
+          const en = createEnemy('wisp', pos.x, pos.y, scale * 0.95);
+          en.damage *= (this.stage.dmgScale || 1);
+          this.enemies.push(en);
+        }
+        this._banner('故障监视器苏醒！', 'warn', 2);
+        this._noteGallery('enemy_wisp');
+        this._noteSurprise('监视器首秀');
+        SFX.announce();
+      } else if (kind === 'slacker_early') {
+        if (!ev.slackerDone) {
+          ev.slackerDone = true;
+          this._spawnSlacker(scale);
+        }
+      } else if (kind === 'heal_rain') {
+        this._spawnChest('normal');
+        setTimeout(() => { if (this.alive && !this.cleared) this._spawnChest('rare'); }, 500);
+        p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * 0.25));
+        this._banner(h.label || '急救空投', 'info', 1.8);
+        this._noteSurprise('急救空投');
+      } else if (kind === 'beetle_fanfare') {
+        const pos = spawnPointAround(p.x, p.y, 200, 280, WORLD_W, WORLD_H);
+        const en = this._makeElite('beetle', pos.x, pos.y, scale * 1.15, { scaleDamage: true });
+        this.enemies.push(en);
+        this._banner('铠甲尸破门！', 'elite', 2.2);
+        this._noteGallery('enemy_beetle');
+        this._noteSurprise('铠甲登场');
+        SFX.announce();
+      } else if (kind === 'triple_drop') {
+        this._spawnChest('rare');
+        setTimeout(() => { if (this.alive && !this.cleared) this._spawnChest('normal'); }, 450);
+        setTimeout(() => { if (this.alive && !this.cleared) this._spawnChest('rare'); }, 900);
+        this._banner('三重空投！', 'gold', 2.2);
+        this._noteSurprise('三重空投');
+        SFX.announce();
+      } else if (kind === 'overdrive') {
+        this._startOverdrive(h.dur || 10, h.mul || 1.45);
+      } else if (kind === 'mystery_choice') {
+        // pause into a free epic-ish upgrade pick via golden chest UI path
+        this._spawnChest('gold');
+        if (!ev.goldenDone) ev.goldenDone = true;
+        this.coinsEarned = (this.coinsEarned || 0) + 12;
+        this._banner('神秘权限箱！', 'gold', 2);
+        this._noteSurprise('神秘权限箱');
+      } else if (kind === 'elite_pair') {
+        for (let k = 0; k < 2; k++) {
+          const pos = spawnPointAround(p.x, p.y, 220, 300, WORLD_W, WORLD_H);
+          const flavor = k === 0 ? 'tank' : 'flank';
+          const en = this._makeElite(pickEnemyType(this.stage, t), pos.x, pos.y, scale, { scaleDamage: true, flavor });
+          // flavor may need to be set after
+          en.eliteFlavor = flavor;
+          this.enemies.push(en);
+        }
+        this._banner('厚甲 + 侧袭双精英！', 'elite', 2.2);
+        this._noteSurprise('双精英夹击');
+        SFX.announce();
+      } else if (kind === 'combo_fever') {
+        ev.comboFeverArmed = true;
+        ev.comboFeverNeed = h.need || 8;
+        if (this.hooks.onToast) this.hooks.onToast(`连击冲到 ${ev.comboFeverNeed} 可触发狂热`);
+      } else if (kind === 'pre_boss_show') {
+        for (let k = 0; k < 6; k++) {
+          const pos = spawnPointAround(p.x, p.y, 200, 280, WORLD_W, WORLD_H);
+          this.enemies.push(createEnemy(k % 2 ? 'bat' : 'slime', pos.x, pos.y, scale * 0.7));
+        }
+        this._banner('首领先锋队！', 'boss', 2);
+        this._noteSurprise('首领先锋');
+        SFX.announce();
+      } else if (kind === 'secret_easy') {
+        if (!this.secretSpawned) {
+          this.secretSpawned = true;
+          const pos = spawnPointAround(p.x, p.y, 200, 260, WORLD_W, WORLD_H);
+          const e = this._makeElite('bat', pos.x, pos.y, 1.55);
+          e.isSecret = true;
+          e.color = '#c8b090';
+          e.xp = 10;
+          this.enemies.push(e);
+          this._noteGallery('enemy_secret');
+          this._banner('故障投影提前现身！', 'warn', 2);
+          this._noteSurprise('故障投影');
+          SFX.announce();
+        }
+      } else if (kind === 'golem_debut') {
+        const pos = spawnPointAround(p.x, p.y, 220, 300, WORLD_W, WORLD_H);
+        const en = this._makeElite('golem', pos.x, pos.y, scale * 1.1, { scaleDamage: true });
+        this.enemies.push(en);
+        this._banner('重装保安入场！', 'elite', 2.2);
+        this._noteGallery('enemy_golem');
+        this._noteSurprise('重装保安');
+        SFX.announce();
+      }
     }
   }
 
@@ -1359,7 +1551,8 @@ export class Game {
         runId: this.runId,
         cleared: true,
         rewardCoins: bonus,
-        rewardDiamonds: 5 + this.stage.index * 5,
+        rewardDiamonds: this.stage.rewardDiamonds || 0,
+        surprises: this.runSurprises || [],
         supply: this._supplySnapshot(),
       });
     }
@@ -1382,6 +1575,7 @@ export class Game {
         runId: this.runId,
         cleared: false,
         revivedOnce: this.revivedOnce,
+        surprises: this.runSurprises || [],
         supply: this._supplySnapshot(),
       });
     }
