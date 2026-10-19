@@ -213,6 +213,16 @@ export function addMaterials(save, stageNum, cleared) {
   return gained;
 }
 
+/** Immediate bonus materials (rare crate). Does not roll the end-of-run table. */
+export function grantMaterials(save, gained) {
+  if (!save.materials) save.materials = { scrap: 0, battery: 0, tape: 0, chip: 0 };
+  const m = save.materials;
+  for (const key of ['scrap', 'battery', 'tape', 'chip']) {
+    const amt = gained && gained[key];
+    if (amt) m[key] = (m[key] || 0) + amt;
+  }
+}
+
 /** Gear upgrade cost table */
 export function gearUpgradeCost(level) {
   const table = [

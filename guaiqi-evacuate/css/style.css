@@ -1661,6 +1661,54 @@ body:has(#achieve:not(.hidden)) .overlay {
   100% { transform: scale(1); }
 }
 
+/* Ward vs basement: same cardboard HUD, ink shifts with the room. Still bright. */
+.hud.theme-ward::before {
+  background: linear-gradient(180deg, rgba(255, 236, 226, 0.72) 0%, rgba(255, 220, 204, 0.38) 62%, rgba(255, 220, 204, 0) 100%);
+}
+.hud.theme-ward .hud-stage,
+.hud.theme-ward .hud-meta {
+  color: #6a3428;
+  border-color: #6a3428;
+  background: rgba(255, 244, 236, 0.96);
+  box-shadow: 0 2px 0 #6a3428;
+}
+.hud.theme-ward .hp-wrap,
+.hud.theme-ward .xp-wrap {
+  border-color: #6a3428 !important;
+}
+.hud.theme-ward .hud-pause {
+  border-color: #6a3428;
+  box-shadow: 0 3px 0 #6a3428;
+}
+.hud.theme-ward .hud-pause .pause-bars {
+  background:
+    linear-gradient(#6a3428, #6a3428) left/4px 100% no-repeat,
+    linear-gradient(#6a3428, #6a3428) right/4px 100% no-repeat;
+}
+.hud.theme-basement::before {
+  background: linear-gradient(180deg, rgba(255, 228, 176, 0.74) 0%, rgba(255, 210, 140, 0.40) 62%, rgba(255, 210, 140, 0) 100%);
+}
+.hud.theme-basement .hud-stage,
+.hud.theme-basement .hud-meta {
+  color: #6a3e10;
+  border-color: #6a3e10;
+  background: rgba(255, 236, 196, 0.96);
+  box-shadow: 0 2px 0 #6a3e10;
+}
+.hud.theme-basement .hp-wrap,
+.hud.theme-basement .xp-wrap {
+  border-color: #6a3e10 !important;
+}
+.hud.theme-basement .hud-pause {
+  border-color: #6a3e10;
+  box-shadow: 0 3px 0 #6a3e10;
+}
+.hud.theme-basement .hud-pause .pause-bars {
+  background:
+    linear-gradient(#6a3e10, #6a3e10) left/4px 100% no-repeat,
+    linear-gradient(#6a3e10, #6a3e10) right/4px 100% no-repeat;
+}
+
 /* Stage / wave chip stays left of the pause button. */
 .hud-stage {
   max-width: calc(100% - 72px);
