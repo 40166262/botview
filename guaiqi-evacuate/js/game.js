@@ -65,22 +65,31 @@ function paceProfile(stage) {
   return { seed: 7, minD: 150, maxD: 220, scale: 0.85, spawnAcc: 0.85, earlyBoost: 1.6, swarmAt: 14, swarmBase: 10, swarmStep: 2, eliteAt: 38, announceExtra: 5, swarmCap: 22, swarmGap: 20 };
 }
 
-/** r6 floor palettes — warm pixel-grid tiles (stronger grout, less soft bevel). */
+/** Rare open on a normal crate. Kept inside the 8–12% band. */
+const RARE_CRATE_CHANCE = 0.10;
+
+/**
+ * r6 floor palettes — warm pixel-grid tiles, then a cached multiply + lift
+ * so ward and basement read as different rooms without going dark or gray.
+ */
 const FLOOR_THEMES = {
   office: { // warm beige carpet tiles
     tile: 64, base: '#ecd6a6', tones: ['#ecd6a6', '#e8d19f', '#efdaae', '#ead4a3'],
     seam: 'rgba(140,96,48,0.38)', hi: 'rgba(255,248,226,0.28)', lo: 'rgba(150,104,52,0.14)',
     edge: '#d9b77e', accent: null,
+    grade: { multiply: '#fff6ea', lift: '#fffaf2', liftAlpha: 0.06 },
   },
-  ward: { // warm sand tiles (mint teal read as a style break on the cardboard floor)
-    tile: 48, base: '#e6d3a8', tones: ['#e6d3a8', '#e2cfa2', '#ead8b0', '#e4d1a6'],
-    seam: 'rgba(140,96,48,0.36)', hi: 'rgba(255,248,226,0.30)', lo: 'rgba(150,104,52,0.14)',
-    edge: '#d7b888', accent: '#f3e2c0',
+  ward: { // bright clinic cream with a rose wash (mint teal read as a style break)
+    tile: 48, base: '#f6e4cc', tones: ['#f7e6d0', '#f4ddc6', '#f8e2d4', '#f3e0c8'],
+    seam: 'rgba(168, 92, 72, 0.36)', hi: 'rgba(255,246,238,0.40)', lo: 'rgba(176, 104, 80, 0.16)',
+    edge: '#e8c2ae', accent: '#f6cfc0', accentP: 0.1,
+    grade: { multiply: '#ffd8c6', lift: '#fff4ee', liftAlpha: 0.18 },
   },
-  basement: { // peach-sand plates, warm grout
-    tile: 56, accentP: 0.06, base: '#f2d4a8', tones: ['#f2d4a8', '#efcfa1', '#f5d9b0', '#f0d2a5'],
-    seam: 'rgba(140,90,40,0.42)', hi: 'rgba(255,246,226,0.32)', lo: 'rgba(196,120,60,0.20)',
-    edge: '#e0b888', accent: '#f6e2c4',
+  basement: { // bright honey plates, warm grout — amber, not a gray cellar
+    tile: 56, accentP: 0.09, base: '#ffe6b4', tones: ['#ffe7b8', '#ffdfaa', '#ffefc4', '#f8dba4'],
+    seam: 'rgba(176, 112, 36, 0.40)', hi: 'rgba(255,248,220,0.42)', lo: 'rgba(196, 128, 40, 0.18)',
+    edge: '#e8bc74', accent: '#ffc878',
+    grade: { multiply: '#ffd59a', lift: '#fff3d4', liftAlpha: 0.2 },
   },
 };
 
@@ -166,6 +175,10 @@ export class Game {
     this.secretSpawned = false;
     this.runId = (this._runSerial = (this._runSerial || 0) + 1);
     this.cratesOpened = 0;
+    this.runSupply = null;
+    this._rarePlaqueUsed = false;
+    this._rarePlaqueHold = false;
+    this._rarePlaque = null;
     this._chestEver = false;
     this._waveShown = 1;
     this.bannerTimer = 1.6;
@@ -325,6 +338,7 @@ export class Game {
 
     if (this.bannerTimer > 0) this.bannerTimer -= dt;
     if (this.lvRing > 0) this.lvRing -= dt;
+    this._tickRarePlaque(dt);
     if (this.midBannerT > 0) {
       this.midBannerT -= dt;
       if (this.midBannerT <= 0) {
@@ -592,14 +606,30 @@ export class Game {
       const dy = p.y - e.y;
       const d = Math.hypot(dx, dy) || 1;
       let wx = 0, wy = 0;
-      if (e.type === 'bat') {
+      let approach = 1;
+      const spd = (e.baseSpeed || e.speed) * spdMul;
+      if (e.eliteFlavor === 'flank') {
+        // Orbit to the player's side, then close. Flip sides so it doesn't circle forever.
+        const side = e.flankSign || 1;
+        e.flankT = (e.flankT || 0) + dt;
+        if (e.flankT > 2.5) {
+          e.flankT = 0;
+          e.flankSign = -side;
+        }
+        const lateral = d > 168 ? 0.7 : 1.15;
+        wx += (-dy / d) * spd * side * lateral;
+        wy += (dx / d) * spd * side * lateral;
+        approach = d > 128 ? 0.4 : 0.16;
+      } else if (e.eliteFlavor === 'tank') {
+        // Straight slow walk. No weave.
+        approach = 1;
+      } else if (e.type === 'bat') {
         wx = Math.cos(this.time * 5 + e.wobble) * 30;
         wy = Math.sin(this.time * 4 + e.wobble) * 20;
       }
-      const spd = (e.baseSpeed || e.speed) * spdMul;
       const dir = e.isSlacker ? -1 : 1; // 摸鱼丧尸 runs away
-      e.x += ((dx / d) * spd * dir + wx) * dt;
-      e.y += ((dy / d) * spd * dir + wy) * dt;
+      e.x += ((dx / d) * spd * approach * dir + wx) * dt;
+      e.y += ((dy / d) * spd * approach * dir + wy) * dt;
       if (e.kbx || e.kby) { // soft knockback decays fast
         e.x += e.kbx * dt; e.y += e.kby * dt;
         e.kbx *= 0.82; e.kby *= 0.82;
@@ -694,6 +724,7 @@ export class Game {
             this.coinsEarned += 10;
             this._coinPop(c.x, c.y, '+10金');
           }
+          if (Math.random() < RARE_CRATE_CHANCE) this._grantRareSupply(c);
           if (this.hooks.onChest) this.hooks.onChest();
         }
       }
@@ -737,6 +768,7 @@ export class Game {
         combo: this.juice.combo,
         shield: p.shield,
         coins: this.coinsEarned,
+        theme: this.stage.theme || 'office',
         bannerTimer: this.bannerTimer,
         bannerTitle: this.bannerTitle,
         bannerSub: this.bannerSub,
@@ -823,8 +855,10 @@ export class Game {
         const scale = difficultyScale(this.stage, this.time);
         for (let i = 0; i < 4; i++) {
           const pos = spawnPointAround(this.player.x, this.player.y, 200, 320, WORLD_W, WORLD_H);
-          this.enemies.push(createEnemy(pickEnemyType(this.stage, this.time), pos.x, pos.y, scale, { elite: true }));
+          const en = this._makeElite(pickEnemyType(this.stage, this.time), pos.x, pos.y, scale, { scaleDamage: true });
+          this.enemies.push(en);
         }
+        this._banner('厚甲与侧袭！', 'elite', 1.6);
       }
     }
   }
@@ -876,6 +910,21 @@ export class Game {
     this._banner(`波次 ${wave} · 目标 ${goal}`, 'info', 1.2);
   }
 
+  _makeElite(type, x, y, scale, opts = {}) {
+    const en = createEnemy(type, x, y, scale, { elite: true, flavor: opts.flavor });
+    if (opts.scaleDamage) en.damage *= (this.stage.dmgScale || 1);
+    return en;
+  }
+
+  _eliteBanner(en, mode) {
+    const text = en && en.eliteFlavor === 'flank' ? '侧袭精英！' : '厚甲精英！';
+    if (mode === 'quiet') {
+      if (this.midBannerT <= 0) this._banner(text, 'elite', 1.6);
+      return;
+    }
+    this._banner(text, 'elite', 1.6);
+  }
+
   _banner(text, kind = 'info', dur = 1.8) {
     // queue instead of overwriting so swarm/elite/boss callouts never swallow each other
     if (this.midBanner && this.midBannerT > 0.35) {
@@ -922,10 +971,9 @@ export class Game {
     if (t >= ev.eliteNext && t < endT - 4) {
       ev.eliteNext = t + 45;
       const pos = spawnPointAround(p.x, p.y, 240, 300, WORLD_W, WORLD_H);
-      const en = createEnemy(pickEnemyType(this.stage, t), pos.x, pos.y, scale, { elite: true });
-      en.damage *= (this.stage.dmgScale || 1);
+      const en = this._makeElite(pickEnemyType(this.stage, t), pos.x, pos.y, scale, { scaleDamage: true });
       this.enemies.push(en);
-      this._banner('精英来袭！', 'elite', 1.6);
+      this._eliteBanner(en);
     }
 
     // 3) boss warning 3s ahead: under-HUD plaque + a soft rust ring on the landing spot
@@ -1000,7 +1048,7 @@ export class Game {
     if (!this.secretSpawned && this.noDamageTimer >= 30) {
       this.secretSpawned = true;
       const pos = spawnPointAround(this.player.x, this.player.y, 220, 280, WORLD_W, WORLD_H);
-      const e = createEnemy('bat', pos.x, pos.y, 1.8, { elite: true });
+      const e = this._makeElite('bat', pos.x, pos.y, 1.8);
       e.isSecret = true;
       e.color = '#c8b090';
       e.xp = 8;
@@ -1198,14 +1246,55 @@ export class Game {
         this.killsSinceElite = 0;
         const pos = spawnPointAround(this.player.x, this.player.y, 240, 320, WORLD_W, WORLD_H);
         const type = pickEnemyType(this.stage, this.time);
-        this.enemies.push(createEnemy(type, pos.x, pos.y, difficultyScale(this.stage, this.time), { elite: true }));
-        if (this.midBannerT <= 0) this._banner('精英来袭！', 'elite', 1.6);
+        const en = this._makeElite(type, pos.x, pos.y, difficultyScale(this.stage, this.time));
+        this.enemies.push(en);
+        this._eliteBanner(en, 'quiet');
       }
     }
   }
 
   _coinPop(x, y, text) {
     this.coinPops.push({ x, y, text, age: 0, life: 0.8 });
+  }
+
+  /** Extra scrap (and sometimes a battery) plus one diamond. Plaque shows once per run. */
+  _grantRareSupply(c) {
+    const mats = { scrap: 2 };
+    if ((this.stage.stageNum || 1) >= 8 && Math.random() < 0.5) mats.battery = 1;
+    const diamonds = 1;
+    if (!this.runSupply) this.runSupply = { scrap: 0, battery: 0, tape: 0, chip: 0, diamonds: 0 };
+    for (const k of ['scrap', 'battery', 'tape', 'chip']) {
+      if (mats[k]) this.runSupply[k] += mats[k];
+    }
+    this.runSupply.diamonds += diamonds;
+    const names = { scrap: '废料', battery: '电池', tape: '胶带', chip: '芯片' };
+    const bits = [];
+    for (const k of Object.keys(names)) if (mats[k]) bits.push(`${names[k]}+${mats[k]}`);
+    if (diamonds) bits.push(`钻+${diamonds}`);
+    this._coinPop(c.x, c.y - 26, bits.join(' '));
+    spawnBurst(this.particles, c.x, c.y, '#ffd27a', 8, 70);
+    if (this.hooks.onRareSupply) this.hooks.onRareSupply({ materials: { ...mats }, diamonds });
+    if (!this._rarePlaqueUsed) {
+      this._rarePlaqueUsed = true;
+      this._rarePlaqueHold = true;
+    }
+  }
+
+  _tickRarePlaque(dt) {
+    if (this._rarePlaqueHold) {
+      this._rarePlaqueHold = false;
+      this._rarePlaque = { age: 0, life: 2.2 };
+    }
+    if (!this._rarePlaque) return;
+    this._rarePlaque.age += dt;
+    if (this._rarePlaque.age >= this._rarePlaque.life) this._rarePlaque = null;
+  }
+
+  _supplySnapshot() {
+    const s = this.runSupply;
+    if (!s) return null;
+    if (!(s.scrap || s.battery || s.tape || s.chip || s.diamonds)) return null;
+    return { scrap: s.scrap || 0, battery: s.battery || 0, tape: s.tape || 0, chip: s.chip || 0, diamonds: s.diamonds || 0 };
   }
 
   _gainXp(v) {
@@ -1247,6 +1336,7 @@ export class Game {
         cleared: true,
         rewardCoins: bonus,
         rewardDiamonds: 5 + this.stage.index * 5,
+        supply: this._supplySnapshot(),
       });
     }
   }
@@ -1268,6 +1358,7 @@ export class Game {
         runId: this.runId,
         cleared: false,
         revivedOnce: this.revivedOnce,
+        supply: this._supplySnapshot(),
       });
     }
   }
@@ -1368,6 +1459,24 @@ export class Game {
     ctx.strokeStyle = 'rgba(59,42,26,0.55)';
     ctx.lineWidth = 3;
     ctx.strokeRect(bb, bb, WORLD_W - bb * 2, WORLD_H - bb * 2);
+    this._applyFloorGrade(ctx, F);
+  }
+
+  /** One multiply + cream lift baked into the floor cache. Keeps the room bright. */
+  _applyFloorGrade(ctx, F) {
+    const g = F && F.grade;
+    if (!g || !g.multiply) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = g.multiply;
+    ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+    if (g.lift) {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = g.liftAlpha == null ? 0.16 : g.liftAlpha;
+      ctx.fillStyle = g.lift;
+      ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+    }
+    ctx.restore();
   }
 
   draw() {
@@ -1697,7 +1806,7 @@ export class Game {
       const vctx = c.getContext('2d');
       const vig = vctx.createRadialGradient(W / 2, H / 2, H * 0.22, W / 2, H / 2, H * 0.8);
       vig.addColorStop(0, 'rgba(0,0,0,0)');
-      const edge = theme === 'basement' ? 'rgba(90,50,15,0.20)' : theme === 'ward' ? 'rgba(90,55,20,0.20)' : 'rgba(70,40,10,0.22)';
+      const edge = theme === 'basement' ? 'rgba(176, 112, 40, 0.14)' : theme === 'ward' ? 'rgba(176, 96, 72, 0.13)' : 'rgba(120, 78, 32, 0.15)';
       vig.addColorStop(1, edge);
       vctx.fillStyle = vig;
       vctx.fillRect(0, 0, W, H);
@@ -1810,6 +1919,23 @@ export class Game {
       }
       ctx.fillStyle = sty[2];
       ctx.fillText(this.midBanner, W / 2, cy + 1);
+      ctx.restore();
+    }
+    const rp = this._rarePlaque;
+    if (rp) {
+      const life = rp.life || 2.2;
+      const a = Math.max(0, Math.min(1, rp.age * 6, (life - rp.age) * 3.2));
+      const cy = H - 156;
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.font = '900 15px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      plaque(W / 2, cy, 128, 30, '#fff6dc', '#3b2a1a');
+      ctx.fillStyle = '#e8a040';
+      ctx.fillRect(W / 2 - 52, cy - 11, 104, 3);
+      ctx.fillStyle = '#7a4a00';
+      ctx.fillText('稀有补给', W / 2, cy + 3);
       ctx.restore();
     }
     ctx.textBaseline = 'alphabetic';

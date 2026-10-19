@@ -2,7 +2,7 @@ import { Game } from './game.js';
 import { Ads } from './ads.js';
 import {
   loadSave, writeSave, resetSave, updateBest, addCoins, addDiamonds, formatTime,
-  addPlayerXp, addCharXp, addMaterials, tryUpgradeGear, gearUpgradeCost,
+  addPlayerXp, addCharXp, addMaterials, grantMaterials, tryUpgradeGear, gearUpgradeCost,
 } from './save.js';
 import { setSoundEnabled, resumeAudio, SFX } from './audio.js';
 import {
@@ -69,13 +69,26 @@ function applyRunProgress(result, cleared) {
     const bits = pr.rewards.map((r) => (r.type === 'diamonds' ? `钻石 +${r.n}` : `金币 +${r.n}`));
     levelLine = `升级奖励 · ${bits.join(' · ')}`;
   }
+  const supplyLine = bonusSupplyLine(result && result.supply);
+  const matLine = [matBits.length ? `材料 ${matBits.join(' · ')}` : '', supplyLine].filter(Boolean).join(' · ');
   return {
     msg,
     xp,
-    matLine: matBits.length ? `材料 ${matBits.join(' · ')}` : '',
+    matLine,
     levelLine,
     charLine: charPr.leveled ? `角色升至 Lv.${charPr.level}` : '',
   };
+}
+
+function bonusSupplyLine(supply) {
+  if (!supply) return '';
+  const names = { scrap: '废料', battery: '电池', tape: '胶带', chip: '芯片' };
+  const bits = [];
+  for (const [k, name] of Object.entries(names)) {
+    if (supply[k]) bits.push(`${name}×${supply[k]}`);
+  }
+  if (supply.diamonds) bits.push(`钻石×${supply.diamonds}`);
+  return bits.length ? `稀有补给 ${bits.join(' · ')}` : '';
 }
 
 function takeFinds() {
@@ -113,6 +126,11 @@ const game = new Game(canvas, {
       game.setPaused(false);
       toast(kind === 'heal' ? '生命回复！' : kind === 'coin' ? '金币入手！' : '获得升级！');
     });
+  },
+  onRareSupply(pack) {
+    grantMaterials(save, pack && pack.materials);
+    if (pack && pack.diamonds) addDiamonds(save, pack.diamonds);
+    writeSave(save);
   },
   onDeath(result) {
     lastResult = { ...result, cleared: false };

@@ -93,38 +93,83 @@ export const ENEMY_TYPES = {
 
 const ELITE_SKILLS = ['charge', 'spore', 'lightning', 'reflect'];
 
+/** Two elite flavors. Rim colour stays the warm gold from PR#37–38; the tank only thickens it. */
+const ELITE_FLAVORS = {
+  tank: {
+    id: 'tank',
+    label: '厚甲',
+    hpMul: 3.55,
+    speedMul: 0.56,
+    rMul: 1.48,
+    dmgMul: 1.25,
+    skills: ['charge', 'reflect', 'spore'],
+  },
+  flank: {
+    id: 'flank',
+    label: '侧袭',
+    hpMul: 1.65,
+    speedMul: 1.5,
+    rMul: 1.2,
+    dmgMul: 1.35,
+    skills: ['lightning', 'charge'],
+  },
+};
+const ELITE_FLAVOR_ORDER = ['tank', 'flank'];
+let eliteFlavorSerial = 0;
+
+function rollEliteFlavor(opts) {
+  if (opts.flavor === 'tank' || opts.flavor === 'flank') return opts.flavor;
+  const flavor = ELITE_FLAVOR_ORDER[eliteFlavorSerial % ELITE_FLAVOR_ORDER.length];
+  eliteFlavorSerial += 1;
+  return flavor;
+}
+
 export function createEnemy(typeKey, x, y, scale = 1, opts = {}) {
   const t = ENEMY_TYPES[typeKey] || ENEMY_TYPES.slime;
   const elite = !!opts.elite;
-  const eliteMul = elite ? 2.2 : 1;
+  const flavor = elite ? rollEliteFlavor(opts) : null;
+  const flav = flavor ? ELITE_FLAVORS[flavor] : null;
+  const eliteMul = flav ? flav.hpMul : 1;
+  const speedMul = flav ? flav.speedMul : 1;
+  const rMul = flav ? flav.rMul : 1;
+  const dmgMul = flav ? flav.dmgMul : 1;
+  const wobble = Math.random() * Math.PI * 2;
+  const spdJitter = 0.9 + Math.random() * 0.2;
   let skill = opts.skill || null;
   if (elite && !skill) {
-    skill = ELITE_SKILLS[Math.floor(Math.random() * ELITE_SKILLS.length)];
+    const pool = flav ? flav.skills : ELITE_SKILLS;
+    skill = pool[Math.floor(Math.random() * pool.length)];
   }
   if (opts.bossVariant) skill = null; // boss picks in update
   return {
     alive: true,
     type: typeKey,
     x, y,
-    r: t.r * (scale > 1 ? Math.sqrt(scale) : 1) * (elite ? 1.35 : 1),
+    r: t.r * (scale > 1 ? Math.sqrt(scale) : 1) * rMul,
     hp: t.hp * scale * eliteMul,
     maxHp: t.hp * scale * eliteMul,
-    speed: t.speed * (0.9 + Math.random() * 0.2) * (elite ? 1.1 : 1),
-    baseSpeed: t.speed * (0.9 + Math.random() * 0.2) * (elite ? 1.1 : 1),
-    damage: t.damage * (elite ? 1.4 : 1),
+    speed: t.speed * spdJitter * speedMul,
+    baseSpeed: t.speed * spdJitter * speedMul,
+    damage: t.damage * dmgMul,
     xp: Math.ceil(t.xp * scale * (elite ? 3 : 1)),
     score: t.score * (elite ? 4 : 1),
     color: elite ? '#d4a84a' : t.color,
     color2: elite ? '#b07020' : t.color2,
     isBoss: !!t.isBoss,
     isElite: elite,
+    eliteFlavor: flavor,
+    eliteLabel: flav ? flav.label : '',
+    flankSign: Math.random() < 0.5 ? -1 : 1,
+    flankT: Math.random() * 1.2,
     hitFlash: 0,
     slow: 0,
-    wobble: Math.random() * Math.PI * 2,
+    wobble,
     vx: 0,
     vy: 0,
     skill,
-    skillCd: elite || t.isBoss ? 1.5 + Math.random() * 2 : 0,
+    skillCd: elite || t.isBoss
+      ? (flavor === 'tank' ? 2.1 : flavor === 'flank' ? 0.65 : 1.5) + Math.random() * (flavor === 'tank' ? 1.3 : 0.9)
+      : 0,
     skillState: 'idle',
     skillT: 0,
     skillAng: 0,
@@ -187,7 +232,8 @@ export function updateEnemySkill(e, player, dt) {
 
     if (e.skill === 'charge') {
       e.skillState = 'windup';
-      e.skillT = 0.65;
+      // Tank plants, then shoves. Flanker snaps into a short dash from the side.
+      e.skillT = e.eliteFlavor === 'tank' ? 0.95 : e.eliteFlavor === 'flank' ? 0.34 : 0.65;
       e.skillAng = Math.atan2(player.y - e.y, player.x - e.x);
     } else if (e.skill === 'spore') {
       e.skillState = 'windup';
@@ -223,9 +269,10 @@ export function updateEnemySkill(e, player, dt) {
     if (e.skillT <= 0) {
       e.skillState = 'active';
       if (e.skill === 'charge') {
-        e.skillT = 0.35;
-        e.vx = Math.cos(e.skillAng) * (e.isBoss ? 380 : 320);
-        e.vy = Math.sin(e.skillAng) * (e.isBoss ? 380 : 320);
+        const dash = e.isBoss ? 380 : e.eliteFlavor === 'tank' ? 200 : e.eliteFlavor === 'flank' ? 470 : 320;
+        e.skillT = e.eliteFlavor === 'tank' ? 0.42 : e.eliteFlavor === 'flank' ? 0.24 : 0.35;
+        e.vx = Math.cos(e.skillAng) * dash;
+        e.vy = Math.sin(e.skillAng) * dash;
       } else if (e.skill === 'shockwave' || e.skill === 'slime_fan') {
         events.push({ type: 'shockwave', x: e.x, y: e.y, r: e.skillRange || 100, damage: e.damage * 0.85, fan: e.skill === 'slime_fan', ang: e.skillAng });
         e.skillState = 'idle';
@@ -246,7 +293,7 @@ export function updateEnemySkill(e, player, dt) {
         e.skillState = 'idle';
         e.skillCd = 5.5;
       } else if (e.skill === 'reflect') {
-        e.reflectT = 1.5;
+        e.reflectT = e.eliteFlavor === 'tank' ? 2.35 : 1.5;
         e.skillState = 'idle';
         e.skillCd = 9;
         events.push({ type: 'reflect_on', enemy: e });
@@ -352,20 +399,27 @@ function flashColor(e) {
 function drawEliteBossAura(ctx, e, bob, t) {
   const pulse = 1 + 0.06 * Math.sin(t * 4.2 + e.wobble);
   if (e.isElite) {
-    const ar = e.r * 1.48 * pulse;
+    const tank = e.eliteFlavor === 'tank';
+    const ar = e.r * (tank ? 1.62 : 1.34) * pulse;
     const aura = ctx.createRadialGradient(e.x, e.y + bob, e.r * 0.2, e.x, e.y + bob, ar);
-    aura.addColorStop(0, 'rgba(240, 176, 80, 0.22)');
-    aura.addColorStop(0.55, 'rgba(210, 140, 50, 0.1)');
+    aura.addColorStop(0, tank ? 'rgba(255, 150, 48, 0.26)' : 'rgba(240, 176, 80, 0.18)');
+    aura.addColorStop(0.55, tank ? 'rgba(230, 120, 36, 0.12)' : 'rgba(210, 140, 50, 0.08)');
     aura.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = aura;
     ctx.beginPath();
-    ctx.ellipse(e.x, e.y + bob + e.r * 0.12, ar * 0.9, ar * 0.68, 0, 0, Math.PI * 2);
+    ctx.ellipse(e.x, e.y + bob + e.r * 0.12, ar * (tank ? 0.96 : 0.82), ar * (tank ? 0.72 : 0.6), 0, 0, Math.PI * 2);
     ctx.fill();
-    // Steady warm ring. The sprite rim carries the read; this stays soft.
-    ctx.strokeStyle = `rgba(214, 146, 58, ${0.34 + 0.08 * Math.sin(t * 2.2)})`;
-    ctx.lineWidth = 3;
+    // Same warm gold as the sprite rim. Tank ring is thicker; flanker stays the soft PR ring.
+    const breath = tank ? 0.4 + 0.08 * Math.sin(t * 1.7) : 0.3 + 0.08 * Math.sin(t * 2.6);
+    ctx.strokeStyle = tank ? `rgba(232, 118, 32, ${breath})` : `rgba(214, 146, 58, ${breath})`;
+    ctx.lineWidth = tank ? 5 : 2.5;
     ctx.beginPath();
-    ctx.ellipse(e.x, e.y + bob + e.r * 0.08, e.r * 1.22 * pulse, e.r * 0.92 * pulse, 0, 0, Math.PI * 2);
+    ctx.ellipse(
+      e.x, e.y + bob + e.r * 0.08,
+      e.r * (tank ? 1.34 : 1.16) * pulse,
+      e.r * (tank ? 1.02 : 0.86) * pulse,
+      0, 0, Math.PI * 2,
+    );
     ctx.stroke();
   } else if (e.isBoss) {
     const ar = e.r * 1.7 * pulse;
@@ -434,6 +488,30 @@ const STANDING = {
   boss: { key: 'boss', h: 4.2, foot: 0.9 },           // 设施霸主
   shadow: { key: 'shadow', h: 3.6, foot: 0.85 },      // 阴影潜伏者
 };
+
+/** Warm gold rim from PR#37–38. Tank keeps that colour and paints it thicker. */
+function eliteSpriteStyle(e, stand) {
+  if (e.isBoss) {
+    return { tint: null, tintAlpha: 0.2, rim: '#d47848', rimAlpha: 0.82, rimPx: 4 };
+  }
+  if (e.isElite) {
+    const tank = e.eliteFlavor === 'tank';
+    return {
+      tint: tank ? '#ff9a32' : '#ffb45a',
+      tintAlpha: tank ? 0.18 : 0.1,
+      rim: '#f2b15a',
+      rimAlpha: tank ? 0.98 : 0.9,
+      rimPx: tank ? 7 : 4,
+    };
+  }
+  if (e.isSlacker) return { tint: null, tintAlpha: 0.2, rim: '#ffe0a8', rimAlpha: 0.55, rimPx: 2 };
+  return { tint: (stand && stand.tint) || null, tintAlpha: 0.2, rim: null, rimAlpha: 0.55, rimPx: 2 };
+}
+
+function eliteBump(e) {
+  if (!e.isElite) return 1;
+  return e.eliteFlavor === 'tank' ? 1.18 : 1.02;
+}
 
 export function drawEnemy(ctx, e, t) {
   ctx.save();
@@ -517,16 +595,17 @@ export function drawEnemy(ctx, e, t) {
   if (sprite && stand) {
     if (e.isBoss || e.isElite) drawEliteBossAura(ctx, e, bob, t);
     ctx.globalAlpha = e.phaseHidden ? 0.35 : 1;
-    const bump = e.isElite ? 1.1 : 1;
+    const bump = eliteBump(e);
+    const look = eliteSpriteStyle(e, stand);
     // feet sit just below the hit-circle centre; body rises above it (3/4 view)
     drawStandingSprite(ctx, sprite, e.x, e.y + e.r * stand.foot + bob * 0.5, e.r * stand.h * bump, {
       maxW: stand.maxW ? e.r * stand.maxW * bump : 0,
       walk,
-      tint: e.isElite ? '#ffb45a' : stand.tint || null,
-      tintAlpha: e.isElite ? 0.1 : 0.2,
-      rim: e.isBoss ? '#d47848' : e.isElite ? '#f2b15a' : (e.isSlacker ? '#ffe0a8' : null),
-      rimAlpha: e.isBoss ? 0.82 : e.isElite ? 0.9 : 0.55,
-      rimPx: e.isBoss ? 4 : e.isElite ? 4 : 2,
+      tint: look.tint,
+      tintAlpha: look.tintAlpha,
+      rim: look.rim,
+      rimAlpha: look.rimAlpha,
+      rimPx: look.rimPx,
       flash,
     });
     ctx.globalAlpha = 1;
@@ -536,16 +615,17 @@ export function drawEnemy(ctx, e, t) {
       drawEliteBossAura(ctx, e, bob, t);
     }
     ctx.globalAlpha = e.phaseHidden ? 0.35 : 1;
-    const bump = e.isElite ? 1.1 : 1;
+    const bump = eliteBump(e);
+    const look = eliteSpriteStyle(e, null);
     const hMul = e.isBoss ? 4.2 : (e.type === 'bat' || e.type === 'shadow' ? 3.4 : 3.6);
     drawStandingSprite(ctx, sprite, e.x, e.y + e.r * 0.85 + bob * 0.5, e.r * hMul * bump, {
       maxW: e.r * (e.type === 'bat' ? 3.9 : 2.6) * bump,
       walk,
-      tint: e.isElite ? '#ffb45a' : null,
-      tintAlpha: e.isElite ? 0.1 : 0.2,
-      rim: e.isBoss ? '#d47848' : e.isElite ? '#f2b15a' : (e.isSlacker ? '#ffe0a8' : null),
-      rimAlpha: e.isBoss ? 0.82 : e.isElite ? 0.9 : 0.55,
-      rimPx: e.isBoss ? 4 : e.isElite ? 4 : 2,
+      tint: look.tint,
+      tintAlpha: look.tintAlpha,
+      rim: look.rim,
+      rimAlpha: look.rimAlpha,
+      rimPx: look.rimPx,
       flash,
     });
     ctx.globalAlpha = 1;
@@ -563,11 +643,12 @@ export function drawEnemy(ctx, e, t) {
 
   // Damaged foes show a cream bar. Elite and boss keep one even at full health.
   if (e.isBoss || e.isElite || e.hp < e.maxHp - 0.4) {
-    const bh = e.isBoss ? 10 : e.isElite ? 7 : 4;
-    const bw = e.r * (e.isBoss ? 2.7 : e.isElite ? 2.4 : 2);
+    const bump = eliteBump(e);
+    const bh = e.isBoss ? 10 : e.isElite ? (e.eliteFlavor === 'tank' ? 8 : 6) : 4;
+    const bw = e.r * (e.isBoss ? 2.7 : e.eliteFlavor === 'tank' ? 2.55 : e.isElite ? 2.15 : 2);
     const bx = e.x - bw / 2;
-    const top = stand && sprite ? e.y + e.r * (stand.foot - stand.h * (e.isElite ? 1.1 : 1)) : e.y - e.r;
-    const by = top - (e.isBoss ? 20 : e.isElite ? 10 : 6);
+    const top = stand && sprite ? e.y + e.r * (stand.foot - stand.h * bump) : e.y - e.r;
+    const by = top - (e.isBoss ? 20 : e.isElite ? 14 : 6);
     const rr = (x, y, w, h, r) => {
       ctx.beginPath();
       if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
@@ -581,8 +662,19 @@ export function drawEnemy(ctx, e, t) {
     const fw = Math.max(0, bw * Math.max(0, e.hp / e.maxHp));
     if (fw > 0.5) {
       rr(bx, by, fw, bh, bh / 2);
-      ctx.fillStyle = e.isBoss ? '#fff6dc' : e.isElite ? '#ffe08a' : '#fff1c8';
+      ctx.fillStyle = e.isBoss ? '#fff6dc' : e.eliteFlavor === 'tank' ? '#ffc04a' : e.isElite ? '#ffe08a' : '#fff1c8';
       ctx.fill();
+    }
+    if (e.isElite && e.eliteLabel) {
+      ctx.font = '900 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#3b2a1a';
+      ctx.strokeText(e.eliteLabel, e.x, by - 2);
+      ctx.fillStyle = e.eliteFlavor === 'tank' ? '#ffd27a' : '#fff6e4';
+      ctx.fillText(e.eliteLabel, e.x, by - 2);
     }
     if (e.isBoss && e.tag && e.tagT > 0) {
       ctx.globalAlpha = Math.max(0, Math.min(1, e.tagT * 1.6));

@@ -128,7 +128,15 @@ export function updateHud(data) {
   const hpPct = Math.max(0, (data.hp / data.maxHp) * 100);
   $('hp-bar').style.width = hpPct + '%';
   const hud = $('hud');
-  if (hud) hud.classList.toggle('low-hp', data.maxHp > 0 && data.hp / data.maxHp < 0.34);
+  if (hud) {
+    hud.classList.toggle('low-hp', data.maxHp > 0 && data.hp / data.maxHp < 0.34);
+    const theme = data.theme || 'office';
+    if (hud.dataset.theme !== theme) {
+      hud.classList.remove('theme-office', 'theme-ward', 'theme-basement');
+      hud.classList.add(`theme-${theme}`);
+      hud.dataset.theme = theme;
+    }
+  }
   const xpPct = Math.max(0, (data.xp / data.xpToNext) * 100);
   $('xp-bar').style.width = xpPct + '%';
   $('hud-time').textContent = formatTime(data.time);
