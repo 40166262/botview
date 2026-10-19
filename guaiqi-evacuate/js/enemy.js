@@ -393,11 +393,11 @@ function pickBossSkill(e, player) {
 }
 
 function flashColor(e) {
-  return e.isBoss ? '#e8c0c8' : e.isElite ? '#e8d4a0' : '#d8c8b0';
+  return e.isBoss ? '#d8b0b4' : e.isElite ? '#d8c490' : '#c8b8a0';
 }
 
 function drawEliteBossAura(ctx, e, bob, t) {
-  const pulse = 1 + 0.06 * Math.sin(t * 4.2 + e.wobble);
+  const pulse = 1 + 0.05 * Math.sin(t * 2.6 + e.wobble);
   if (e.isElite) {
     const tank = e.eliteFlavor === 'tank';
     const ar = e.r * (tank ? 1.62 : 1.34) * pulse;

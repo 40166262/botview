@@ -1,5 +1,5 @@
 /**
- * Combat juice: soft hitstop, mild shake, combo, warm crit glow — no white fullscreen flash.
+ * Combat juice: soft hitstop, no shake, combo, warm edge glow — never white fullscreen flash.
  */
 
 export function createJuice() {
@@ -42,7 +42,9 @@ export function tickJuice(j, dt) {
 
   for (const f of j.floatCombos) {
     f.age += dt;
-    f.y -= 40 * dt;
+    const k = Math.min(1, f.age / f.life);
+    // ease-out rise
+    f.y -= (52 * (1 - k * 0.55)) * dt;
   }
   j.floatCombos = j.floatCombos.filter((f) => f.age < f.life);
 }
@@ -52,7 +54,7 @@ export function inHitstop(j) {
 }
 
 export function triggerHitstop(j, ms) {
-  const sec = ms / 1000;
+  const sec = Math.min(0.09, ms / 1000);
   if (sec > j.hitstop) j.hitstop = sec;
 }
 
@@ -72,13 +74,18 @@ export function registerKill(j, worldX, worldY, isElite = false, isBoss = false)
   if (j.combo > j.maxCombo) j.maxCombo = j.combo;
 
   // tiny freeze-frame; normal kills rate-limited so swarms never stutter
-  if (isBoss || isElite) triggerHitstop(j, isBoss ? 80 : 45);
-  else if (j.stopCd <= 0) { triggerHitstop(j, 12); j.stopCd = 0.28; }
+  if (isBoss) triggerHitstop(j, 70);
+  else if (isElite) {
+    if (j.stopCd <= 0) { triggerHitstop(j, 36); j.stopCd = 0.18; }
+  } else if (j.stopCd <= 0) {
+    triggerHitstop(j, 10);
+    j.stopCd = 0.32;
+  }
   addShake(j, isBoss ? 7 : isElite ? 4.5 : 2.2 + Math.min(2.5, j.combo * 0.12), isBoss ? 0.28 : 0.12);
 
   // Soft colored edge pulse only — never white / never full-screen opaque
-  j.flash = isBoss ? 0.14 : 0.05;
-  j.flashColor = isBoss ? '#d4a0a8' : '#c4a574';
+  j.flash = isBoss ? 0.12 : 0.04;
+  j.flashColor = isBoss ? '#c89890' : '#c4a574';
 
   if (j.combo === 5 || j.combo === 10 || j.combo === 20 || (j.combo > 0 && j.combo % 25 === 0)) {
     j.floatCombos.push({
@@ -93,25 +100,25 @@ export function registerKill(j, worldX, worldY, isElite = false, isBoss = false)
 }
 
 export function triggerCritFlash(j) {
-  j.critFlash = 0.06;
+  j.critFlash = 0.05;
 }
 
 export function drawJuiceOverlay(ctx, j, W, H) {
   // Soft radial vignette pulse (colored, low opacity) — not a white screen
   if (j.flash > 0) {
-    const a = Math.min(0.12, j.flash * 1.1);
-    const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.15, W / 2, H / 2, H * 0.7);
+    const a = Math.min(0.09, j.flash * 0.95);
+    const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.22, W / 2, H / 2, H * 0.72);
     g.addColorStop(0, 'rgba(0,0,0,0)');
-    g.addColorStop(0.55, 'rgba(0,0,0,0)');
+    g.addColorStop(0.6, 'rgba(0,0,0,0)');
     g.addColorStop(1, hexAlpha(j.flashColor, a));
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
   }
   // Crit: brief warm glow at very low opacity, edge-biased
   if (j.critFlash > 0) {
-    const a = Math.min(0.08, j.critFlash * 1.2);
-    const g = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, H * 0.55);
-    g.addColorStop(0, `rgba(212,168,80,${a * 0.35})`);
+    const a = Math.min(0.06, j.critFlash * 1.0);
+    const g = ctx.createRadialGradient(W / 2, H / 2, 50, W / 2, H / 2, H * 0.5);
+    g.addColorStop(0, `rgba(200,150,70,${a * 0.3})`);
     g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
@@ -120,11 +127,13 @@ export function drawJuiceOverlay(ctx, j, W, H) {
 
 export function drawFloatCombos(ctx, j, camX, camY) {
   for (const f of j.floatCombos) {
-    const a = 1 - f.age / f.life;
+    const t = f.age / f.life;
+    const a = t < 0.15 ? t / 0.15 : 1 - ((t - 0.15) / 0.85) ** 1.4;
+    const pop = t < 0.12 ? 0.85 + (t / 0.12) * 0.2 : 1;
     ctx.save();
-    ctx.globalAlpha = a;
+    ctx.globalAlpha = Math.max(0, a);
     ctx.translate(f.x - camX, f.y - camY);
-    ctx.scale(f.scale, f.scale);
+    ctx.scale(f.scale * pop, f.scale * pop);
     ctx.font = 'bold 22px sans-serif';
     ctx.textAlign = 'center';
     ctx.strokeStyle = '#3a2a18';
@@ -146,42 +155,86 @@ function hexAlpha(hex, a) {
   return `rgba(196,165,116,${a})`;
 }
 
-const KILL_WARM = ['#e7c48a', '#f0d7a4', '#d7a15a', '#c4845a', '#f6e2c0'];
+const KILL_WARM = ['#e7c48a', '#f0d7a4', '#d7a15a', '#c4845a', '#f6e2c0', '#e8b878'];
 const HIT_WARM = ['#f0d7a4', '#e7c48a', '#d7a15a'];
+const HIT_CRIT = ['#f2d090', '#e8b868', '#d4a050'];
 
-/** Tiny warm sparks on a hit. Few, short, never white. */
-export function spawnHitSpark(pool, x, y) {
-  const n = 3;
+function spawnRing(pool, x, y, color, r0, grow, life, alpha0 = 0.55) {
+  const p = pool.acquire();
+  p.x = x; p.y = y;
+  p.vx = 0; p.vy = 0;
+  p.life = life;
+  p.age = 0;
+  p.r = r0;
+  p.color = color;
+  p.kind = 'ring';
+  p.rot = 0;
+  p.spin = 0;
+  p.grow = grow;
+  p.drag = 1;
+  p.grav = 0;
+  p.alpha0 = alpha0;
+}
+
+/** Tiny warm sparks on a hit. Few, short, never white. Crit = slightly larger, still soft. */
+export function spawnHitSpark(pool, x, y, crit = false) {
+  const palette = crit ? HIT_CRIT : HIT_WARM;
+  const n = crit ? 4 : 3;
   for (let i = 0; i < n; i++) {
     const p = pool.acquire();
     const a = Math.random() * Math.PI * 2;
-    const s = 26 + Math.random() * 34;
-    p.x = x + (Math.random() - 0.5) * 6;
-    p.y = y + (Math.random() - 0.5) * 6;
+    const s = (crit ? 32 : 22) + Math.random() * (crit ? 28 : 26);
+    p.x = x + (Math.random() - 0.5) * 5;
+    p.y = y + (Math.random() - 0.5) * 5;
     p.vx = Math.cos(a) * s;
-    p.vy = Math.sin(a) * s - 8;
-    p.life = 0.1 + Math.random() * 0.08;
+    p.vy = Math.sin(a) * s - 10;
+    p.life = crit ? 0.12 + Math.random() * 0.08 : 0.09 + Math.random() * 0.07;
     p.age = 0;
-    p.r = 1.2 + Math.random() * 0.8;
-    p.color = HIT_WARM[i % HIT_WARM.length];
+    p.r = crit ? 1.6 + Math.random() * 1.1 : 1.1 + Math.random() * 0.7;
+    p.color = palette[i % palette.length];
+    p.kind = i === 0 && crit ? 'chip' : 'dot';
+    p.rot = Math.random() * Math.PI;
+    p.spin = (Math.random() - 0.5) * 8;
+    p.grow = -2;
+    p.drag = 0.9;
+    p.grav = 20;
+    p.alpha0 = 0.9;
   }
 }
 
-/** Soft warm paper sparks — short, few, never enemy-neon or white. */
+/**
+ * Soft warm kill burst: one expanding ring + layered paper chips + a few dots.
+ * Boss/elite get a second softer outer ring. No white, no strobe.
+ */
 export function spawnKillBurst(pool, x, y, color, big = false) {
   void color;
-  const n = big ? 7 : 4;
-  const speed = big ? 70 : 46;
+  spawnRing(pool, x, y, '#e8c878', big ? 10 : 6, big ? 70 : 48, big ? 0.38 : 0.28, big ? 0.5 : 0.42);
+  if (big) {
+    spawnRing(pool, x, y, '#d4a060', 4, 95, 0.48, 0.28);
+  }
+
+  const n = big ? 8 : 5;
+  const speed = big ? 78 : 52;
   for (let i = 0; i < n; i++) {
     const p = pool.acquire();
-    const a = (Math.PI * 2 * i) / n + Math.random() * 0.4;
-    const s = speed * (0.45 + Math.random() * 0.55);
+    const a = (Math.PI * 2 * i) / n + Math.random() * 0.35;
+    const s = speed * (0.4 + Math.random() * 0.6);
+    const chip = i % 2 === 0;
     p.x = x; p.y = y;
     p.vx = Math.cos(a) * s;
-    p.vy = Math.sin(a) * s - 12;
-    p.life = 0.18 + Math.random() * 0.16;
+    p.vy = Math.sin(a) * s - 16 - Math.random() * 20;
+    p.life = (big ? 0.34 : 0.26) + Math.random() * 0.22;
     p.age = 0;
-    p.r = big ? 2.4 + Math.random() * 1.6 : 2 + Math.random() * 1.2;
+    p.r = chip
+      ? (big ? 2.8 + Math.random() * 2.2 : 2.2 + Math.random() * 1.6)
+      : (big ? 1.6 + Math.random() * 1.2 : 1.3 + Math.random() * 0.9);
     p.color = KILL_WARM[i % KILL_WARM.length];
+    p.kind = chip ? 'chip' : 'dot';
+    p.rot = a;
+    p.spin = (Math.random() - 0.5) * 5;
+    p.grow = chip ? -0.8 : -1.4;
+    p.drag = 0.93;
+    p.grav = 36 + Math.random() * 40;
+    p.alpha0 = 0.9;
   }
 }

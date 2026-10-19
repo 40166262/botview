@@ -528,8 +528,9 @@ function drawShotStreak(ctx, b) {
   ctx.rotate(ang);
   const w = Math.max(2, (b.r || 5) * 0.36);
   const grd = ctx.createLinearGradient(-len, 0, 0, 0);
-  grd.addColorStop(0, 'rgba(255, 214, 160, 0)');
-  grd.addColorStop(1, 'rgba(255, 200, 130, 0.48)');
+  grd.addColorStop(0, 'rgba(240, 198, 140, 0)');
+  grd.addColorStop(0.55, 'rgba(236, 186, 120, 0.18)');
+  grd.addColorStop(1, 'rgba(232, 176, 110, 0.42)');
   ctx.strokeStyle = grd;
   ctx.lineWidth = w;
   ctx.lineCap = 'round';
@@ -558,33 +559,51 @@ function drawShotWash(ctx, b, rx, ry) {
 
 export function drawBullet(ctx, b) {
   if (b.kind === 'beam') {
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    // soft outer wash (anti-aliased warm halo, not a hard neon slab)
+    const outer = ctx.createLinearGradient(b.x, b.y, b.aimTx, b.aimTy);
+    outer.addColorStop(0, 'rgba(220,120,80,0.28)');
+    outer.addColorStop(0.55, 'rgba(200,100,70,0.14)');
+    outer.addColorStop(1, 'rgba(180,90,60,0)');
+    ctx.strokeStyle = outer;
+    ctx.lineWidth = b.beamW * 1.55;
+    ctx.beginPath();
+    ctx.moveTo(b.x, b.y);
+    ctx.lineTo(b.aimTx, b.aimTy);
+    ctx.stroke();
     const grd = ctx.createLinearGradient(b.x, b.y, b.aimTx, b.aimTy);
-    grd.addColorStop(0, 'rgba(255,120,90,0.95)');
-    grd.addColorStop(1, 'rgba(200,80,60,0.12)');
+    grd.addColorStop(0, 'rgba(232,140,96,0.88)');
+    grd.addColorStop(0.45, 'rgba(210,110,78,0.55)');
+    grd.addColorStop(1, 'rgba(180,90,60,0.08)');
     ctx.strokeStyle = grd;
     ctx.lineWidth = b.beamW;
-    ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(b.x, b.y);
     ctx.lineTo(b.aimTx, b.aimTy);
     ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,200,160,0.75)';
-    ctx.lineWidth = Math.max(2, b.beamW * 0.35);
+    ctx.strokeStyle = 'rgba(255,214,180,0.55)';
+    ctx.lineWidth = Math.max(1.5, b.beamW * 0.28);
     ctx.beginPath();
     ctx.moveTo(b.x, b.y);
     ctx.lineTo(b.aimTx, b.aimTy);
     ctx.stroke();
+    ctx.restore();
     return;
   }
   drawShotStreak(ctx, b);
   if (b.trail && b.trail.length > 1) {
-    ctx.strokeStyle = `hsla(${b.hue || 48},70%,55%,0.45)`;
-    ctx.lineWidth = Math.max(1.5, b.r * 0.9);
+    ctx.save();
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = `hsla(${b.hue || 42},58%,58%,0.32)`;
+    ctx.lineWidth = Math.max(1.2, b.r * 0.75);
     ctx.beginPath();
     ctx.moveTo(b.trail[0].x, b.trail[0].y);
     for (const t of b.trail) ctx.lineTo(t.x, t.y);
     ctx.stroke();
+    ctx.restore();
   }
   if (b.kind === 'melon' || b.kind === 'chem' || b.kind === 'jug') {
     const spr = getSprite('projChem');

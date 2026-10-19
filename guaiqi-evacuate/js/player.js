@@ -171,12 +171,12 @@ export function drawPlayer(ctx, p, t) {
     }
   }
 
-  if (p.invuln > 0 && Math.floor(p.invuln * 12) % 2 === 0) {
-    ctx.globalAlpha = 0.4;
-    ctx.strokeStyle = 'rgba(220,200,140,0.7)';
-    ctx.lineWidth = 2;
+  if (p.invuln > 0) {
+    ctx.globalAlpha = 0.2 + 0.16 * (0.5 + 0.5 * Math.sin(t * 5.5));
+    ctx.strokeStyle = 'rgba(210,180,120,0.75)';
+    ctx.lineWidth = 2.2;
     ctx.beginPath();
-    ctx.arc(p.x, p.y + bob, p.r + 4, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y + bob, p.r + 5, 0, Math.PI * 2);
     ctx.stroke();
     ctx.globalAlpha = 1;
   }

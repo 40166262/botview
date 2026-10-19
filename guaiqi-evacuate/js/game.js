@@ -387,7 +387,7 @@ export class Game {
     for (const g of p.ghosts) {
       g.age += dt;
       for (const e of this.enemies) {
-        if (!e.alive) continue;
+        if (!e.alive || e.dying) continue;
         if (Math.hypot(e.x - g.x, e.y - g.y) < e.r + 10) {
           this._hurtEnemy(e, g.dmg * dt * 6, false);
         }
@@ -427,7 +427,7 @@ export class Game {
         const ox = p.x + Math.cos(a) * radius;
         const oy = p.y + Math.sin(a) * radius;
         for (const e of this.enemies) {
-          if (!e.alive) continue;
+          if (!e.alive || e.dying) continue;
           if (Math.hypot(e.x - ox, e.y - oy) < e.r + 8) {
             this._hurtEnemy(e, p.damage * 0.35 * dt * 8, false);
           }
@@ -461,7 +461,7 @@ export class Game {
       if (b.age >= b.life) { b.alive = false; continue; }
       if (b.damage <= 0) continue; // vine VFX
       for (const e of this.enemies) {
-        if (!e.alive) continue;
+        if (!e.alive || e.dying) continue;
         if (Math.hypot(e.x - b.x, e.y - b.y) < e.r + b.r) {
           if (e.reflectT > 0 && b.kind !== 'beam') {
             b.vx *= -1; b.vy *= -1;
@@ -567,6 +567,12 @@ export class Game {
     let tookDamage = false;
     for (const e of this.enemies) {
       if (!e.alive) continue;
+      if (e.dying) {
+        e.deathT -= dt;
+        if (e.hitFlash > 0) e.hitFlash -= dt;
+        if (e.deathT <= 0) e.alive = false;
+        continue;
+      }
       if (e.hitFlash > 0) e.hitFlash -= dt;
       if (e.slow > 0) e.slow -= dt;
       if (e.tagT > 0) e.tagT -= dt;
@@ -750,8 +756,14 @@ export class Game {
 
     for (const pt of this.particles.active) {
       if (!pt.alive) continue;
-      pt.x += pt.vx * dt; pt.y += pt.vy * dt;
-      pt.vx *= 0.96; pt.vy *= 0.96;
+      const drag = pt.drag != null ? pt.drag : 0.96;
+      pt.x += pt.vx * dt;
+      pt.y += pt.vy * dt;
+      pt.vx *= drag;
+      pt.vy *= drag;
+      if (pt.grav) pt.vy += pt.grav * dt;
+      if (pt.spin) pt.rot = (pt.rot || 0) + pt.spin * dt;
+      if (pt.grow) pt.r = Math.max(0.2, pt.r + pt.grow * dt);
       pt.age += dt;
       if (pt.age >= pt.life) pt.alive = false;
     }
@@ -759,7 +771,9 @@ export class Game {
 
     for (const d of this.dmgTexts.active) {
       if (!d.alive) continue;
-      d.y -= (d.crit ? 40 : 28) * dt;
+      const k = Math.min(1, d.age / d.life);
+      const rise = (d.crit ? 46 : 32) * (1 - k * 0.5);
+      d.y -= rise * dt;
       d.age += dt;
       if (d.age >= d.life) d.alive = false;
     }
@@ -1371,7 +1385,7 @@ export class Game {
   _nearestEnemy() {
     let best = null, bestD = Infinity;
     for (const e of this.enemies) {
-      if (!e.alive) continue;
+      if (!e.alive || e.dying) continue;
       const d = Math.hypot(e.x - this.player.x, e.y - this.player.y);
       if (d < bestD && d < 440) { bestD = d; best = e; }
     }
@@ -1389,12 +1403,12 @@ export class Game {
   }
 
   _hurtEnemy(e, dmg, wasCrit) {
-    if (!e.alive) return;
+    if (!e.alive || e.dying) return;
     e.hp -= dmg;
-    e.hitFlash = 0.08;
+    e.hitFlash = 0.06;
     if (e.hp > 0 && !(e._sparkCd > this.time)) {
-      e._sparkCd = this.time + 0.09;
-      spawnHitSpark(this.particles, e.x, e.y - e.r * 0.25);
+      e._sparkCd = this.time + 0.1;
+      spawnHitSpark(this.particles, e.x, e.y - e.r * 0.25, !!wasCrit);
     }
     if (!e.isBoss && dmg >= 3) { // small push away from player (weight by size)
       const kd = Math.hypot(e.x - this.player.x, e.y - this.player.y) || 1;
@@ -1418,11 +1432,11 @@ export class Game {
       dt.y = e.y - e.r;
       dt.text = String(Math.round(dmg));
       dt.age = 0;
-      dt.life = crit ? 0.7 : 0.55;
+      dt.life = crit ? 0.72 : 0.58;
       dt.color = crit ? '#ffe7a0' : '#fff6dc';
       dt.crit = crit;
       dt.big = big && !crit;
-      dt.scale = crit ? 1.16 : dt.big ? 1.08 : 1;
+      dt.scale = crit ? 1.2 : dt.big ? 1.1 : 1;
       // Fan, chem cone, and sidearms: a slightly larger cream number. No extra flash.
       const multiHit = (this.player.projectiles || 1) > 1
         || this.player.shotStyle === 'chem'
@@ -1436,7 +1450,9 @@ export class Game {
     }
 
     if (e.hp <= 0) {
-      e.alive = false;
+      e.dying = true;
+      e.deathT = e.isBoss ? 0.36 : e.isElite ? 0.26 : 0.18;
+      e.hp = 0;
       this.kills += 1;
       this.killsSinceElite += 1;
       if (e.isBoss && !e.isBonusBoss) {
@@ -1660,8 +1676,8 @@ export class Game {
     for (const key of Object.keys(marks)) {
       const m = marks[key];
       if (!m || t < m.from || t > m.until) continue;
-      const pulse = 0.5 + 0.5 * Math.sin(t * 3.1);
-      const r = 48 + 8 * pulse;
+      const pulse = 0.5 + 0.5 * Math.sin(t * 2.05);
+      const r = 46 + 7 * pulse;
       ctx.save();
       ctx.fillStyle = `rgba(176, 98, 48, ${0.1 + 0.05 * pulse})`;
       ctx.beginPath();
@@ -1869,8 +1885,8 @@ export class Game {
       const chestImg = getChestImage(tier);
       const rare = tier === 'rare';
       const loud = !!c.loud;
-      const by = c.y + Math.sin(c.bob * (loud ? 4.2 : 2.2)) * (loud ? 6 : 2.5);
-      const pulse = 0.45 + 0.55 * Math.sin(c.bob * (loud ? 6.5 : 2.4));
+      const by = c.y + Math.sin(c.bob * (loud ? 3.2 : 1.8)) * (loud ? 5 : 2.2);
+      const pulse = 0.5 + 0.5 * Math.sin(c.bob * (loud ? 3.6 : 1.9));
       // First crate keeps the double warm pulse. Later crates are a slow rim, not a flash.
       ctx.save();
       if (c.golden) {
@@ -1940,7 +1956,21 @@ export class Game {
     }
 
     for (const e of this.enemies) {
-      if (e.alive) drawEnemy(ctx, e, this.time);
+      if (!e.alive) continue;
+      if (e.dying) {
+        const life = e.isBoss ? 0.36 : e.isElite ? 0.26 : 0.18;
+        const k = Math.max(0, e.deathT / life);
+        const sc = 0.72 + 0.28 * k;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, k * 1.05);
+        ctx.translate(e.x, e.y);
+        ctx.scale(sc, sc * (0.88 + 0.12 * k));
+        ctx.translate(-e.x, -e.y);
+        drawEnemy(ctx, e, this.time);
+        ctx.restore();
+      } else {
+        drawEnemy(ctx, e, this.time);
+      }
     }
     for (const e of this.enemies) {
       if (!e.alive || !e.isSlacker) continue;
@@ -2009,31 +2039,68 @@ export class Game {
     this._drawPlayerChar(ctx);
     if (this.lvRing > 0) {
       const k = 1 - this.lvRing / 0.7;
+      const ease = 1 - (1 - k) * (1 - k);
       ctx.save();
-      ctx.globalAlpha = 0.7 * (1 - k);
-      ctx.strokeStyle = '#ffc850';
-      ctx.lineWidth = 5 * (1 - k) + 1;
-      ctx.beginPath(); ctx.arc(this.player.x, this.player.y, 20 + k * 90, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 0.55 * (1 - ease);
+      ctx.strokeStyle = '#e8b868';
+      ctx.lineWidth = 4 * (1 - ease) + 1.2;
+      ctx.beginPath(); ctx.arc(this.player.x, this.player.y, 18 + ease * 78, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 0.22 * (1 - ease);
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(this.player.x, this.player.y, 12 + ease * 58, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
     }
 
     for (const pt of this.particles.active) {
       if (!pt.alive) continue;
-      ctx.globalAlpha = 1 - pt.age / pt.life;
-      ctx.fillStyle = pt.color;
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
-      ctx.fill();
+      const t = pt.age / pt.life;
+      // ease-in fade: stay readable mid-life, soft out
+      const fade = t < 0.12 ? t / 0.12 : 1 - ((t - 0.12) / 0.88) ** 1.35;
+      const a0 = pt.alpha0 != null ? pt.alpha0 : 1;
+      ctx.globalAlpha = Math.max(0, fade * a0);
+      if (pt.kind === 'ring') {
+        ctx.strokeStyle = pt.color;
+        ctx.lineWidth = Math.max(1.2, 3.2 * (1 - t));
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, Math.max(1, pt.r), 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (pt.kind === 'chip') {
+        ctx.save();
+        ctx.translate(pt.x, pt.y);
+        ctx.rotate(pt.rot || 0);
+        const w = pt.r * 1.7;
+        const h = pt.r * 0.85;
+        ctx.fillStyle = pt.color;
+        ctx.beginPath();
+        // rounded paper chip
+        const rr = Math.min(1.4, h * 0.4);
+        ctx.moveTo(-w + rr, -h);
+        ctx.arcTo(w, -h, w, h, rr);
+        ctx.arcTo(w, h, -w, h, rr);
+        ctx.arcTo(-w, h, -w, -h, rr);
+        ctx.arcTo(-w, -h, w, -h, rr);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      } else {
+        ctx.fillStyle = pt.color;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, Math.max(0.4, pt.r), 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     ctx.globalAlpha = 1;
 
     for (const d of this.dmgTexts.active) {
       if (!d.alive) continue;
       const dk = d.age / d.life;
-      ctx.globalAlpha = 1 - dk * dk; // stay solid, then drop out (no long gray ghost)
+      const fade = dk < 0.55 ? 1 : 1 - ((dk - 0.55) / 0.45) ** 1.5;
+      const pop = dk < 0.1 ? 0.82 + (dk / 0.1) * 0.22 : dk < 0.2 ? 1.04 - (dk - 0.1) * 0.4 : 1;
+      ctx.globalAlpha = Math.max(0, fade);
       ctx.save();
       ctx.translate(d.x, d.y);
-      ctx.scale(d.scale || 1, d.scale || 1);
+      const sc = (d.scale || 1) * pop;
+      ctx.scale(sc, sc);
       // every number gets an ink outline so it reads on bright floors (was cream-on-beige)
       const px = d.crit ? 19 : d.big ? 17 : 16;
       ctx.font = `900 ${px}px sans-serif`;
@@ -2267,12 +2334,13 @@ export class Game {
           }
         }
       }
-      if (p.invuln > 0 && Math.floor(p.invuln * 12) % 2 === 0) {
-        ctx.strokeStyle = 'rgba(220,200,140,0.7)';
-        ctx.globalAlpha = 0.4;
-        ctx.lineWidth = 2;
+      if (p.invuln > 0) {
+        const pulse = 0.22 + 0.18 * (0.5 + 0.5 * Math.sin(this.time * 5.5));
+        ctx.strokeStyle = 'rgba(210,180,120,0.75)';
+        ctx.globalAlpha = pulse;
+        ctx.lineWidth = 2.2;
         ctx.beginPath();
-        ctx.arc(p.x, p.y + bob, p.r + 4, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y + bob, p.r + 5, 0, Math.PI * 2);
         ctx.stroke();
         ctx.globalAlpha = 1;
       }

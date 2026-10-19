@@ -344,10 +344,10 @@ export function drawClippedSprite(ctx, img, x, y, radius, opts = {}) {
     ctx.restore();
   }
   if (flash) {
-    // soft warm hit tint — never pure white, never full-screen
+    // soft warm hit tint — short hue wash, never pure white
     ctx.save();
-    ctx.globalAlpha = 0.35;
-    ctx.drawImage(silhouette(img, '#ffe2b0'), 0, 0, iw, ih, dx, dy, dw, dh);
+    ctx.globalAlpha = 0.22;
+    ctx.drawImage(silhouette(img, '#efc898'), 0, 0, iw, ih, dx, dy, dw, dh);
     ctx.restore();
   }
   ctx.restore();
@@ -395,8 +395,8 @@ export function drawStandingSprite(ctx, img, x, footY, h, opts = {}) {
     ctx.globalAlpha = 1;
   }
   if (opts.flash) {
-    ctx.globalAlpha = 0.35; // soft warm hit tint — never pure white
-    ctx.drawImage(silhouette(img, '#ffe2b0'), 0, 0, iw, ih, dx, dy, dw, dh);
+    ctx.globalAlpha = 0.22; // soft warm hit tint — never pure white
+    ctx.drawImage(silhouette(img, '#efc898'), 0, 0, iw, ih, dx, dy, dw, dh);
   }
   ctx.restore();
   return { dw, dh };
