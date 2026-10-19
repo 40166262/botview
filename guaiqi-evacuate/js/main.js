@@ -439,7 +439,7 @@ function againLabel(mode) {
   if (mode === 'free') return '再抽 · 免费';
   if (mode === 'coin') return '再抽 · 80金';
   if (mode === 'dia') return '再抽 · 15钻';
-  return '再抽 · 广告';
+  return '再抽 · 看广告';
 }
 
 function refreshGachaUI() {
@@ -501,7 +501,7 @@ function doGacha() {
   refreshGachaUI();
   refreshHomeStats(save);
   showGachaNext();
-  SFX.chest(); // result card shows the detail — no duplicate toast
+  SFX.gacha(result.rarity);
   noteGalleryMilestone();
   writeSave(save);
   flushAchievements();
@@ -615,7 +615,11 @@ if (versionEl) {
   versionEl.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
-$('btn-settings').addEventListener('click', () => { SFX.click(); show('settings'); });
+$('btn-settings').addEventListener('click', () => {
+  SFX.click();
+  syncPauseSound();
+  show('settings');
+});
 $('btn-settings-close').addEventListener('click', () => hide('settings'));
 $('btn-reset-save').addEventListener('click', () => { SFX.click(); show('confirm-reset'); });
 $('btn-reset-no').addEventListener('click', () => { SFX.click(); hide('confirm-reset'); });
@@ -626,15 +630,18 @@ $('btn-reset-yes').addEventListener('click', () => {
 });
 function syncPauseSound() {
   const on = !!save.sound;
+  const label = on ? '音效 · 开' : '音效 · 关';
   const btn = $('btn-pause-sound');
   if (btn) {
-    btn.textContent = on ? '音效 · 开' : '音效 · 关';
+    btn.textContent = label;
     btn.classList.toggle('is-on', on);
     btn.classList.toggle('is-off', !on);
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
   const chk = $('chk-sound');
   if (chk) chk.checked = on;
+  const lab = $('sound-label');
+  if (lab) lab.textContent = label;
 }
 function setSound(on) {
   save.sound = !!on;
@@ -642,7 +649,11 @@ function setSound(on) {
   writeSave(save);
   syncPauseSound();
 }
-$('chk-sound').addEventListener('change', (e) => setSound(e.target.checked));
+$('chk-sound').addEventListener('change', (e) => {
+  resumeAudio();
+  setSound(e.target.checked);
+  if (e.target.checked) SFX.click();
+});
 
 $('btn-retry').addEventListener('click', () => {
   hideResult();
@@ -681,7 +692,7 @@ $('btn-double').addEventListener('click', () => {
     const chip = $('res-chip-coins');
     if (chip) chip.textContent = String(lastResult.coins);
     $('btn-double').disabled = true;
-    $('btn-double').innerHTML = '<span class="ad-tag">AD</span>奖励已翻倍';
+    $('btn-double').innerHTML = '<span class="ad-tag">演示</span>奖励已翻倍';
     refreshHomeStats(save);
     toast(`奖励翻倍！金币 +${lastResult.coins / 2}`);
   });
@@ -741,4 +752,6 @@ window.addEventListener('keydown', (e) => {
 
 setSoundEnabled(save.sound);
 syncPauseSound();
+window.addEventListener('pointerdown', () => resumeAudio(), { passive: true });
+window.addEventListener('keydown', () => resumeAudio());
 bootLoad();
