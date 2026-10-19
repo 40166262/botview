@@ -28,3 +28,10 @@
 
 - 美术 bot 与程序后处理方向不一致时，以**用户最新一句话**为准，并立刻纠偏队友
 - Cloud Agent 推 Pages：合并后核对线上文件 hash；强刷才能看到新图
+
+## 2026-10-19 补充
+
+- 角色半写实被用户否决 → 必须 Style D 扁平潮玩；不要再生成真人感立绘。
+- Cloud Agent / Cursor 额度耗尽时：用本机 clone + `GITHUB_BOTVIEW_TOKEN` 推 `main`（用户已要求本地做）。
+- Pages 缓存：push 后线上可能仍旧 1–2 分钟；核对 raw GitHub 与强刷。
+- 角色逻辑 **id**（grin/medic/…）与显示名脱钩；改 id 会废档。

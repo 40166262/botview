@@ -43,3 +43,7 @@ Orphan firefly leftovers removed; PNGs resized (~384px) + quantized; JPGs recomp
   player_grin.png: 94006 bytes
   splash_loading.jpg: 74889 bytes
   upgrade_icons_sheet.png: 174627 bytes
+
+## Handoff (2026-10-19)
+See **`docs/HANDOFF.md`**. Live: https://40166262.github.io/botview/guaiqi-evacuate/  
+Latest art commit: `836acc7`. Save key still `glow-survivor-v4`.

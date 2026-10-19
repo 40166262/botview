@@ -2,24 +2,26 @@
 
 俯视短局幸存者：废弃设施清怪撤离。章节 1–100 + 无尽，装备养成，局内三选一，抽奖与图鉴。
 
-风格：粗黑描边 Q 版、灰米色办公废墟（办公区 / 病房 / 地下机房）。**无霓虹白闪、无 emoji 图标、无萤火奇幻。**
+风格：角色扁平潮玩（Style D）全身立绘；敌人轻微像素 + 平滑粗黑边；暖纸板 UI；办公废墟主题（办公区 / 病房 / 地下机房）。**无霓虹白闪、无 emoji 图标、无半写实真人。**
 
 ## 本地运行
 
 ```bash
-cd glow-survivor
+cd guaiqi-evacuate  # 或仓库内本目录
 python3 -m http.server 8765
 # 打开 http://127.0.0.1:8765/
 ```
 
-## 角色
+## 角色（id 勿改，显示名已换装）
 
-| ID | 名称 | 定位 |
-|---|---|---|
-| grin | 狂笑射手 | 均衡枪 |
-| medic | 急救狂魔 | 生存 |
-| janitor | 清洁阿姨 | 近战清场 |
-| intern | 倒霉实习生 | 暴击/幸运 |
+| ID | 名称 | 定位 | 立绘 |
+|---|---|---|---|
+| grin | 星火射手 | 均衡枪 | char_cool / char_grin |
+| medic | 星铠机甲 | 厚甲生存 | char_mecha / char_medic |
+| janitor | 影紫女忍 | 近战清场 | char_kunoichi / char_janitor |
+| intern | 夜行男忍 | 暴击/爆发 | char_ninja / char_intern |
+| belle | 星光偶像 | 移速/暴击 | char_belle |
+| mechgirl | 扳手机娘 | 工程火力 | char_mechgirl |
 
 ## 局内武器（设施逻辑）
 
@@ -56,7 +58,7 @@ python3 -m http.server 8765
 
 ```
   assets/  角色/敌军/图标表（5×5 upgrade_icons_sheet）
-  css/     半透明深色功能 UI
+  css/     暖纸板 UI
   js/      游戏与元系统
   refs/    画风参考
   docs/    文档索引（docs/README.md）
