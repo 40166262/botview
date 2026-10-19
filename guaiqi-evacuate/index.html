@@ -56,7 +56,7 @@
           <button id="btn-chars" class="hub-btn"><img src="assets/hub_chars.png" alt=""/><span>角色</span></button>
           <button id="btn-gacha" class="hub-btn hub-gift"><img src="assets/hub_gacha.png" alt=""/><span>抽奖</span><i id="hub-gacha-dot" class="hub-dot hidden">免费</i></button>
           <button id="btn-gallery" class="hub-btn"><img src="assets/hub_gallery.png" alt=""/><span>图鉴</span></button>
-          <button id="btn-bag" class="hub-btn"><img src="assets/hub_bag.png" alt=""/><span>装备</span></button>
+          <button id="btn-bag" class="hub-btn"><img src="assets/hub_gear.png" alt=""/><span>装备</span></button>
           <button id="btn-settings" class="hub-btn"><img src="assets/hub_settings.png" alt=""/><span>设置</span></button>
         </div>
         <p class="hint">点开始即进当前关卡 · 单指移动 · 自动射击</p>
@@ -120,12 +120,17 @@
     <!-- Gear + charm bag -->
     <div id="bag" class="overlay hidden">
       <div class="panel wide premium-panel">
-        <h2 class="with-ico"><img src="assets/hub_bag.png" alt=""/>装备栏</h2>
+        <h2 class="with-ico"><img src="assets/hub_gear.png" alt=""/>装备栏</h2>
         <p id="mat-line" class="mat-line">材料 —</p>
+        <h3 class="subhead gear-section-title">防具四槽</h3>
+        <p class="bag-section-hint">武器 · 帽子 · 衣服 · 鞋子</p>
         <div id="gear-slots" class="gear-slots"></div>
-        <h3 class="subhead">被动挂件（最多2）</h3>
+        <div id="bag-detail" class="bag-detail hidden"></div>
+        <h3 class="subhead charm-section-title">挂件</h3>
+        <p class="bag-section-hint">开局加成 · 最多戴 2 个</p>
         <div id="equip-slots" class="equip-slots"></div>
         <h3 class="subhead">背包</h3>
+        <p class="bag-section-hint">点防具：空槽直接装上 · 有装则替换；点挂件佩戴</p>
         <div id="bag-grid" class="bag-grid"></div>
         <button id="btn-bag-close" class="btn ghost">返回</button>
       </div>

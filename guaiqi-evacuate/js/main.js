@@ -16,7 +16,7 @@ import { STAGES, getStage, isStageUnlocked, markStageCleared, runXpGain, ENDLESS
 import { CHARACTERS, rollGacha, canFreeGacha, markFreeGacha, randomDeathLine, maybeEggToast,
   ensureDailyQuest, updateDailyQuest, claimDailyQuest, checkGalleryMilestone,
   unlockChar, isCharUnlocked, unlockGallery, galleryCount,
-  ensureGearSave, equipGear, takeNewAchievements } from './meta.js';
+  ensureGearSave, equipGear, unequipGearSlot, getGear, takeNewAchievements } from './meta.js';
 
 const canvas = $('game');
 let save = loadSave();
@@ -378,8 +378,11 @@ $('btn-gallery').addEventListener('click', () => {
 });
 $('btn-gallery-close').addEventListener('click', () => hide('gallery'));
 
+let bagSelectedId = null;
+
 $('btn-bag').addEventListener('click', () => {
   SFX.click();
+  bagSelectedId = null;
   openBag();
   show('bag');
 });
@@ -390,46 +393,88 @@ function openBag() {
     const idx = save.equipped.indexOf(id);
     if (idx >= 0) {
       save.equipped.splice(idx, 1);
-      toast('已卸下');
+      toast('挂件卸下啦');
     } else {
       if (save.equipped.length >= 2) save.equipped.shift();
       save.equipped.push(id);
-      toast('已装备');
+      toast('挂件戴上啦');
     }
     writeSave(save);
+    bagSelectedId = id;
     openBag();
   }, (gearId) => {
+    const g = getGear(gearId);
+    const prev = g ? (save.gear || {})[g.slot] : null;
     if (equipGear(save, gearId)) {
       writeSave(save);
-      toast('已装上装备');
+      refreshHomeStats(save);
+      bagSelectedId = gearId;
+      toast(prev && prev !== gearId ? '装备替换好了' : '装上啦');
       openBag();
-    } else toast('无法装备');
+    } else toast('没法装这件');
   }, (gearId) => {
     const lv = (save.gearLevels || {})[gearId] || 1;
     const cost = gearUpgradeCost(lv);
-    if (cost && !tryUpgradeGear) { /* noop */ }
     const r = tryUpgradeGear(save, gearId);
     writeSave(save);
     refreshHomeStats(save);
+    bagSelectedId = gearId;
     if (r.ok) { toast(`强化到 Lv.${r.level}`); openBag(); }
-    else if (r.reason === '已满级') toast('已经满级啦');
+    else if (r.reason === '已满级') { toast('已经满级啦'); openBag(); }
     else {
       const matNames = { scrap: '废料', battery: '电池', tape: '胶带', chip: '芯片' };
       const need = cost ? `需${cost.coins}金+${matNames[cost.mat]||cost.mat}×${cost.n}` : '';
       toast((r.reason || '强化失败') + (need ? `（${need}）` : ''));
+      openBag();
     }
+  }, {
+    selectedId: bagSelectedId,
+    onSelect: (id) => {
+      const gear = getGear(id);
+      if (gear) {
+        const occ = (save.gear || {})[gear.slot];
+        // Empty slot → equip in one tap
+        if (!occ) {
+          if (equipGear(save, id)) {
+            writeSave(save);
+            refreshHomeStats(save);
+            bagSelectedId = id;
+            toast('装上啦');
+            openBag();
+            return;
+          }
+        }
+        // Occupied by same or other → select (replace via detail panel)
+        bagSelectedId = id;
+        openBag();
+        return;
+      }
+      bagSelectedId = id;
+      openBag();
+    },
+    onUnequipGear: (slot) => {
+      unequipGearSlot(save, slot);
+      writeSave(save);
+      refreshHomeStats(save);
+      toast('卸下啦');
+      openBag();
+    },
   });
 }
-$('btn-bag-close').addEventListener('click', () => hide('bag'));
+$('btn-bag-close').addEventListener('click', () => {
+  bagSelectedId = null;
+  hide('bag');
+});
 
 $('btn-goto-upgrade')?.addEventListener('click', () => {
   SFX.click();
   hideResult();
   hide('game-wrap');
   show('home');
+  bagSelectedId = null;
   openBag();
   show('bag');
-  toast('点装备槽消耗金币+材料强化');
+  toast('点防具看详情，再点强化');
 });
 $('btn-goto-gacha')?.addEventListener('click', () => {
   SFX.click();

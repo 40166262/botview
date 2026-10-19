@@ -3,7 +3,7 @@ import { STAGES, ENDLESS, isStageUnlocked, stageLockReason, allStagesIncludingEn
 import {
   CHARACTERS, GALLERY, PASSIVE_ITEMS, RARITY_LABEL, RARITY_COLOR,
   isCharUnlocked, charLockLine, galleryCount, ensureDailyQuests, canFreeGacha,
-  GEAR_SLOTS, GEAR_ITEMS, getGear, ensureGearSave, equipGear,
+  GEAR_SLOTS, getGear, ensureGearSave,
   CHARM_ICON_CELL,
 } from './meta.js';
 import { getIconCell, getCharSprite, getChestImage, getUiIcon } from './sprites.js';
@@ -97,6 +97,8 @@ export function refreshHomeStats(save) {
       medic: 'assets/char_medic_full.png',
       janitor: 'assets/char_janitor_full.png',
       intern: 'assets/char_intern_full.png',
+      belle: 'assets/char_belle_full.png',
+      mechgirl: 'assets/char_mechgirl_full.png',
     };
     hero.src = map[cid] || map.grin;
   }
@@ -437,6 +439,7 @@ export function renderCharCards(save, selectedId, onSelect, onBuy) {
     const CHAR_FULL = {
       grin: 'assets/char_grin_full.png', medic: 'assets/char_medic_full.png',
       janitor: 'assets/char_janitor_full.png', intern: 'assets/char_intern_full.png',
+      belle: 'assets/char_belle_full.png', mechgirl: 'assets/char_mechgirl_full.png',
     };
     const artSrc = CHAR_FULL[c.id] || (spr && spr.src);
     if (artSrc) {
@@ -531,6 +534,8 @@ const GALLERY_ART = {
   char_medic: 'assets/char_medic_full.png',
   char_janitor: 'assets/char_janitor_full.png',
   char_intern: 'assets/char_intern_full.png',
+  char_belle: 'assets/char_belle_full.png',
+  char_mechgirl: 'assets/char_mechgirl_full.png',
   item_chest: 'assets/chest_normal.png',
   milestone_10: 'assets/icon_diamond.png',
 };
@@ -562,14 +567,31 @@ function charmIconSrc(id) {
   return (idx != null && sheetIconUrl(idx)) || 'assets/chest_rare.png';
 }
 
-export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
+/**
+ * Bag / gear screen.
+ * handlers: {
+ *   onToggleCharm(id),
+ *   onSelect(id),          // select inventory or equipped gear/charm for detail
+ *   onEquipGear(id),       // equip or one-tap replace
+ *   onUnequipGear(slot),
+ *   onUpgradeGear(id),
+ *   selectedId,            // currently highlighted inventory id
+ * }
+ */
+export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear, extra = {}) {
   ensureGearSave(save);
+  const onUnequipGear = extra.onUnequipGear || null;
+  const onSelect = extra.onSelect || null;
+  const selectedId = extra.selectedId || null;
+  const onToggleCharm = onToggleEquip;
+
   const matEl = $('mat-line');
   if (matEl) {
     const m = save.materials || {};
     const chips = Object.keys(MAT_NAMES).map((k) => `<span class="mat-chip"><b>${MAT_NAMES[k]}</b> ${m[k] || 0}</span>`).join('');
-    matEl.innerHTML = `${chips}<span class="mat-hint">点装备槽，用金币和材料强化</span>`;
+    matEl.innerHTML = `${chips}<span class="mat-hint">选中防具可强化 · 材料来自撤离</span>`;
   }
+
   const gearWrap = $('gear-slots');
   if (gearWrap) {
     gearWrap.innerHTML = '';
@@ -578,26 +600,40 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
       const g = id ? getGear(id) : null;
       const lv = g ? ((save.gearLevels || {})[g.id] || 1) : 0;
       const maxed = !!(g && lv >= 10);
+      const selected = !!(g && selectedId === g.id);
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = `gear-slot${g ? '' : ' empty'}${maxed ? ' maxed' : ''}`;
+      btn.className = `gear-slot${g ? '' : ' empty'}${maxed ? ' maxed' : ''}${selected ? ' selected' : ''}`;
       const src = (g && g.icon) || SLOT_ICON[slot.id];
       const ico = `<img class="gs-img${g ? '' : ' dim'}" src="${src}" alt=""/>`;
-      const meta = g
-        ? (maxed
+      let body;
+      if (g) {
+        const effect = `<span class="gs-effect">${g.desc || ''}</span>`;
+        const meta = maxed
           ? '<span class="gs-lv max">已满级</span>'
-          : `<span class="gs-lv">Lv.${lv}</span>${gearCostChip(lv)}`)
-        : '';
-      btn.innerHTML = `${ico}
-        <div class="gs-copy"><span class="gs-label">${slot.name}</span>
-        <div class="gs-name">${g ? g.name : '未装备'}</div>
-        ${meta}</div>`;
-      if (g && onUpgradeGear) {
-        btn.addEventListener('click', () => onUpgradeGear(g.id));
+          : `<span class="gs-lv">Lv.${lv}</span>`;
+        body = `<div class="gs-copy"><span class="gs-label">${slot.name}</span>
+          <div class="gs-name">${g.name}</div>${meta}${effect}</div>`;
+      } else {
+        body = `<div class="gs-copy"><span class="gs-label">${slot.name}</span>
+          <div class="gs-name">空</div>
+          <span class="gs-empty-hint">点下方装备</span></div>`;
       }
+      btn.innerHTML = `${ico}${body}`;
+      btn.addEventListener('click', () => {
+        if (g && onSelect) onSelect(g.id);
+        else if (!g) toast('点下方背包里的防具装上');
+      });
       gearWrap.appendChild(btn);
     });
   }
+
+  renderBagDetail(save, selectedId, {
+    onEquipGear,
+    onUnequipGear,
+    onUpgradeGear,
+    onToggleCharm,
+  });
 
   const slots = $('equip-slots');
   const equipped = save.equipped || [];
@@ -607,15 +643,21 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
     const item = PASSIVE_ITEMS.find((p) => p.id === id);
     const el = document.createElement('button');
     el.type = 'button';
-    el.className = 'equip-slot';
+    el.className = `equip-slot${item && selectedId === item.id ? ' selected' : ''}`;
     if (item) {
       const n = Math.min(5, (save.inventory || {})[item.id] || 1);
-      el.innerHTML = `<img src="${charmIconSrc(item.id)}" alt=""/><span class="eq-name">${item.name}</span><span class="eq-stars">${'★'.repeat(n)}</span>`;
-    } else el.innerHTML = '<span class="eq-empty">空挂件</span>';
-    el.title = item ? item.name : '空槽';
-    if (item) el.addEventListener('click', () => onToggleEquip(item.id));
+      el.innerHTML = `<span class="eq-kind">挂件</span><img src="${charmIconSrc(item.id)}" alt=""/><span class="eq-name">${item.name}</span><span class="eq-stars">${'★'.repeat(n)}</span>`;
+    } else el.innerHTML = '<span class="eq-kind">挂件</span><span class="eq-empty">空</span>';
+    el.title = item ? item.name : '空挂件槽';
+    if (item) {
+      el.addEventListener('click', () => {
+        if (onSelect) onSelect(item.id);
+        else onToggleCharm(item.id);
+      });
+    }
     slots.appendChild(el);
   }
+
   const grid = $('bag-grid');
   grid.innerHTML = '';
   const ids = Object.keys(save.inventory || {}).filter((k) => save.inventory[k] > 0);
@@ -629,20 +671,121 @@ export function renderBag(save, onToggleEquip, onEquipGear, onUpgradeGear) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'bag-item';
+    if (selectedId === id) btn.classList.add('selected');
     if (gear) {
       const lv = (save.gearLevels || {})[id] || 1;
       const eq = (save.gear || {})[gear.slot] === id;
+      const occ = (save.gear || {})[gear.slot];
+      const canReplace = !eq && !!occ;
       const gico = `<img class="bag-ico" src="${gear.icon || SLOT_ICON[gear.slot]}" alt=""/>`;
-      btn.innerHTML = `${gico}<span class="bag-txt"><b>${gear.name}</b><small class="r-${gear.rarity}">${RARITY_LABEL[gear.rarity]} · Lv.${lv}</small></span>${eq ? '<span class="bag-eq">已装</span>' : ''}`;
+      const badge = eq
+        ? '<span class="bag-eq">已装</span>'
+        : (canReplace ? '<span class="bag-eq replace">可替换</span>' : '');
+      btn.innerHTML = `${gico}<span class="bag-txt"><b>${gear.name}</b><small class="r-${gear.rarity}">${RARITY_LABEL[gear.rarity]} · Lv.${lv}</small></span>${badge}`;
       if (eq) btn.classList.add('equipped');
-      btn.addEventListener('click', () => onEquipGear && onEquipGear(id));
+      if (canReplace) btn.classList.add('can-replace');
+      btn.addEventListener('click', () => {
+        if (onSelect) onSelect(id);
+        else if (onEquipGear) onEquipGear(id);
+      });
     } else if (item) {
       const eq = equipped.includes(id);
       const stars = Math.min(5, save.inventory[id]);
       btn.innerHTML = `<img class="bag-ico" src="${charmIconSrc(id)}" alt=""/><span class="bag-txt"><b>${item.name}</b><small class="r-${item.rarity}">${RARITY_LABEL[item.rarity]} ${'★'.repeat(stars)}</small></span>${eq ? '<span class="bag-eq">已戴</span>' : ''}`;
-      btn.addEventListener('click', () => onToggleEquip(id));
+      if (eq) btn.classList.add('equipped');
+      btn.addEventListener('click', () => {
+        if (onSelect) onSelect(id);
+        else onToggleCharm(id);
+      });
     } else return;
     grid.appendChild(btn);
+  });
+}
+
+function renderBagDetail(save, selectedId, handlers) {
+  const panel = $('bag-detail');
+  if (!panel) return;
+  if (!selectedId) {
+    panel.classList.add('hidden');
+    panel.innerHTML = '';
+    return;
+  }
+  const gear = getGear(selectedId);
+  const charm = PASSIVE_ITEMS.find((p) => p.id === selectedId);
+  if (!gear && !charm) {
+    panel.classList.add('hidden');
+    panel.innerHTML = '';
+    return;
+  }
+  panel.classList.remove('hidden');
+
+  if (gear) {
+    const lv = (save.gearLevels || {})[gear.id] || 1;
+    const maxed = lv >= 10;
+    const equippedId = (save.gear || {})[gear.slot];
+    const isOn = equippedId === gear.id;
+    const occupied = !!equippedId && !isOn;
+    const occupiedGear = occupied ? getGear(equippedId) : null;
+    const cost = maxed ? null : gearUpgradeCost(lv);
+    const costHtml = cost
+      ? `<span class="bd-cost-chip">${cost.coins}金</span><span class="bd-cost-chip">${MAT_NAMES[cost.mat] || cost.mat}×${cost.n}</span>`
+      : '';
+    const actions = [];
+    if (occupied) {
+      actions.push(`<button type="button" class="btn primary bd-act" data-act="replace">装备替换</button>`);
+      if (occupiedGear) {
+        actions.push(`<p class="bd-replace-hint">当前：${occupiedGear.name} → 换成这件</p>`);
+      }
+    } else if (!isOn) {
+      actions.push(`<button type="button" class="btn primary bd-act" data-act="equip">装上</button>`);
+    }
+    if (isOn) {
+      actions.push(`<button type="button" class="btn ghost bd-act" data-act="unequip">卸下</button>`);
+    }
+    if (maxed) {
+      actions.push(`<span class="bd-max">已满级</span>`);
+    } else {
+      actions.push(`<div class="bd-upgrade-row">${costHtml}<button type="button" class="btn secondary bd-act" data-act="upgrade">强化</button></div>`);
+    }
+    panel.innerHTML = `
+      <div class="bd-top">
+        <img class="bd-ico" src="${gear.icon || SLOT_ICON[gear.slot]}" alt=""/>
+        <div class="bd-copy">
+          <div class="bd-name">${gear.name}<span class="bd-rar r-${gear.rarity}">${RARITY_LABEL[gear.rarity]}</span></div>
+          <div class="bd-meta">Lv.${lv}${isOn ? ' · 穿着中' : ''}</div>
+          <p class="bd-effect">${gear.desc || ''}</p>
+        </div>
+      </div>
+      <div class="bd-actions">${actions.join('')}</div>`;
+    panel.querySelectorAll('[data-act]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const act = btn.dataset.act;
+        if (act === 'equip' || act === 'replace') handlers.onEquipGear && handlers.onEquipGear(gear.id);
+        else if (act === 'unequip') handlers.onUnequipGear && handlers.onUnequipGear(gear.slot);
+        else if (act === 'upgrade') handlers.onUpgradeGear && handlers.onUpgradeGear(gear.id);
+      });
+    });
+    return;
+  }
+
+  // charm detail
+  const equipped = save.equipped || [];
+  const isOn = equipped.includes(charm.id);
+  const stars = Math.min(5, (save.inventory || {})[charm.id] || 1);
+  panel.innerHTML = `
+    <div class="bd-top">
+      <img class="bd-ico" src="${charmIconSrc(charm.id)}" alt=""/>
+      <div class="bd-copy">
+        <div class="bd-name">${charm.name}<span class="bd-rar r-${charm.rarity}">${RARITY_LABEL[charm.rarity]}</span></div>
+        <div class="bd-meta">挂件 · ${'★'.repeat(stars)}${isOn ? ' · 已戴' : ''}</div>
+        <p class="bd-effect">${charm.desc || ''}</p>
+      </div>
+    </div>
+    <div class="bd-actions">
+      <button type="button" class="btn ${isOn ? 'ghost' : 'primary'} bd-act" data-act="charm">${isOn ? '卸下挂件' : '戴上挂件'}</button>
+    </div>`;
+  panel.querySelector('[data-act="charm"]').addEventListener('click', () => {
+    handlers.onToggleCharm && handlers.onToggleCharm(charm.id);
   });
 }
 

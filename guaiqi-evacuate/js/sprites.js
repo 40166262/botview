@@ -20,6 +20,12 @@ const MANIFEST = {
   medic: 'assets/char_medic.png',
   janitor: 'assets/char_janitor.png',
   intern: 'assets/char_intern.png',
+  belle: 'assets/char_belle.png',
+  mechgirl: 'assets/char_mechgirl.png',
+  cool: 'assets/char_cool.png',
+  mecha: 'assets/char_mecha.png',
+  ninja: 'assets/char_ninja.png',
+  kunoichi: 'assets/char_kunoichi.png',
   icons: 'assets/upgrade_icons_sheet.png',
   chest: 'assets/item_chest.png',
   chestNormal: 'assets/chest_normal.png',
@@ -164,7 +170,7 @@ function prepareOptionalArt() {
   const chest = getSprite('chest');
   if (chest) processed.chest = chest;
   // 角色若已有透明角则跳过抠图，避免 chroma 把肤色/亮边打成洞；敌人仅做温和白底去除
-  const charKeys = ['player', 'grin', 'medic', 'janitor', 'intern'];
+  const charKeys = ['player', 'grin', 'medic', 'janitor', 'intern', 'belle', 'mechgirl', 'cool', 'mecha', 'ninja', 'kunoichi'];
   const enemyKeys = ['slime', 'bat', 'armored', 'monitor', 'slacker', 'golem', 'boss', 'shadow'];
   for (const key of charKeys) {
     const img = getSprite(key);
@@ -241,11 +247,15 @@ export function getUiIcon(key) {
 }
 
 export function getCharSprite(charId) {
-  if (charId === 'medic') return getSprite('medic');
-  if (charId === 'janitor') return getSprite('janitor');
-  if (charId === 'intern') return getSprite('intern');
-  if (charId === 'grin') return getSprite('grin') || getSprite('player');
-  return getSprite('player');
+  if (charId === 'medic' || charId === 'mecha') return getSprite('medic') || getSprite('mecha');
+  if (charId === 'janitor' || charId === 'kunoichi') return getSprite('janitor') || getSprite('kunoichi');
+  if (charId === 'intern' || charId === 'ninja') return getSprite('intern') || getSprite('ninja');
+  if (charId === 'belle') return getSprite('belle');
+  if (charId === 'mechgirl') return getSprite('mechgirl');
+  if (charId === 'cool') return getSprite('cool') || getSprite('grin') || getSprite('player');
+  if (charId === 'grin') return getSprite('grin') || getSprite('cool') || getSprite('player');
+
+  return getSprite('grin') || getSprite('player');
 }
 
 export async function preloadSprites(onProgress) {
