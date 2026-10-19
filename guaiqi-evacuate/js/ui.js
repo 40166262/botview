@@ -163,6 +163,14 @@ export function updateHud(data) {
   const sh = $('hud-shield');
   if (data.shield > 0) { sh.textContent = `盾×${data.shield}`; show(sh); }
   else hide(sh);
+
+  const od = $('hud-od');
+  if (od) {
+    if (data.overdrive > 0) {
+      od.textContent = `过载 ${Math.ceil(data.overdrive)}s`;
+      show(od);
+    } else hide(od);
+  }
 }
 
 export function showUpgradeCards(choices, onPick, owned = {}, opts = {}) {
@@ -324,7 +332,7 @@ export function toast(msg) {
   el.textContent = msg;
   show(el);
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => hide(el), 1800);
+  toastTimer = setTimeout(() => hide(el), 2200);
 }
 
 const achieveQ = [];
@@ -388,12 +396,13 @@ export function renderStageCards(save, selectedId, onSelect, page = 0) {
     const thumbArt = s.theme === 'ward' ? 'enemy_crawler' : s.theme === 'basement' ? 'enemy_armored' : 'enemy_office_zombie';
     const bossTag = s.clearMode === 'boss' ? '<span class="st-boss">首领</span>' : '';
     const goal = stageWinLine(s);
+    const sell = s.sellHint ? `<span class="st-sell">${s.sellHint}</span>` : '';
     const now = selectedId === s.id ? '<span class="st-now">当前</span>' : '';
     btn.innerHTML = `
       <div class="stage-thumb theme-${s.theme}"><img src="assets/${thumbArt}.png" alt=""/><span class="st-num">${s.stageNum}</span>${unlocked ? '' : '<span class="char-lock-badge">锁</span>'}${bossTag}</div>
       <div class="stage-info">
         <h3><span class="st-title">${s.name}</span>${cleared ? '<span class="st-clear">已通关</span>' : ''}${now}</h3>
-        <p class="st-sub">${s.subtitle}</p>
+        <p class="st-sub">${s.subtitle}${unlocked && sell ? ` · ${sell}` : ''}</p>
         <p class="st-goal">${unlocked ? goal : `<span class="lock-tag">${reason || '未解锁'}</span>`}</p>
       </div>`;
     btn.addEventListener('click', () => {
@@ -414,7 +423,7 @@ export function renderStageCards(save, selectedId, onSelect, page = 0) {
     <div class="stage-thumb theme-basement"><img src="assets/enemy_boss.png" alt=""/><span class="st-num">∞</span>${eu ? '' : '<span class="char-lock-badge">锁</span>'}</div>
     <div class="stage-info">
       <h3><span class="st-title">${en.name}</span>${enow}</h3>
-      <p class="st-sub">${en.subtitle}</p>
+      <p class="st-sub">${en.subtitle}${eu && en.sellHint ? ` · <span class="st-sell">${en.sellHint}</span>` : ''}</p>
       <p class="st-goal">${eu ? ((save.bestEndlessTime || save.bestEndlessKills) ? `撑得越久越好 · 纪录 ${formatTime(save.bestEndlessTime||0)}` : '撑得越久越好') : `<span class="lock-tag">${stageLockReason(save, en.id)}</span>`}</p>
     </div>`;
   ebtn.addEventListener('click', () => {

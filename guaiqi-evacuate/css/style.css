@@ -2111,3 +2111,26 @@ body:has(#achieve:not(.hidden)) .overlay {
   font-weight: 700;
   color: var(--ink-soft);
 }
+
+
+/* Overdrive chip — visible firepower window, no camera shake */
+.hud-od {
+  position: absolute;
+  right: 10px;
+  top: 128px;
+  z-index: 6;
+  font-size: 12px;
+  font-weight: 800;
+  color: #5a3010;
+  background: linear-gradient(180deg, #f6d78a, #e8b85a);
+  border: 2px solid #5a3010;
+  border-radius: 99px;
+  padding: 2px 10px;
+  pointer-events: none;
+  box-shadow: 0 2px 0 rgba(90,48,16,0.35);
+}
+.hud.theme-ward .hud-od { top: 128px; }
+.st-sell {
+  color: #8a4a12;
+  font-weight: 800;
+}

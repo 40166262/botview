@@ -74,6 +74,7 @@ export const GALLERY = [
   { id: 'enemy_beetle', kind: 'enemy', name: '铠甲尸', icon: '', flavor: '防暴服穿反了也照样扛揍。' },
   { id: 'enemy_wisp', kind: 'enemy', name: '故障监视器', icon: '', flavor: '屏幕雪花一闪，就开始远程放电。' },
   { id: 'enemy_golem', kind: 'enemy', name: '重装保安', icon: '', flavor: '全套护甲加身，下班了还在巡逻。' },
+  { id: 'enemy_shadow', kind: 'enemy', name: '阴影潜伏者', icon: '', flavor: '贴墙滑行，你眨眼它就换了个工位。' },
   { id: 'enemy_boss', kind: 'enemy', name: '设施霸主', icon: '', flavor: '开会从不迟到，溃烂除外。' },
   { id: 'enemy_elite', kind: 'enemy', name: '精英变异体', icon: '', flavor: '身上镀了层假金，气场却是真的。' },
   { id: 'enemy_slacker', kind: 'enemy', name: '摸鱼丧尸', icon: '', flavor: '抱着公文包到处跑，抓住它奖金翻倍。' },

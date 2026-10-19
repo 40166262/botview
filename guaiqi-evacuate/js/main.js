@@ -145,25 +145,36 @@ const game = new Game(canvas, {
     refreshHomeStats(save);
     flushAchievements();
     const failN = (save.failStreak || {})[result.stageId] || 0;
+    const sn = parseInt(String(result.stageId || '').replace(/^s/, ''), 10) || 0;
     let suggest = '差一点点，再来一局就稳了。';
     if (result.stageId === 's1') suggest = '先开箱补给，再绕开走位。';
     else if ((result.time || 0) < 25) suggest = '先拉开距离，捡经验再输出。';
     else if (failN >= 2) suggest = '去装备栏升一级，会好过很多。';
     else if ((result.kills || 0) < 8) suggest = '贴着物资箱走，箱子能翻盘。';
+    else if (sn >= 5 && (result.surprises || []).length === 0) suggest = '中段留意金色箱/过载窗口，别硬刚首领。';
+    else if (sn >= 15) suggest = '双首领关先清先锋，留过载打第二只。';
+    // Tiny fail consolation — does not break economy
+    let consolCoins = 0;
+    if (!endless && (result.time || 0) >= 20) {
+      consolCoins = Math.min(18, 4 + Math.floor((result.time || 0) / 25) + Math.min(6, failN));
+      addCoins(save, consolCoins);
+      writeSave(save);
+    }
+    const consolLine = consolCoins ? `失败安慰金 +${consolCoins}` : '';
     showResult({
       cleared: false,
       flavor: [randomDeathLine(), prog.msg].filter(Boolean).join(' · '),
       xp: prog.xp,
-      matLine: prog.matLine,
+      matLine: [prog.matLine, consolLine].filter(Boolean).join(' · '),
       levelLine: prog.levelLine,
       charLine: prog.charLine,
       stageName: result.stageName,
       time: result.time,
       kills: result.kills,
       maxCombo: result.maxCombo,
-      coins: result.coins,
+      coins: (result.coins || 0) + consolCoins,
       canRevive: !result.revivedOnce && !endless,
-      canDouble: (result.coins || 0) > 0,
+      canDouble: ((result.coins || 0) + consolCoins) > 0,
       hasNext: false,
       suggestPower: suggest,
       showGearCta: failN >= 2,
@@ -233,27 +244,42 @@ if (new URLSearchParams(location.search).has('debug')) {
 }
 
 
-/** Early-stage clear gifts — one memorable beat per chapter so 1–5 never feel empty. */
+/** Clear gifts: handcrafted s1–s20, milestone formula s21+; replays always get a small pack. */
 function grantClearSurprise(save, result) {
   const id = result && result.stageId;
   const out = { coins: 0, diamonds: 0, line: '', flavor: '', toast: '' };
-  if (!id) return out;
+  if (!id || id === 'endless') return out;
   if (!save.clearSurprises) save.clearSurprises = {};
-  // Always surface in-run surprises on the result card
   if (result.surprises && result.surprises.length) {
     out.flavor = `本局抓到了：${result.surprises.slice(0, 3).join('、')}${result.surprises.length > 3 ? '…' : ''}`;
   }
   const first = !save.clearSurprises[id];
   save.clearSurprises[id] = true;
+  const n = parseInt(String(id).replace(/^s/, ''), 10) || 0;
+  if (!save.materials) save.materials = { scrap: 0, battery: 0, tape: 0, chip: 0 };
+  if (!save.inventory) save.inventory = {};
+
+  const addMats = (scrap, battery = 0, tape = 0, chip = 0) => {
+    save.materials.scrap = (save.materials.scrap || 0) + scrap;
+    if (battery) save.materials.battery = (save.materials.battery || 0) + battery;
+    if (tape) save.materials.tape = (save.materials.tape || 0) + tape;
+    if (chip) save.materials.chip = (save.materials.chip || 0) + chip;
+  };
+  const giftCharm = (cid, label) => {
+    save.inventory[cid] = (save.inventory[cid] || 0) + 1;
+    out.toast = `获得挂件：${label}`;
+    out.line += ` · ${label} ×1`;
+  };
+
   if (id === 's1') {
     out.diamonds += first ? 8 : 2;
     out.coins += first ? 40 : 15;
-    out.line = first ? '首通惊喜：钻石 +8 · 金币 +40' : '再次撤离补给 +';
+    out.line = first ? '首通惊喜：钻石 +8 · 金币 +40' : '再次撤离补给';
     out.flavor = first
       ? '门开了！系统塞给你一笔「活着的奖金」。星铠机甲已解锁，去角色页看看。'
       : (out.flavor || '办公区又清扫了一遍。');
     out.toast = first ? '首通大礼到手！' : '';
-    if (save.materials) save.materials.scrap = (save.materials.scrap || 0) + (first ? 4 : 1);
+    addMats(first ? 4 : 1);
   } else if (id === 's2') {
     out.diamonds += first ? 4 : 1;
     out.coins += first ? 35 : 12;
@@ -261,7 +287,6 @@ function grantClearSurprise(save, result) {
     out.flavor = first
       ? '监视器还在闪雪花。图鉴多了新条目，抽奖页今晚手气可能偏暖。'
       : (out.flavor || '走廊灯又灭了一排。');
-    // soft pity help once
     if (first) save.pity = Math.min(9, (save.pity || 0) + 2);
     out.toast = first ? '病房首通 · 抽奖保底靠近了' : '';
   } else if (id === 's3') {
@@ -271,26 +296,16 @@ function grantClearSurprise(save, result) {
     out.flavor = first
       ? '三重空投的坐标还印在视网膜上。废料和电池塞满口袋——去强化防具！'
       : (out.flavor || '铠甲碎了一地。');
-    if (save.materials) {
-      save.materials.scrap = (save.materials.scrap || 0) + (first ? 6 : 2);
-      save.materials.battery = (save.materials.battery || 0) + (first ? 2 : 0);
-    }
+    addMats(first ? 6 : 2, first ? 2 : 0);
     out.toast = first ? '强化材料到账，装备栏等等你' : '';
   } else if (id === 's4') {
     out.diamonds += first ? 6 : 2;
     out.coins += first ? 50 : 20;
-    out.line = first ? '过载首通：钻石 +6 · 挂件碎片感' : '过载余韵';
+    out.line = first ? '过载首通：钻石 +6' : '过载余韵';
     out.flavor = first
       ? '过载散去，芯片还烫手。神秘权限箱的味道让人想再来一局。'
       : (out.flavor || '权限又降回去了。');
-    // grant a common charm if none
-    if (first) {
-      if (!save.inventory) save.inventory = {};
-      const gift = 'charm_coin';
-      save.inventory[gift] = (save.inventory[gift] || 0) + 1;
-      out.toast = '获得挂件：清点账本';
-      out.line += ' · 清点账本 ×1';
-    }
+    if (first) giftCharm('charm_coin', '清点账本');
   } else if (id === 's5') {
     out.diamonds += first ? 10 : 3;
     out.coins += first ? 80 : 25;
@@ -299,23 +314,97 @@ function grantClearSurprise(save, result) {
       ? '你打倒了第一位正式首领！设施深处的门缝透出金光——后面会更疯，也会更爽。'
       : (out.flavor || '霸主又倒下一次。');
     if (first) {
-      if (!save.inventory) save.inventory = {};
-      save.inventory.charm_crit = (save.inventory.charm_crit || 0) + 1;
-      out.toast = '史诗挂件：精密螺丝！';
-      out.line += ' · 精密螺丝 ×1';
-      if (save.materials) {
-        save.materials.chip = (save.materials.chip || 0) + 2;
-        save.materials.tape = (save.materials.tape || 0) + 2;
+      giftCharm('charm_crit', '精密螺丝');
+      addMats(0, 0, 2, 2);
+    }
+  } else if (id === 's6') {
+    out.diamonds += first ? 5 : 2;
+    out.coins += first ? 55 : 18;
+    out.line = first ? '机甲首通：钻石 +5 · 废料' : '机甲再清补给';
+    out.flavor = first
+      ? '重装保安的零件还能卖钱。第 7 关起每关都有不同彩蛋——接着挖。'
+      : (out.flavor || '地库又安静了一会儿。');
+    addMats(first ? 5 : 2, first ? 1 : 0);
+    out.toast = first ? '机甲首通礼到账' : '';
+  } else if (n >= 7 && n <= 20) {
+    // Differentiated early-mid first clears
+    const table = {
+      7: { d: 4, c: 40, scrap: 3, flavor: '监视器雪花散尽。设施开始认真对待你了。', line: '第7关首通' },
+      8: { d: 5, c: 45, scrap: 3, bat: 1, flavor: '阴影退去。你记住了它们贴墙的脚步声。', line: '阴影首通' },
+      9: { d: 5, c: 48, scrap: 4, flavor: '又一台重装倒地。零件箱越来越沉。', line: '重装再清' },
+      10: { d: 8, c: 70, scrap: 5, chip: 1, flavor: '第10关节点打穿！章节门后传来更深的嗡鸣。', line: '十关里程碑礼', charm: 'charm_xp', charmName: '培训工牌' },
+      11: { d: 4, c: 42, scrap: 3, flavor: '新一章的灯更冷。补给袋里多了胶带。', line: '第11关首通', tape: 1 },
+      12: { d: 5, c: 45, scrap: 3, bat: 1, flavor: '双精英的夹击还让手心出汗。', line: '第12关首通' },
+      13: { d: 5, c: 48, scrap: 4, flavor: '过载余温未散，连击数字还在跳。', line: '第13关首通' },
+      14: { d: 5, c: 50, scrap: 3, flavor: '摸鱼的公文包里掉出半张权限单。', line: '第14关首通' },
+      15: { d: 9, c: 75, scrap: 6, chip: 1, flavor: '双首领关卡首通！设施开始用「终焉」称呼你。', line: '十五关双首领礼', charm: 'charm_frost', charmName: '冰袋挂件' },
+      16: { d: 5, c: 52, scrap: 4, flavor: '补给雨砸在肩上，比警报好听。', line: '第16关首通' },
+      17: { d: 5, c: 55, scrap: 4, bat: 1, flavor: '新威胁的登场动画够长，掉落也够厚。', line: '第17关首通' },
+      18: { d: 6, c: 58, scrap: 4, flavor: '连击狂热那一下，像把权限钥插到底。', line: '第18关首通' },
+      19: { d: 6, c: 60, scrap: 5, tape: 1, flavor: '神秘箱的味道让人想连刷。', line: '第19关首通' },
+      20: { d: 12, c: 100, scrap: 8, chip: 2, bat: 2, flavor: '第二十关！双层警报章结算——后面会更疯，礼也更沉。', line: '二十关章节礼', charm: 'charm_shield', charmName: '防割背心片', pity: 2 },
+    };
+    const row = table[n];
+    if (row) {
+      out.diamonds += first ? row.d : Math.max(1, Math.floor(row.d / 3));
+      out.coins += first ? row.c : Math.max(10, Math.floor(row.c / 3));
+      out.line = first ? `${row.line}：钻石 +${row.d} · 金币 +${row.c}` : `第${n}关再通补给`;
+      if (first) {
+        out.flavor = row.flavor;
+        addMats(row.scrap || 0, row.bat || 0, row.tape || 0, row.chip || 0);
+        if (row.charm) giftCharm(row.charm, row.charmName);
+        if (row.pity) save.pity = Math.min(9, (save.pity || 0) + row.pity);
+        out.toast = out.toast || `${row.line}到手`;
+      } else {
+        addMats(1);
+        out.flavor = out.flavor || `第${n}关又清了一遍。`;
       }
     }
-  } else if (id === 's6' && first) {
-    out.diamonds += 4;
-    out.coins += 30;
-    out.line = '机甲首通补给';
-    out.flavor = out.flavor || '重装保安的零件还能卖钱。继续往下挖！';
+  } else if (n >= 21) {
+    // Milestone formula: every 10 big, every 5 medium, else small; replays always small
+    const decade = n % 10 === 0;
+    const half = n % 5 === 0;
+    if (first && decade) {
+      const d = 10 + Math.floor(n / 10);
+      const c = 80 + n;
+      out.diamonds += d;
+      out.coins += c;
+      out.line = `第${n}关章节礼：钻石 +${d} · 金币 +${c}`;
+      out.flavor = out.flavor || `第${n}关里程碑打穿！设施给你开了一箱「活着证明」。`;
+      addMats(6 + Math.floor(n / 20), 2, 1, 1 + Math.floor(n / 50));
+      if (n === 50) giftCharm('charm_thorn', '铁丝环');
+      if (n === 100) giftCharm('charm_legend', '设施通行证');
+      if (n === 30 || n === 60 || n === 90) save.pity = Math.min(9, (save.pity || 0) + 2);
+      out.toast = `第${n}关大礼！`;
+    } else if (first && half) {
+      const d = 6 + Math.floor(n / 20);
+      const c = 50 + Math.floor(n * 0.6);
+      out.diamonds += d;
+      out.coins += c;
+      out.line = `半章首通：钻石 +${d} · 金币 +${c}`;
+      out.flavor = out.flavor || `第${n}关半章节点。补给与压力同到账。`;
+      addMats(4, n >= 40 ? 1 : 0);
+      out.toast = `第${n}关半章礼`;
+    } else if (first) {
+      const d = 2 + (n % 3 === 0 ? 1 : 0);
+      const c = 28 + Math.floor(n * 0.35);
+      out.diamonds += d;
+      out.coins += c;
+      out.line = `第${n}关首通：钻石 +${d} · 金币 +${c}`;
+      out.flavor = out.flavor || `第${n}关清完。口袋里多了点闪的。`;
+      addMats(2);
+    } else {
+      out.coins += 12 + Math.floor(n / 10);
+      out.diamonds += n % 5 === 0 ? 2 : 1;
+      out.line = `第${n}关再通补给`;
+      addMats(1);
+      out.flavor = out.flavor || `再通第${n}关，小补给入账。`;
+    }
   }
+
   if (out.coins) addCoins(save, out.coins);
   if (out.diamonds) addDiamonds(save, out.diamonds);
+  writeSave(save);
   return out;
 }
 

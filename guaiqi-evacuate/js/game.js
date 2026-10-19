@@ -206,6 +206,8 @@ export class Game {
     this.overdriveT = 0;
     this._odMul = 1;
     this._odSpeedMul = 1;
+    this._escalateMul = 1;
+    this._escalateT = 0;
     this.runSurprises = []; // strings shown on clear
     this.tips = {
       move: !!this.coachFresh,
@@ -355,6 +357,7 @@ export class Game {
       }
     }
     this._tickOverdrive(dt);
+    this._tickEscalate(dt);
     this._noteWave();
 
     // move
@@ -782,6 +785,7 @@ export class Game {
         combo: this.juice.combo,
         shield: p.shield,
         coins: this.coinsEarned,
+        overdrive: this.overdriveT > 0 ? this.overdriveT : 0,
         theme: this.stage.theme || 'office',
         bannerTimer: this.bannerTimer,
         bannerTitle: this.bannerTitle,
@@ -832,7 +836,7 @@ export class Game {
   _spawnWave(dt) {
     const pace = this.pace || paceProfile(this.stage);
     const earlyBoost = this.time < 20 ? pace.earlyBoost : 1;
-    const rate = spawnRateAt(this.stage, this.time) * earlyBoost;
+    const rate = spawnRateAt(this.stage, this.time) * (this._escalateMul || 1) * earlyBoost;
     this.spawnAcc += dt * rate;
     const scale = difficultyScale(this.stage, this.time);
     while (this.spawnAcc >= 1) {
@@ -1057,6 +1061,14 @@ export class Game {
     }
   }
 
+  _tickEscalate(dt) {
+    if (this._escalateT <= 0) return;
+    this._escalateT -= dt;
+    if (this._escalateT > 0) return;
+    this._escalateMul = 1;
+    if (this.hooks.onToast) this.hooks.onToast('潮汐压力回落');
+  }
+
   _startOverdrive(dur = 10, mul = 1.45) {
     const p = this.player;
     // refresh timer; only apply mul once
@@ -1069,6 +1081,7 @@ export class Game {
     this.overdriveT = Math.max(this.overdriveT, dur);
     spawnBurst(this.particles, p.x, p.y, '#f0b850', 28, 160);
     this._banner(`过载协议 · ${Math.round(dur)} 秒`, 'gold', 2.2);
+    if (this.hooks.onToast) this.hooks.onToast(`火力过载 ${Math.round(dur)} 秒！`);
     this._noteSurprise('过载协议');
     SFX.announce();
   }
@@ -1181,7 +1194,51 @@ export class Game {
       } else if (kind === 'combo_fever') {
         ev.comboFeverArmed = true;
         ev.comboFeverNeed = h.need || 8;
-        if (this.hooks.onToast) this.hooks.onToast(`连击冲到 ${ev.comboFeverNeed} 可触发狂热`);
+        this._banner(`连击狂热待机 · 冲到 ×${ev.comboFeverNeed}`, 'gold', 2);
+        if (this.hooks.onToast) this.hooks.onToast(`连击冲到 ${ev.comboFeverNeed} 触发狂热过载`);
+      } else if (kind === 'shadow_debut') {
+        for (let k = 0; k < 2; k++) {
+          const pos = spawnPointAround(p.x, p.y, 200, 280, WORLD_W, WORLD_H);
+          const en = this._makeElite('shadow', pos.x, pos.y, scale * 1.05, { scaleDamage: true });
+          this.enemies.push(en);
+        }
+        this._banner('阴影潜伏者现身！', 'warn', 2.2);
+        this._noteGallery('enemy_shadow');
+        this._noteSurprise('阴影首秀');
+        SFX.announce();
+      } else if (kind === 'supply_rain') {
+        this._spawnChest('rare');
+        setTimeout(() => { if (this.alive && !this.cleared) this._spawnChest('normal'); }, 400);
+        setTimeout(() => { if (this.alive && !this.cleared) this._spawnChest('rare'); }, 800);
+        this.coinsEarned = (this.coinsEarned || 0) + 10;
+        this._banner(h.label || '补给雨！', 'gold', 2);
+        this._noteSurprise('补给雨');
+        SFX.announce();
+      } else if (kind === 'coin_shower') {
+        this.coinsEarned = (this.coinsEarned || 0) + 28;
+        spawnBurst(this.particles, p.x, p.y, '#e8c878', 22, 140);
+        this._banner(h.label || '金币雨！', 'gold', 1.8);
+        if (this.hooks.onToast) this.hooks.onToast('金币雨 +28');
+        this._noteSurprise('金币雨');
+      } else if (kind === 'swarm_hook') {
+        for (let k = 0; k < 10; k++) {
+          const pos = spawnPointAround(p.x, p.y, 160, 260, WORLD_W, WORLD_H);
+          const typ = k % 3 === 0 ? 'bat' : 'slime';
+          this.enemies.push(createEnemy(typ, pos.x, pos.y, scale * 0.85));
+        }
+        this._banner(h.label || '突发尸潮！', 'warn', 2);
+        this._noteSurprise('突发尸潮');
+        SFX.announce();
+      } else if (kind === 'escalate') {
+        // Endless / late spice: temporary spawn pressure + small elite
+        this._escalateMul = Math.min(2.2, (this._escalateMul || 1) + 0.22);
+        this._escalateT = Math.max(this._escalateT || 0, 28);
+        const pos = spawnPointAround(p.x, p.y, 220, 300, WORLD_W, WORLD_H);
+        this.enemies.push(this._makeElite(pickEnemyType(this.stage, t), pos.x, pos.y, scale * 1.1, { scaleDamage: true }));
+        this._banner(h.label || '潮汐升级！', 'warn', 2.2);
+        this._noteSurprise(h.label || '潮汐升级');
+        if (this.hooks.onToast) this.hooks.onToast('生成压力上升');
+        SFX.announce();
       } else if (kind === 'pre_boss_show') {
         for (let k = 0; k < 6; k++) {
           const pos = spawnPointAround(p.x, p.y, 200, 280, WORLD_W, WORLD_H);
