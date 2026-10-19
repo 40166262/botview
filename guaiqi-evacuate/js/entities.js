@@ -43,6 +43,8 @@ export function makeBullet() {
     knock: 0,
     homing: 0,
     puddle: false,
+    streak: 0,
+    tint: '',
   };
 }
 

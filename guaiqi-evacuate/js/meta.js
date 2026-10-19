@@ -125,9 +125,9 @@ export const GEAR_SLOTS = [
 ];
 
 export const GEAR_ITEMS = [
-  { id: 'wpn_staff', name: '应急冲锋枪', slot: 'weapon', rarity: 'common', desc: '伤害 +8%', icon: 'assets/equip_weapon.png', effect: { damageMul: 1.08 } },
-  { id: 'wpn_moonblade', name: '改装钉枪', slot: 'weapon', rarity: 'rare', desc: '伤害 +5%，攻速微增', icon: 'assets/equip_weapon.png', effect: { damageMul: 1.05, fireMul: 0.92 } },
-  { id: 'wpn_spore', name: '化学喷射器', slot: 'weapon', rarity: 'epic', desc: '附带减速，攻速微增', icon: 'assets/equip_weapon.png', effect: { frost: 0.06, fireMul: 0.95 } },
+  { id: 'wpn_staff', name: '应急冲锋枪', slot: 'weapon', rarity: 'common', desc: '伤害 +8%，连珠短点射', icon: 'assets/equip_weapon.png', effect: { damageMul: 1.08 } },
+  { id: 'wpn_moonblade', name: '改装钉枪', slot: 'weapon', rarity: 'rare', desc: '伤害 +5%，慢钉更沉', icon: 'assets/equip_weapon.png', effect: { damageMul: 1.05 } },
+  { id: 'wpn_spore', name: '化学喷射器', slot: 'weapon', rarity: 'epic', desc: '三发扇面，附带减速', icon: 'assets/equip_weapon.png', effect: { frost: 0.06 } },
   { id: 'hat_moss', name: '安全帽', slot: 'hat', rarity: 'common', desc: '暴击 +4%', icon: 'assets/equip_hat.png', effect: { critChance: 0.04 } },
   { id: 'hat_crown', name: '战术耳罩', slot: 'hat', rarity: 'epic', desc: '暴击 +8%，暴伤 +0.2', icon: 'assets/equip_hat.png', effect: { critChance: 0.08, critDamage: 0.2 } },
   { id: 'cloth_cloak', name: '值班外套', slot: 'clothes', rarity: 'common', desc: '生命 +15', icon: 'assets/equip_coat.png', effect: { flatHp: 15 } },
@@ -180,6 +180,40 @@ export function unequipGearSlot(save, slot) {
   save.gear[slot] = null;
 }
 
+/**
+ * Equipped-weapon silhouette. The damage multiplier matches the cooldown
+ * change, so the listed gear bonus stays the DPS change.
+ */
+function applyWeaponFeel(player, id) {
+  player.weaponId = id;
+  if (id === 'wpn_staff') {
+    player.fireCooldown *= 0.72;
+    player.shotDamageMul *= 0.72;
+    player.shotStyle = 'bullet';
+    player.shotSpeed = 430;
+    player.shotStreak = 16;
+    player.spread = Math.min(player.spread, 0.07);
+  } else if (id === 'wpn_moonblade') {
+    player.fireCooldown *= 1.42;
+    player.shotDamageMul *= 1.42;
+    player.shotStyle = 'nail';
+    player.shotSpeed = 520;
+    player.shotScale *= 1.38;
+    player.shotStreak = 8;
+    player.shotKnock = 72;
+    player.spread = Math.min(player.spread, 0.05);
+  } else if (id === 'wpn_spore') {
+    player.fireCooldown *= 1.28;
+    player.projectiles += 2;
+    player.spread = 0.42;
+    player.shotStyle = 'chem';
+    player.shotSpeed = 270;
+    player.shotScale *= 1.22;
+    player.shotStreak = 16;
+    player.pelletMul *= 0.48;
+  }
+}
+
 export function applyGearToPlayer(player, save) {
   ensureGearSave(save);
   const levels = save.gearLevels || {};
@@ -217,6 +251,7 @@ export function applyGearToPlayer(player, save) {
     if (e.damageTakenMul) {
       player.damageTakenMul = (player.damageTakenMul || 1) * (1 + (e.damageTakenMul - 1) * mul);
     }
+    if (g.slot === 'weapon') applyWeaponFeel(player, id);
   }
 }
 

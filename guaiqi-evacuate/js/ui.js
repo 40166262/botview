@@ -211,6 +211,7 @@ export function showUpgradeCards(choices, onPick, owned = {}, opts = {}) {
           ${tag}
         </div>
         <p>${u.desc}</p>
+        ${u.feel ? `<p class="card-feel">${u.feel}</p>` : ''}
         <div class="card-pips">${pips}</div>
       </div>`;
     if (propSrc || iconCell) {
