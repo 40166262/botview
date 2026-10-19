@@ -1255,6 +1255,14 @@ button.daily-gift {
 }
 #upgrade .card-body h3 { font-size: 15px; margin-bottom: 2px; line-height: 1.25; }
 #upgrade .card-body p { font-size: 12px; line-height: 1.35; }
+#upgrade .card-body p.card-feel {
+  display: block;
+  margin-top: 2px;
+  color: #a56a2e;
+  font-size: 11.5px;
+  font-weight: 800;
+  line-height: 1.3;
+}
 #upgrade .card-tag.new {
   font-size: 12px;
   padding: 1px 8px;

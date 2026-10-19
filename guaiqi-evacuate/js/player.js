@@ -14,6 +14,16 @@ export function createPlayer(cx, cy) {
     projectiles: 1,
     pierce: 0,
     spread: 0.12,
+    // Equipped-weapon silhouette. Gear and shot upgrades rewrite these.
+    shotStyle: 'bullet', // bullet | nail | chem
+    shotSpeed: 350,
+    shotScale: 1,
+    shotStreak: 12,
+    shotDamageMul: 1,
+    pelletMul: 1,
+    shotKnock: 0,
+    fireRateStacks: 0,
+    weaponId: '',
     magnet: 85,
     lifesteal: 0,
     orbitBalls: 0,

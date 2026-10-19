@@ -47,6 +47,8 @@ function acquireBolt(game, opts) {
     age: 0,
     r: 5,
     hue: 50,
+    streak: 0,
+    tint: '',
   }, opts);
   return b;
 }
@@ -55,26 +57,41 @@ export function firePrimaryBolts(game, target) {
   const p = game.player;
   const baseAng = Math.atan2(target.y - p.y, target.x - p.x);
   p.beamAim = baseAng;
-  const n = p.projectiles;
-  const spread = p.spread * Math.max(0, n - 1);
+  const n = Math.max(1, p.projectiles | 0);
+  // Neighbor gap stays readable. One shot stays dead-center; scatter upgrades open the fan.
+  const gap = Math.max(0.22, p.spread || 0.12);
+  const style = p.shotStyle || 'bullet';
+  const spd = p.shotSpeed || (style === 'chem' ? 270 : style === 'nail' ? 520 : 350);
+  const scale = p.shotScale || 1;
+  const pellet = (p.shotDamageMul || 1) * (p.pelletMul || 1);
+  const kind = style === 'chem' ? 'chem' : style === 'nail' ? 'nail' : 'bolt';
+  let tint = '';
+  if ((p.frost || 0) > 0.05) tint = 'frost';
+  else if ((p.pierce || 0) > 0) tint = 'pierce';
+  else if ((p.fireRateStacks || 0) > 0) tint = 'rapid';
+  const streak = (p.shotStreak || (style === 'bullet' ? 14 : 8)) + (tint === 'rapid' ? 10 : 0);
+  const baseR = style === 'chem' ? 8 : style === 'nail' ? 6.5 : 5;
+  const life = style === 'chem' ? 0.95 : style === 'nail' ? 0.7 : 1.15;
   for (let i = 0; i < n; i++) {
-    const t = n === 1 ? 0 : i / (n - 1) - 0.5;
-    const ang = baseAng + t * spread * 2;
+    const t = n === 1 ? 0 : i - (n - 1) / 2;
+    const ang = baseAng + t * gap;
     const crit = Math.random() < (p.critChance || 0.08);
-    const spd = 340;
     acquireBolt(game, {
-      kind: 'bolt',
+      kind,
       x: p.x, y: p.y,
       vx: Math.cos(ang) * spd,
       vy: Math.sin(ang) * spd,
-      r: 5 * (crit ? 1.15 : 1),
-      damage: p.damage * (crit ? (p.critDamage || 1.85) : 1),
+      r: baseR * scale * (crit ? 1.12 : 1),
+      damage: p.damage * pellet * (crit ? (p.critDamage || 1.85) : 1),
       pierce: p.pierce,
-      life: 1.2,
-      hue: crit ? 48 : (p.frost > 0 ? 195 : 45 + Math.random() * 30),
+      life,
+      hue: 42,
       frost: p.frost || 0,
       crit,
       bounce: p.bounce || 0,
+      knock: p.shotKnock || 0,
+      streak,
+      tint: crit ? '' : tint,
     });
   }
 }
@@ -115,17 +132,19 @@ export function fireMoonKnives(game, target) {
     const t = count === 1 ? 0 : i / (count - 1) - 0.5;
     const ang = base + t * 0.85;
     acquireBolt(game, {
-      kind: 'knife',
+      kind: 'nail',
       x: p.x, y: p.y,
       vx: Math.cos(ang) * 420,
       vy: Math.sin(ang) * 420,
-      r: 6,
+      r: 4.2,
       damage: p.damage * 0.7,
       pierce: 1 + Math.floor(p.moonKnives / 2),
-      life: 0.35,
-      hue: 210,
+      life: 0.34,
+      hue: 42,
       frost: 0,
       crit: Math.random() < (p.critChance || 0) * 0.5,
+      streak: 6,
+      tint: '',
     });
   }
 }
@@ -145,10 +164,12 @@ export function fireMothHex(game, target) {
       damage: p.damage * 0.55,
       pierce: 0,
       life: 1.6,
-      hue: 280,
+      hue: 78,
       frost: 0.35 + p.mothHex * 0.08,
       homing: 4.5 + p.mothHex,
       crit: false,
+      streak: 10,
+      tint: 'frost',
     });
   }
 }
@@ -306,7 +327,9 @@ export function updateDrones(game, dt) {
       damage: p.damage * 0.4,
       pierce: 0,
       life: 0.9,
-      hue: 100,
+      hue: 42,
+      streak: 9,
+      tint: '',
     });
   }
 }
@@ -496,6 +519,43 @@ export function drawWeaponFx(ctx, game) {
   }
 }
 
+function drawShotStreak(ctx, b) {
+  const len = b.streak || 0;
+  if (len < 6) return;
+  const ang = Math.atan2(b.vy || 0, b.vx || 1);
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  ctx.rotate(ang);
+  const w = Math.max(2, (b.r || 5) * 0.36);
+  const grd = ctx.createLinearGradient(-len, 0, 0, 0);
+  grd.addColorStop(0, 'rgba(255, 214, 160, 0)');
+  grd.addColorStop(1, 'rgba(255, 200, 130, 0.48)');
+  ctx.strokeStyle = grd;
+  ctx.lineWidth = w;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-len, 0);
+  ctx.lineTo(1, 0);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Soft local wash so pierce / frost / rapid read apart. Not a hit flash. */
+function drawShotWash(ctx, b, rx, ry) {
+  if (b.crit) return;
+  const tint = b.tint || '';
+  if (tint !== 'frost' && tint !== 'pierce' && tint !== 'rapid') return;
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  ctx.rotate(Math.atan2(b.vy || 0, b.vx || 1));
+  ctx.globalAlpha = tint === 'rapid' ? 0.26 : 0.34;
+  ctx.fillStyle = tint === 'frost' ? '#b7d4c6' : tint === 'pierce' ? '#e6c46e' : '#ffe0a8';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 export function drawBullet(ctx, b) {
   if (b.kind === 'beam') {
     const grd = ctx.createLinearGradient(b.x, b.y, b.aimTx, b.aimTy);
@@ -516,6 +576,7 @@ export function drawBullet(ctx, b) {
     ctx.stroke();
     return;
   }
+  drawShotStreak(ctx, b);
   if (b.trail && b.trail.length > 1) {
     ctx.strokeStyle = `hsla(${b.hue || 48},70%,55%,0.45)`;
     ctx.lineWidth = Math.max(1.5, b.r * 0.9);
@@ -530,6 +591,7 @@ export function drawBullet(ctx, b) {
     if (spr) {
       const s = Math.max(22, b.r * 3.4);
       ctx.drawImage(spr, b.x - s / 2, b.y - s / 2, s, s);
+      drawShotWash(ctx, b, s * 0.34, s * 0.28);
       return;
     }
     // fallback thick-outline barrel
@@ -551,9 +613,11 @@ export function drawBullet(ctx, b) {
       const s = b.kind === 'durian' ? Math.max(24, b.r * 3.4) : Math.max(16, b.r * 3.0);
       ctx.save();
       ctx.translate(b.x, b.y);
-      ctx.rotate(ang);
+      // Sheet art points down; tip should lead along velocity.
+      ctx.rotate(ang - Math.PI / 2);
       ctx.drawImage(nailSpr, -s * 0.5, -s * 0.5, s, s);
       ctx.restore();
+      drawShotWash(ctx, b, s * 0.22, s * 0.16);
       return;
     }
     // fallback: dull spike, not neon green
@@ -573,11 +637,21 @@ export function drawBullet(ctx, b) {
     return;
   }
   if (b.kind === 'knife') {
+    const nailSpr = getSprite('projNail');
     const ang = Math.atan2(b.vy, b.vx);
+    if (nailSpr) {
+      const s = Math.max(16, b.r * 3);
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(ang - Math.PI / 2);
+      ctx.drawImage(nailSpr, -s * 0.5, -s * 0.5, s, s);
+      ctx.restore();
+      return;
+    }
     ctx.save();
     ctx.translate(b.x, b.y);
     ctx.rotate(ang);
-    ctx.fillStyle = '#c0d8e8';
+    ctx.fillStyle = '#e6c878';
     ctx.beginPath();
     ctx.moveTo(10, 0); ctx.lineTo(-6, -4); ctx.lineTo(-6, 4);
     ctx.closePath();
@@ -592,6 +666,7 @@ export function drawBullet(ctx, b) {
       ctx.globalAlpha = 0.92;
       ctx.drawImage(chem, b.x - s / 2, b.y - s / 2, s, s);
       ctx.globalAlpha = 1;
+      drawShotWash(ctx, b, s * 0.32, s * 0.26);
       return;
     }
     ctx.beginPath();
@@ -607,7 +682,7 @@ export function drawBullet(ctx, b) {
   const bulletSpr = getSprite('projBullet');
   const ang = Math.atan2(b.vy || 0, b.vx || 1);
   if (bulletSpr) {
-    const bw = Math.max(18, b.r * 4.2);
+    const bw = Math.max(22, b.r * 4.4);
     const bh = Math.max(8, bw * 0.48);
     ctx.save();
     ctx.translate(b.x, b.y);
@@ -621,6 +696,7 @@ export function drawBullet(ctx, b) {
       ctx.fill();
     }
     ctx.restore();
+    drawShotWash(ctx, b, bw * 0.34, bh * 0.7);
     return;
   }
   ctx.save();
@@ -628,7 +704,7 @@ export function drawBullet(ctx, b) {
   ctx.rotate(ang);
   const L = Math.max(8, b.r * 2.2);
   const Ww = Math.max(3, b.r * 0.85);
-  ctx.fillStyle = b.crit ? '#ffd060' : (b.frost ? '#90e0e8' : '#ffc040');
+  ctx.fillStyle = b.crit ? '#ffd060' : (b.tint === 'frost' ? '#d5e4cf' : b.tint === 'pierce' ? '#e6c46e' : '#ffc040');
   ctx.strokeStyle = '#3a3020';
   ctx.lineWidth = 1.2;
   ctx.beginPath();

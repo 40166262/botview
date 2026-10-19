@@ -461,6 +461,12 @@ export class Game {
           }
           this._hurtEnemy(e, b.damage, b.crit);
           if (b.frost > 0) e.slow = Math.max(e.slow, 0.55 + b.frost);
+          if (b.knock && !e.isBoss) {
+            const a = Math.atan2(e.y - b.y, e.x - b.x);
+            const push = b.knock * 0.055;
+            e.x += Math.cos(a) * push;
+            e.y += Math.sin(a) * push;
+          }
           if ((b.bounce || 0) > 0) {
             b.bounce -= 1;
             let best = null, bestD = 220;
@@ -1168,6 +1174,16 @@ export class Game {
       dt.crit = crit;
       dt.big = big && !crit;
       dt.scale = crit ? 1.16 : dt.big ? 1.08 : 1;
+      // Fan, chem cone, and sidearms: a slightly larger cream number. No extra flash.
+      const multiHit = (this.player.projectiles || 1) > 1
+        || this.player.shotStyle === 'chem'
+        || (this.player.moonKnives || 0) > 0
+        || (this.player.mothHex || 0) > 0
+        || (this.player.leafDrone || 0) > 0;
+      if (multiHit && !crit) {
+        dt.scale = Math.min(1.22, dt.scale * 1.1);
+        dt.color = '#fff6dc';
+      }
     }
 
     if (e.hp <= 0) {
@@ -1221,15 +1237,23 @@ export class Game {
           b.x = e.x; b.y = e.y;
           b.vx = Math.cos(ang) * 280;
           b.vy = Math.sin(ang) * 280;
-          b.r = 4;
+          b.kind = 'nail';
+          b.r = 3.6;
           b.damage = this.player.damage * 0.45;
           b.pierce = 0;
           b.life = 0.55;
           b.age = 0;
-          b.hue = 160;
+          b.hue = 42;
           b.frost = 0;
           b.crit = false;
           b.bounce = 0;
+          b.knock = 0;
+          b.streak = 6;
+          b.tint = '';
+          b.ay = 0;
+          b.puddle = false;
+          b.explodeR = 0;
+          b.homing = 0;
           b.trail = [];
         }
       }
