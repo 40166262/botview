@@ -10,6 +10,8 @@
 | [ART_STYLE.md](./ART_STYLE.md) | **现行画风定稿**（以用户最新确认为准） |
 | [ART_PROMPTS.md](./ART_PROMPTS.md) | 绘图提示词模板 |
 | [TODO.md](./TODO.md) | 已办 / 待办 |
+| [TAPTAP_LISTING.md](./TAPTAP_LISTING.md) | TapTap 详情页文案草稿（仅 IAA） |
+| [store/README.md](./store/README.md) | TapTap 图片尺寸与实机截图 |
 | [PITFALLS.md](./PITFALLS.md) | 踩过的坑与结论 |
 | [CHANGELOG_ART.md](./CHANGELOG_ART.md) | 立绘迭代与 PR 记录 |
 | [AUDIT.md](../AUDIT.md) | 全包自查 |
